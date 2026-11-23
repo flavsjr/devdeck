@@ -10,6 +10,7 @@ import {
   getMcpServers,
   getSettings,
   migrateLegacyData,
+  migrateSettings,
   saveMcpServers,
   saveProfile,
   setApiKey,
@@ -24,15 +25,17 @@ import { achievementsSummary, checkAchievements } from './achievements'
 import { getProfileSummary, refreshProfile, setToken, updateProfile } from './profile'
 import { handle } from './ipc'
 import { isAllowedSubframeUrl, isAppUrl, isPermissionAllowed } from './lib/origin'
+import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
 let win: BrowserWindow | null = null
-const devUrl = (): string | undefined => process.env.ELECTRON_RENDERER_URL
+const devUrl = (): string | undefined => appLocation().devUrl
 
 // Antes de qualquer leitura de userData: herda dados da época VibeDeck.
 migrateLegacyData()
+migrateSettings()
 app.setAppUserModelId('com.devdeck.app')
 
 function openExternalSafe(url: string): void {
@@ -48,25 +51,27 @@ function hardenWebContents(): void {
     })
     contents.on('will-attach-webview', (e) => e.preventDefault())
     contents.on('will-navigate', (e, url) => {
-      if (!isAppUrl(url, devUrl())) {
+      if (!isAppUrl(url, appLocation())) {
         e.preventDefault()
         openExternalSafe(url)
       }
     })
-    contents.on('will-redirect', (e, url) => {
-      if (!isAppUrl(url, devUrl())) e.preventDefault()
+    contents.on('will-redirect', (e) => {
+      const ok = e.isMainFrame ? isAppUrl(e.url, appLocation()) : isAllowedSubframeUrl(e.url)
+      if (!ok) e.preventDefault()
     })
     contents.on('will-frame-navigate', (e) => {
-      const ok = e.isMainFrame ? isAppUrl(e.url, devUrl()) : isAllowedSubframeUrl(e.url)
+      const ok = e.isMainFrame ? isAppUrl(e.url, appLocation()) : isAllowedSubframeUrl(e.url)
       if (!ok) e.preventDefault()
     })
   })
 
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => {
-    callback(isPermissionAllowed(permission, details.requestingUrl ?? '', devUrl()))
+  // Em produção a origem de file:// é só 'file://': usa a URL completa do frame que pediu.
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
+    callback(isPermissionAllowed(permission, details.requestingUrl || wc.getURL(), appLocation()))
   })
-  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
-    isPermissionAllowed(permission, requestingOrigin, devUrl())
+  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin, details) =>
+    isPermissionAllowed(permission, details.requestingUrl || wc?.getURL() || requestingOrigin, appLocation())
   )
 }
 

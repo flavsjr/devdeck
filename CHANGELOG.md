@@ -4,6 +4,31 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-23 · Sprint 03
+
+### Adicionado
+- Testes automatizados com Vitest (232 testes) para sequência de commits, agenda/ICS, edit/revert, conquistas, diff, validação de IPC, origens e confiança em workspace, rodando nos fusos de São Paulo e Nova York.
+- CI no GitHub Actions: typecheck, testes e build em Windows e Ubuntu, mais varredura de segredos com gitleaks. Dependabot para as actions.
+- Diálogo "Confiar neste workspace?" listando hooks, permissões, variáveis, helpers e servidores MCP do repositório antes de carregá-los.
+- Modal próprio para denunciar posts na Comunidade.
+
+### Corrigido
+- **Denunciar nunca enviava** (o Electron não implementa `window.prompt`).
+- Agenda: evento de dia inteiro de ontem ou de amanhã aparecia em "Hoje"; lembretes acima de 3 h disparavam atrasados; evento sem início podia ser salvo; série recorrente mantém a hora local após mudança de horário de verão.
+- Conquistas: `levelFromXp` entrava em loop com valores infinitos; linguagens duplicadas por maiúsculas inflavam "Poliglota"; feed ICS com erro contava para "Sincronizado"; reverter alteração vazia somava revert.
+- Revert com erro de leitura/gravação não derruba mais o processo principal; diff exibe "1 linha".
+
+### Segurança
+- IPC aceita apenas o frame principal da UI do DevDeck e valida todos os argumentos com zod; ids precisam ser UUID antes de virar caminho de arquivo; `settings:update` só aceita chaves conhecidas.
+- Navegação, redirecionamento, frames, janelas novas e `<webview>` fora da origem do app são bloqueados; permissões do Chromium negadas por padrão; iframe do Spotify em sandbox; CSP com `object-src`, `base-uri` e `form-action` restritos e sem `ws://localhost` em produção.
+- Configurações do projeto vêm desligadas por padrão e só carregam com confiança explícita (reconfirmada se os arquivos mudarem).
+- "Aprovar todas da sessão" não vale fora do workspace nem em `.git`, `.claude`, `.vscode`, `.github` e afins, resolvendo symlinks e junctions.
+- Prévia de arquivos recusa links simbólicos que saem do workspace e lê no máximo 512 KB.
+- Build falha se a chave do Supabase for `service_role`/`sb_secret_`.
+
+### Removido
+- Canal IPC `workspace:open` (exposto e sem uso).
+
 ## [0.2.0] — 2026-11-23 · Sprint 02
 
 ### Adicionado
@@ -34,6 +59,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Custos e métricas: por turno, sessão, dia, mês e modelo; teto diário e por sessão; uso de contexto.
 - Modo Flow: embed do Spotify e timer de foco 25/5.
 
-[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/flavsjr/devdeck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/flavsjr/devdeck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/flavsjr/devdeck/releases/tag/v0.1.0

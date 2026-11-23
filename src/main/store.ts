@@ -54,6 +54,21 @@ function writeJson(file: string, data: unknown): void {
 
 interface StoredSettings extends Omit<AppSettings, 'hasApiKey'> {
   apiKeyEnc?: string // base64 do safeStorage
+  settingsVersion?: number
+}
+
+const SETTINGS_VERSION = 3
+
+/**
+ * v0.3.0: carregar configurações do projeto passou a exigir confiança explícita. Instalações antigas que
+ * gravaram loadProjectSettings: true voltam para desligado uma única vez.
+ */
+export function migrateSettings(): void {
+  const file = settingsFile()
+  if (!existsSync(file)) return
+  const raw = readJson<Partial<StoredSettings>>(file, {})
+  if ((raw.settingsVersion ?? 0) >= SETTINGS_VERSION) return
+  writeJson(file, { ...raw, loadProjectSettings: false, settingsVersion: SETTINGS_VERSION })
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {

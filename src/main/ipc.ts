@@ -1,16 +1,15 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { z } from 'zod'
 import { isAppUrl } from './lib/origin'
+import { appLocation } from './appLocation'
 import { describeZodError } from './lib/validation'
 
 // Único ponto de registro de handlers IPC: valida a origem do chamador e os argumentos.
 
-const devUrl = (): string | undefined => process.env.ELECTRON_RENDERER_URL
-
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
   const frame = event.senderFrame
   // Só o frame principal da UI do DevDeck; iframes (ex.: Spotify) e páginas externas são recusados.
-  if (!frame || frame.parent !== null || !isAppUrl(frame.url, devUrl())) {
+  if (!frame || frame.parent !== null || !isAppUrl(frame.url, appLocation())) {
     throw new Error('Chamada IPC recusada: origem não autorizada.')
   }
 }

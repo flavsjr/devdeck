@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { classifyEditPath, isInsideRoot, isSensitiveRel } from '../../../src/main/lib/paths'
+import { canonicalSegment, classifyEditPath, isInsideRoot, isSensitiveRel } from '../../../src/main/lib/paths'
 
 const W = path.win32
 const P = path.posix
@@ -32,6 +32,20 @@ describe('isSensitiveRel', () => {
   it('código comum não é sensível', () => {
     expect(isSensitiveRel('src/main/index.ts')).toBe(false)
     expect(isSensitiveRel('docs/.gitkeep')).toBe(false)
+    expect(isSensitiveRel('src/.github-helpers/x.ts')).toBe(false)
+  })
+  it('variações do Windows que apontam para a mesma pasta', () => {
+    for (const rel of ['.git.\\hooks\\pre-commit', '.git \\hooks\\pre-commit', '.git. .\\hooks\\x', '.git::$INDEX_ALLOCATION\\hooks\\x', '.CLAUDE.\\settings.json']) {
+      expect(isSensitiveRel(rel), rel).toBe(true)
+    }
+  })
+})
+
+describe('canonicalSegment', () => {
+  it('remove fluxo NTFS, pontos/espaços finais e maiúsculas', () => {
+    expect(canonicalSegment('.Git. ')).toBe('.git')
+    expect(canonicalSegment('.git::$INDEX_ALLOCATION')).toBe('.git')
+    expect(canonicalSegment('arquivo.ts')).toBe('arquivo.ts')
   })
 })
 

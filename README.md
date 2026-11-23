@@ -33,7 +33,13 @@ If Electron reports a missing binary, run `node node_modules/electron/install.js
 - **Community (optional):** create a Supabase project and run [`supabase/migrations/0001_community.sql`](supabase/migrations/0001_community.sql). Add `{{ .Token }}` to the Magic Link email template, then copy `.env.example` to `.env`. Use the publishable/anon key only, never the `service_role` key.
 - **Git providers:** in *Profile → Connections*, paste a read-only token for each provider you use.
 
-Other scripts: `npm run typecheck`, `npm run build`, `npm start`.
+Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones), `npm run test:coverage`, `npm run build`, `npm start`. CI runs typecheck, tests, build and a secret scan on every push and PR.
+
+### Security model
+
+- Only the DevDeck UI can call the main process, and every argument is validated (zod). Navigation, new windows and browser permissions are denied by default.
+- Project settings (`.claude/settings.json`, `.mcp.json`) are **off by default**. When enabled, DevDeck lists the hooks, permissions and MCP servers a repository wants to run and only loads them after you trust the workspace. It asks again if those files change.
+- "Approve all for this session" never applies outside the workspace or to `.git`, `.claude`, `.vscode`, `.github` and similar folders.
 
 ## How we work
 
@@ -53,6 +59,8 @@ src/
   preload/     window.deck bridge (contextBridge)
   renderer/    React UI
 supabase/      community schema + RLS
+tests/         Vitest unit tests (pure logic in src/**/lib)
+.github/       CI workflow + Dependabot
 docs/          squad, sprints, ADRs
 ```
 

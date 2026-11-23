@@ -33,7 +33,13 @@ Se o Electron reclamar de binário ausente, rode `node node_modules/electron/ins
 - **Comunidade (opcional):** crie um projeto no Supabase e rode [`supabase/migrations/0001_community.sql`](supabase/migrations/0001_community.sql). Inclua `{{ .Token }}` no template de e-mail Magic Link e copie `.env.example` para `.env`. Use só a chave publishable/anon, nunca a `service_role`.
 - **Provedores git:** em *Perfil → Conexões*, cole um token de leitura para cada provedor que você usa.
 
-Outros scripts: `npm run typecheck`, `npm run build`, `npm start`.
+Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `npm run test:coverage`, `npm run build`, `npm start`. O CI roda typecheck, testes, build e varredura de segredos em todo push e PR.
+
+### Modelo de segurança
+
+- Só a interface do DevDeck chama o processo principal, e todo argumento é validado (zod). Navegação, janelas novas e permissões do navegador são negadas por padrão.
+- Configurações do projeto (`.claude/settings.json`, `.mcp.json`) vêm **desligadas**. Quando ligadas, o DevDeck lista os hooks, permissões e servidores MCP que o repositório quer executar e só carrega depois que você confia no workspace. Se esses arquivos mudarem, ele pergunta de novo.
+- "Aprovar todas da sessão" nunca vale fora do workspace nem em `.git`, `.claude`, `.vscode`, `.github` e pastas parecidas.
 
 ## Como trabalhamos
 
@@ -53,6 +59,8 @@ src/
   preload/     ponte window.deck (contextBridge)
   renderer/    interface React
 supabase/      schema da comunidade + RLS
+tests/         testes unitários Vitest (lógica pura em src/**/lib)
+.github/       workflow de CI + Dependabot
 docs/          squad, sprints, ADRs
 ```
 

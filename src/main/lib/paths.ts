@@ -14,10 +14,19 @@ export function isInsideRoot(root: string, target: string, p: PathApi = nodePath
   return !rel.startsWith('..') && !p.isAbsolute(rel)
 }
 
-/** true se algum segmento do caminho relativo é uma pasta sensível (sem diferenciar maiúsculas). */
+/**
+ * Nome como o Windows enxerga: sem fluxo alternativo NTFS (`.git::$INDEX_ALLOCATION`) e sem pontos/espaços
+ * no fim (`.git.` e `.git ` apontam para `.git`). Sem diferenciar maiúsculas.
+ */
+export function canonicalSegment(seg: string): string {
+  const noStream = seg.split(':')[0] ?? ''
+  return noStream.replace(/[. ]+$/, '').toLowerCase()
+}
+
+/** true se algum segmento do caminho relativo é uma pasta sensível. */
 export function isSensitiveRel(rel: string): boolean {
   const parts = rel.split(/[\\/]+/).filter(Boolean)
-  return parts.some((seg) => SENSITIVE_DIRS.includes(seg.toLowerCase()))
+  return parts.some((seg) => SENSITIVE_DIRS.includes(canonicalSegment(seg)))
 }
 
 export type EditVerdict = 'inside' | 'outside' | 'sensitive'
