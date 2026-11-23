@@ -19,7 +19,7 @@ import {
   updateSettings
 } from './store'
 import { listDir, openWorkspace, readWorkspaceFile } from './workspace'
-import { gitDiff, gitRestore, gitStatus } from './git'
+import { gitDiff, gitRestore, gitStatus, gitTrust } from './git'
 import { importFromClaude, testMcpServer } from './mcp'
 import { costSummary } from './costs'
 import { setEmitter } from './events'
@@ -35,6 +35,9 @@ import * as agent from './agent'
 
 let win: BrowserWindow | null = null
 const devUrl = (): string | undefined => appLocation().devUrl
+
+// Só em dev (QA e capturas): dados isolados numa pasta descartável, sem tocar nos dados reais do usuário.
+if (devUrl() && process.env.DEVDECK_USER_DATA) app.setPath('userData', process.env.DEVDECK_USER_DATA)
 
 // Antes de qualquer leitura de userData: herda dados da época VibeDeck.
 migrateLegacyData()
@@ -178,6 +181,7 @@ function registerIpc(): void {
   handle('git:status', [], () => gitStatus())
   handle('git:diff', [v.relPath], (rel) => gitDiff(rel))
   handle('git:restore', [v.relPath], (rel) => gitRestore(rel))
+  handle('git:trust', [], () => gitTrust())
 
   // mcp
   handle('mcp:list', [], () => listMcpServerViews())

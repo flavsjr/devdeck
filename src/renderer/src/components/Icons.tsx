@@ -22,6 +22,7 @@ import {
   SendHorizontal,
   Settings,
   Square,
+  Pause,
   Trash2,
   User,
   Users,
@@ -66,3 +67,4 @@ export const IconPanelLeft = wrap(PanelLeft)
 export const IconPanelRight = wrap(PanelRight)
 export const IconBell = wrap(Bell)
 export const IconCpu = wrap(Cpu)
+export const IconPause = wrap(Pause)

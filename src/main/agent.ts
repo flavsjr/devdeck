@@ -18,7 +18,9 @@ import {
   type StoredSession
 } from './store'
 import { getRoot, toRel } from './workspace'
-import { classifyEditTarget, projectSettingSources } from './trust'
+import { classifyEditTarget, decideWorkspace } from './trust'
+import { agentEnv } from './lib/gitproc'
+import { noGitDir } from './gitTrust'
 import { toSdkMcpServers } from './mcp'
 import { emit } from './events'
 import { checkAchievements } from './achievements'
@@ -266,8 +268,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
   const settings = getSettings()
   const apiKey = getApiKey()
   let settingSources: SettingSource[] = []
+  let gitAllowed = false
   try {
-    settingSources = await projectSettingSources(s.meta.cwd, settings.loadProjectSettings)
+    ;({ settingSources, gitAllowed } = await decideWorkspace(s.meta.cwd, settings.loadProjectSettings))
   } catch (err) {
     live.delete(ls.id)
     throw err
@@ -284,7 +287,10 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
     resume: s.meta.claudeSessionId,
-    env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : { ...process.env },
+    // Sem GIT_* herdado; com o git pausado, o git que o Claude Code rodar não acha repositório (H05.1).
+    env: { ...agentEnv(process.env, process.platform, s.meta.cwd, gitAllowed, noGitDir()), ...(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {}) },
+    // env/headers de MCP pelo stdin, não pela linha de comando (legível por outros usuários da máquina).
+    mcpServersDelivery: 'initialize',
     stderr: (data: string) => console.error(`[agent ${ls.id.slice(0, 8)}]`, data.trimEnd())
   }
 

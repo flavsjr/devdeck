@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, Occurrence, SessionInfo, SessionMeta } from '@shared/types'
+import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, GitStatus, Occurrence, SessionInfo, SessionMeta } from '@shared/types'
 import { DEFAULT_UI, sanitizeUi, type UiPrefs } from '@shared/layout'
 
 export type View = 'chat' | 'changes' | 'mcp' | 'profile' | 'agenda' | 'community' | 'costs' | 'settings'
@@ -32,6 +32,8 @@ interface State {
   overlayOpen: boolean
   /** Layout atual (espelha settings.ui; gravado com debounce). */
   ui: UiPrefs
+  /** Último status do git do workspace (null = ainda não lido ou erro). */
+  git: GitStatus | null
 
   init(): Promise<void>
   setView(v: View): void
@@ -50,6 +52,9 @@ interface State {
   clearContext(): void
   preview(path: string | null): void
   refreshCosts(): Promise<void>
+  refreshGit(): Promise<void>
+  /** "Revisar configurações…": diálogo nativo no main; recarrega o status se liberar. */
+  reviewGitTrust(): Promise<void>
   notify(msg: string): void
   handleEvent(e: AgentEvent): void
 }
@@ -93,6 +98,7 @@ export const useStore = create<State>((set, get) => ({
   helpOpen: hashFlag('help'),
   overlayOpen: false,
   ui: DEFAULT_UI,
+  git: null,
 
   async init() {
     const settings = await api().settings.get()
@@ -102,6 +108,26 @@ export const useStore = create<State>((set, get) => ({
     await get().refreshCosts()
     const first = get().sessions.find((s) => s.cwd === settings.lastWorkspace)
     if (first) await get().openSession(first.id, false)
+  },
+
+  async refreshGit() {
+    const ws = get().workspace
+    if (!ws) return set({ git: null })
+    try {
+      const git = await api().git.status()
+      if (get().workspace === ws) set({ git })
+    } catch (err) {
+      if (get().workspace === ws) set({ git: null })
+      get().notify(err instanceof Error ? err.message : String(err))
+    }
+  },
+
+  async reviewGitTrust() {
+    try {
+      if (await api().git.trust()) await get().refreshGit()
+    } catch (err) {
+      get().notify(err instanceof Error ? err.message : String(err))
+    }
   },
 
   setView(view) {
@@ -141,7 +167,7 @@ export const useStore = create<State>((set, get) => ({
   async pickWorkspace() {
     const ws = await api().workspace.pick()
     if (!ws) return
-    set({ workspace: ws, previewPath: null, contextFiles: [], treeVersion: get().treeVersion + 1 })
+    set({ workspace: ws, previewPath: null, contextFiles: [], git: null, treeVersion: get().treeVersion + 1 })
     await get().refreshSessions()
     const first = get().sessions.find((s) => s.cwd === ws)
     set({ activeId: null })

@@ -92,6 +92,8 @@ export interface GitStatus {
   isRepo: boolean
   branch?: string
   files: GitFileChange[]
+  /** Repositório com configuração que executa programas e sem confiança: o git não rodou (H05.1). */
+  paused?: { reasons: string[] }
 }
 
 // ---------- Chat / agente ----------
@@ -396,6 +398,8 @@ export interface DeckApi {
     status(): Promise<GitStatus>
     diff(relPath: string): Promise<{ before: string; after: string }>
     restore(relPath: string): Promise<void>
+    /** Abre o diálogo nativo de confiança no git; true = liberado. */
+    trust(): Promise<boolean>
   }
   mcp: {
     list(): Promise<McpServerView[]>

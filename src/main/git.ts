@@ -1,42 +1,44 @@
 import { readFile } from 'node:fs/promises'
-import { simpleGit } from 'simple-git'
 import type { GitStatus } from '@shared/types'
+import { headBlob, restoreFile, statusOf } from './gitcore'
+import { gitContext, gitGate, requestGitTrust } from './gitTrust'
 import { getRoot, safeResolve } from './workspace'
 
-// Visão das alterações do workspace via git (revisão pós-aplicação).
+// Visão das alterações do workspace via git (revisão pós-aplicação). Toda chamada passa pelo gate (H05.1).
 
-function git() {
+export const GIT_PAUSED = 'Git pausado neste workspace: revise as configurações do git para usar status, diff e descarte.'
+
+function requireRoot(): string {
   const r = getRoot()
   if (!r) throw new Error('Nenhum workspace aberto.')
-  return simpleGit(r)
+  return r
+}
+
+async function allowedContext(): Promise<ReturnType<typeof gitContext>> {
+  const root = requireRoot()
+  const gate = await gitGate(root)
+  if (!gate.summary.isRepo) throw new Error('Este workspace não é um repositório git.')
+  if (!gate.allowed) throw new Error(GIT_PAUSED)
+  return gitContext(root)
 }
 
 export async function gitStatus(): Promise<GitStatus> {
-  if (!getRoot()) return { isRepo: false, files: [] }
-  const g = git()
-  if (!(await g.checkIsRepo())) return { isRepo: false, files: [] }
-  const st = await g.status()
-  return {
-    isRepo: true,
-    branch: st.current ?? undefined,
-    files: st.files.map((f) => ({
-      path: f.path.replace(/\\/g, '/'),
-      status: f.index === '?' ? '??' : `${f.index}${f.working_dir}`.trim() || 'M'
-    }))
-  }
+  const root = getRoot()
+  if (!root) return { isRepo: false, files: [] }
+  const gate = await gitGate(root)
+  if (!gate.summary.isRepo) return { isRepo: false, files: [] }
+  if (!gate.allowed) return { isRepo: true, files: [], paused: { reasons: gate.summary.reasons } }
+  const st = await statusOf(gitContext(root))
+  return { isRepo: true, branch: st.branch, files: st.files }
 }
 
 export async function gitDiff(relPath: string): Promise<{ before: string; after: string }> {
-  const g = git()
-  let before = ''
-  try {
-    before = await g.show([`HEAD:${relPath}`])
-  } catch {
-    before = '' // arquivo novo
-  }
+  const abs = safeResolve(relPath)
+  const ctx = await allowedContext()
+  const before = await headBlob(ctx, relPath)
   let after = ''
   try {
-    after = await readFile(safeResolve(relPath), 'utf8')
+    after = await readFile(abs, 'utf8')
   } catch {
     after = '' // arquivo removido
   }
@@ -46,5 +48,10 @@ export async function gitDiff(relPath: string): Promise<{ before: string; after:
 /** Descarta alterações de um arquivo rastreado (volta ao HEAD). */
 export async function gitRestore(relPath: string): Promise<void> {
   safeResolve(relPath)
-  await git().raw(['restore', '--staged', '--worktree', '--source=HEAD', '--', relPath])
+  await restoreFile(await allowedContext(), relPath)
+}
+
+/** Botão "Revisar configurações…": o diálogo é nativo, no main; o renderer só pede. */
+export async function gitTrust(): Promise<boolean> {
+  return requestGitTrust(requireRoot())
 }
