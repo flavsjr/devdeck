@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { ACHIEVEMENT_BY_ID } from '@shared/achievements'
 import { useStore } from '../store'
+import { Modal } from './Modal'
 import { supabase, POST_SELECT, type Comment, type CommunityProfile, type Post } from '../supabase'
 import { Markdown } from './Markdown'
 
@@ -172,7 +173,7 @@ function Composer({ uid, onPosted }: { uid: string; onPosted: () => void }) {
     })
     setBusy(false)
     if (error) return notify(error.message)
-    notify('Publicado! 🎉')
+    notify('Publicado.')
     onPosted()
   }
 
@@ -296,23 +297,21 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
   return (
     <div className="post-detail">
       {reporting && (
-        <div className="modal-backdrop" role="presentation" onClick={() => !sending && setReporting(false)}>
-          <div className="modal card" role="dialog" aria-modal="true" aria-labelledby="report-title" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-title" id="report-title">
-              Denunciar "{post.title}"
-            </div>
-            <p className="small muted">Spam, conteúdo ofensivo, segredo exposto (token, senha) ou código proprietário. Com 3 denúncias o post fica oculto até revisão.</p>
-            <textarea autoFocus rows={4} maxLength={500} placeholder="Motivo da denúncia" value={reason} onChange={(e) => setReason(e.target.value)} />
-            <div className="row-actions">
-              <button className="btn danger" disabled={sending || reason.trim().length < 3} onClick={() => void sendReport()}>
-                {sending ? 'Enviando…' : 'Enviar denúncia'}
-              </button>
-              <button className="btn ghost" disabled={sending} onClick={() => setReporting(false)}>
-                Cancelar
-              </button>
-            </div>
+        <Modal labelledBy="report-title" locked={sending} onClose={() => setReporting(false)}>
+          <div className="panel-title" id="report-title">
+            Denunciar "{post.title}"
           </div>
-        </div>
+          <p className="small muted">Spam, conteúdo ofensivo, segredo exposto (token, senha) ou código proprietário. Com 3 denúncias o post fica oculto até revisão.</p>
+          <textarea data-autofocus aria-label="Motivo da denúncia" rows={4} maxLength={500} placeholder="Motivo da denúncia" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <div className="row-actions">
+            <button className="btn danger" disabled={sending || reason.trim().length < 3} onClick={() => void sendReport()}>
+              {sending ? 'Enviando…' : 'Enviar denúncia'}
+            </button>
+            <button className="btn ghost" disabled={sending} onClick={() => setReporting(false)}>
+              Cancelar
+            </button>
+          </div>
+        </Modal>
       )}
       <button className="link" onClick={onBack}>
         ‹ voltar ao feed

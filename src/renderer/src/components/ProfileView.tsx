@@ -15,9 +15,10 @@ const PROVIDER_HELP: Record<ProviderId, string> = {
 }
 
 // Paleta sequencial (azul, passos para superfície escura) e categórica fixa — ver skill dataviz.
-const HEAT = ['#184f95', '#256abf', '#3987e5', '#6da7ec']
-const CATEGORICAL = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']
-const OTHER = '#5f6672'
+// Valores em styles/tokens.css (--viz-*).
+const HEAT = ['var(--viz-heat-1)', 'var(--viz-heat-2)', 'var(--viz-heat-3)', 'var(--viz-heat-4)']
+const CATEGORICAL = ['var(--viz-cat-1)', 'var(--viz-cat-2)', 'var(--viz-cat-3)', 'var(--viz-cat-4)', 'var(--viz-cat-5)']
+const OTHER = 'var(--viz-other)'
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

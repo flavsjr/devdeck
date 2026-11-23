@@ -1,0 +1,554 @@
+/* Shell do app (Sprint 04): rail, status bar, painéis, paleta de comandos e superfícies novas. */
+@layer shell {
+  /* ---------- grade principal ---------- */
+  .app {
+    grid-template-columns: 48px var(--sidebar-w, 264px) minmax(0, 1fr) var(--right-w, 400px);
+    grid-template-rows: minmax(0, 1fr) 28px;
+    position: relative;
+  }
+  body.resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  /* ---------- rail ---------- */
+  .rail {
+    padding: 8px 0;
+    gap: 2px;
+    background: var(--bg);
+  }
+  .rail .logo {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    margin: 2px 0 10px;
+  }
+  .rail-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .rail-sep {
+    width: 20px;
+    height: 1px;
+    background: var(--line);
+    margin: 6px 0;
+  }
+  .rail-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+  }
+  .rail-btn:hover {
+    color: var(--fg);
+    background: var(--bg-2);
+  }
+  /* Ativo: barra de 2px à esquerda além da cor (cor nunca é a única pista). */
+  .rail-btn.active {
+    color: var(--fg);
+    background: var(--bg-2);
+  }
+  .rail-btn.active::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .rail-badge {
+    top: 1px;
+    right: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--r-pill);
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  /* Dica com nome e atalho: aparece no hover e no foco por teclado. */
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line-2);
+    background: var(--bg-3);
+    color: var(--fg);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    background: var(--bg-1);
+  }
+  .ws-header {
+    min-height: 48px;
+  }
+  .side-title {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- status bar ---------- */
+  .statusbar {
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .sb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: var(--r-sm);
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+  }
+  button.sb-item:hover {
+    color: var(--fg);
+    background: var(--bg-2);
+  }
+  .sb-item.strong {
+    color: var(--fg-2);
+  }
+  .sb-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--line);
+  }
+  /* Medidor com texto em % ao lado: a barra nunca é a única pista. */
+  .statusbar .meter {
+    position: relative;
+    width: 44px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line-2);
+    overflow: hidden;
+  }
+  .statusbar .meter > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--accent);
+  }
+  .statusbar .meter.warn > span {
+    background: var(--warn);
+  }
+  .statusbar .meter.bad > span {
+    background: var(--bad);
+  }
+
+  /* ---------- botões e controles ---------- */
+  .btn {
+    min-height: 28px;
+    padding: 0 12px;
+    border-radius: var(--r-sm);
+    border-color: var(--line-2);
+    background: var(--bg-2);
+    font-weight: 500;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: var(--line-strong);
+    background: var(--bg-3);
+  }
+  .btn.sm {
+    min-height: 24px;
+    padding: 0 8px;
+  }
+  /* Variantes redeclaradas aqui: a regra .btn desta camada venceria as do legado. */
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover:not(:disabled) {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+  }
+  .btn.danger {
+    background: var(--bad-bg);
+    border-color: color-mix(in srgb, var(--bad) 40%, transparent);
+    color: var(--bad);
+  }
+  .btn.danger:hover:not(:disabled) {
+    border-color: var(--bad);
+    background: var(--bad-bg);
+  }
+  .btn.ghost {
+    background: transparent;
+    border-color: transparent;
+  }
+  .btn.ghost:hover:not(:disabled) {
+    border-color: var(--line-2);
+    background: var(--bg-2);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .icon-btn {
+    min-width: 24px;
+    min-height: 24px;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--r-sm);
+  }
+  .seg button.on {
+    color: var(--fg);
+  }
+
+  /* ---------- superfícies ---------- */
+  .card {
+    border-radius: var(--r-md);
+  }
+  .toast {
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+  }
+  .empty h2 {
+    color: var(--fg);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .empty .logo-hero {
+    margin-bottom: 4px;
+  }
+
+  /* Aviso de aprovação no chat: leva o foco ao card. */
+  .pending-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: var(--r-md);
+    border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+    background: var(--warn-bg);
+    color: var(--fg);
+  }
+  .pending-banner .btn {
+    margin-left: auto;
+  }
+
+  .reminder {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- painel direito ---------- */
+  .right {
+    position: relative;
+  }
+  .right-head {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .right.overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 28px;
+    width: min(var(--right-panel-w), calc(100vw - 96px));
+    z-index: 25;
+    box-shadow: var(--shadow);
+  }
+  .right.collapsed {
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+  }
+  .strip-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border: none;
+    border-radius: var(--r-pill);
+    background: var(--warn);
+    color: var(--on-warn);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .resizer {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    z-index: 5;
+    cursor: col-resize;
+  }
+  .resizer:hover,
+  .resizer:focus-visible {
+    background: var(--accent-line);
+    outline-offset: -2px;
+  }
+  /* Dica para botões na borda direita: abre para a esquerda. */
+  [data-tip-left] {
+    position: relative;
+  }
+  [data-tip-left]:hover::after,
+  [data-tip-left]:focus-visible::after {
+    content: attr(data-tip-left);
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line-2);
+    background: var(--bg-3);
+    color: var(--fg);
+    font-size: 12px;
+    font-weight: 400;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow);
+  }
+  .approval {
+    border-radius: var(--r-md);
+  }
+  .approval:focus,
+  .approval:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  kbd.on-primary {
+    border-color: color-mix(in srgb, var(--on-accent) 35%, transparent);
+    background: transparent;
+    color: var(--on-accent);
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  /* ---------- sidebar e árvore ---------- */
+  .no-sidebar .sidebar {
+    display: none;
+  }
+  .ws-header .icon-btn {
+    margin-left: -4px;
+  }
+  .session-row .session-title {
+    border: none;
+    background: none;
+    padding: 0;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  .session-row:focus-within .hover-only,
+  .tree-row:focus-within .tree-ctx,
+  .tree-row:focus .tree-ctx {
+    visibility: visible;
+  }
+  .session-row.active {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .tree-row:focus-visible {
+    outline-offset: -2px;
+  }
+  .tree-ctx {
+    min-width: 24px;
+    min-height: 22px;
+    border-radius: var(--r-sm);
+  }
+
+  /* ---------- chat ---------- */
+  .tool-head,
+  .change-file {
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 0;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .change-file {
+    width: auto;
+    font-family: var(--mono);
+  }
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .empty h2 {
+    font-size: 20px;
+    margin: 6px 0 0;
+  }
+  .empty-keys {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+    margin: 14px 0 0;
+    text-align: left;
+    font-size: 12.5px;
+    color: var(--fg-2);
+  }
+  .empty-keys dt {
+    justify-self: end;
+  }
+  .empty-keys dd {
+    margin: 0;
+  }
+
+  /* ---------- modal, paleta e ajuda ---------- */
+  .modal-backdrop.top {
+    place-items: start center;
+    padding-top: 12vh;
+  }
+  .modal {
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+  }
+  .modal:focus {
+    outline: none;
+  }
+  .palette {
+    width: min(600px, calc(100vw - 32px));
+    padding: 0;
+    overflow: hidden;
+  }
+  .palette-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .palette-input input {
+    border: none;
+    background: none;
+    padding: 4px 0;
+    font-size: 15px;
+    color: var(--fg);
+  }
+  .palette-input input:focus-visible {
+    outline: none;
+  }
+  .palette-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    max-height: min(420px, 56vh);
+    overflow-y: auto;
+  }
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    color: var(--fg-2);
+  }
+  .palette-item.active {
+    background: var(--accent-bg);
+    color: var(--fg);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .palette-item.disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .palette-icon {
+    display: inline-flex;
+    width: 16px;
+    color: var(--muted);
+  }
+  .palette-item.active .palette-icon {
+    color: var(--accent);
+  }
+  .palette-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .palette-group {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .palette-empty {
+    padding: 18px 12px;
+    color: var(--muted);
+  }
+  .palette-foot {
+    display: flex;
+    gap: 14px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+  }
+  .palette-ws {
+    margin-left: auto;
+  }
+  .help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 10px;
+  }
+  .help-table td {
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .help-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .help-table kbd + kbd {
+    margin-left: 4px;
+  }
+}
+
+/* Conquista bloqueada: sem opacidade (derrubava o contraste do texto abaixo de 4,5:1). */
+@layer shell {
+  .ach.locked {
+    opacity: 1;
+    border-style: dashed;
+  }
+  .ach.locked .ach-icon {
+    opacity: 0.45;
+  }
+  .ach.locked .ach-title,
+  .ach.locked .ach-title span,
+  .ach.locked .small.muted {
+    color: var(--muted);
+  }
+  .view-pad:focus-visible {
+    outline-offset: -2px;
+  }
+}

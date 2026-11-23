@@ -18,7 +18,7 @@ export function CostsView() {
   const maxDay = Math.max(...costs.last14Days.map((d) => d.costUsd), 0)
 
   return (
-    <div className="view-pad costs">
+    <div className="view-pad costs" tabIndex={0} aria-label="Custos">
       <div className="view-head">
         <h2>Custos e métricas</h2>
       </div>

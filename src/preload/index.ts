@@ -23,7 +23,7 @@ const api: DeckApi = {
     list: () => invoke('mcp:list'),
     save: (entry, previousName) => invoke('mcp:save', entry, previousName),
     remove: (name) => invoke('mcp:remove', name),
-    test: (entry) => invoke('mcp:test', entry),
+    test: (entry, previousName) => invoke('mcp:test', entry, previousName),
     importClaude: () => invoke('mcp:importClaude')
   },
   agent: {

@@ -5,6 +5,8 @@ import { basename, duration, usd } from '../format'
 import { Markdown } from './Markdown'
 import { DiffView } from './DiffView'
 import { IconSend, IconStop, IconX } from './Icons'
+import { Logo } from './Logo'
+import { keysFor } from '../lib/shortcuts'
 
 const EMPTY: ChatItem[] = []
 
@@ -13,11 +15,11 @@ function ToolRow({ item }: { item: Extract<ChatItem, { kind: 'tool' }> }) {
   const state = item.result === undefined ? 'running' : item.isError ? 'error' : 'ok'
   return (
     <div className={`tool-row ${state}`}>
-      <div className="tool-head" onClick={() => setOpen(!open)}>
-        <span className="tool-state" />
+      <button className="tool-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="tool-state" aria-label={state === 'running' ? 'rodando' : state === 'error' ? 'erro' : 'ok'} role="img" />
         <span className="tool-name">{item.name.replace(/^mcp__/, 'mcp:')}</span>
         <span className="tool-summary">{item.summary}</span>
-      </div>
+      </button>
       {open && (
         <div className="tool-body">
           <div className="label">Entrada</div>
@@ -49,9 +51,9 @@ function ChangeCard({ sessionId, item }: { sessionId: string; item: Extract<Chat
     <div className={`change-card ${item.reverted ? 'reverted' : ''}`}>
       <div className="change-head">
         <span className="change-kind">{item.created ? 'novo' : 'editado'}</span>
-        <span className="change-file" title={item.filePath} onClick={() => setOpen(!open)}>
+        <button className="change-file" title={item.filePath} onClick={() => setOpen(!open)} aria-expanded={open}>
           {basename(item.filePath)}
-        </span>
+        </button>
         {item.reverted ? (
           <span className="muted small">revertido</span>
         ) : (
@@ -100,7 +102,7 @@ function Item({ sessionId, item }: { sessionId: string; item: ChatItem }) {
     case 'result':
       return (
         <div className={`turn-result ${item.isError ? 'error' : ''}`}>
-          {item.isError ? '✕ ' : '✓ '}
+          {item.isError ? 'Falhou · ' : 'Concluído · '}
           {item.turns} {item.turns === 1 ? 'passo' : 'passos'} · {duration(item.durationMs)} · {usd(item.costUsd, 4)}
           {item.errors?.length ? <div className="small">{item.errors.join(' · ')}</div> : null}
         </div>
@@ -141,15 +143,31 @@ export function ChatView() {
       <div className="chat-list" ref={listRef}>
         {!activeId && (
           <div className="empty">
-            <h2>DevDeck</h2>
-            <p>{workspace ? 'Escreva abaixo para começar um chat neste workspace.' : 'Abra uma pasta de projeto na barra lateral para começar.'}</p>
-            <ul className="muted">
-              <li>
-                Clique em <b>@</b> na árvore para anexar arquivos ao contexto.
-              </li>
-              <li>Edições e comandos param no painel da direita para você aprovar ou rejeitar.</li>
-              <li>Custos por turno, sessão e dia ficam na barra de status e na aba Custos.</li>
-            </ul>
+            <div className="logo-hero">
+              <Logo size={44} />
+            </div>
+            <h2>{workspace ? 'Pronto para o próximo passo' : 'Abra um projeto para começar'}</h2>
+            <p className="muted">
+              {workspace ? 'Escreva abaixo o que você quer fazer neste workspace.' : 'Escolha a pasta do projeto na barra lateral ou pela paleta de comandos.'}
+            </p>
+            <dl className="empty-keys">
+              <dt>
+                <kbd>{keysFor('palette')}</kbd>
+              </dt>
+              <dd>Paleta de comandos: abas, chats e ações</dd>
+              <dt>
+                <kbd>@</kbd>
+              </dt>
+              <dd>Na árvore de arquivos, anexa o arquivo ao contexto</dd>
+              <dt>
+                <kbd>Alt+A</kbd>
+              </dt>
+              <dd>Aprova a alteração focada no painel; nada é aplicado sem você</dd>
+              <dt>
+                <kbd>{keysFor('help')}</kbd>
+              </dt>
+              <dd>Todos os atalhos</dd>
+            </dl>
           </div>
         )}
         {activeId && items.map((it) => <Item key={it.id} sessionId={activeId} item={it} />)}
@@ -161,7 +179,20 @@ export function ChatView() {
         {busy && !streaming && pendingCount === 0 && <div className="thinking">Claude está trabalhando…</div>}
       </div>
 
-      {pendingCount > 0 && <div className="pending-banner">{pendingCount} aprovação(ões) aguardando você no painel à direita →</div>}
+      {pendingCount > 0 && (
+        <div className="pending-banner" role="status">
+          <span>
+            <b>{pendingCount}</b> {pendingCount === 1 ? 'alteração aguarda' : 'alterações aguardam'} sua aprovação
+          </span>
+          <button
+            className="btn sm"
+            onClick={() => document.querySelector<HTMLElement>('[data-approval]')?.focus()}
+            title="Leva o foco ao cartão de aprovação (depois use Alt+A ou Alt+R)"
+          >
+            Revisar
+          </button>
+        </div>
+      )}
 
       <div className="composer">
         {contextFiles.length > 0 && (
@@ -169,7 +200,7 @@ export function ChatView() {
             {contextFiles.map((c) => (
               <span key={c} className="chip removable">
                 @{c}
-                <button onClick={() => toggleContextFile(c)} title="Remover">
+                <button onClick={() => toggleContextFile(c)} title="Remover" aria-label={`Remover ${c} do contexto`}>
                   <IconX size={11} />
                 </button>
               </span>
@@ -178,6 +209,8 @@ export function ChatView() {
         )}
         <div className="composer-row">
           <textarea
+            id="composer"
+            aria-label="Mensagem para o Claude"
             value={text}
             placeholder={workspace ? 'Peça algo ao Claude… (Enter envia, Shift+Enter quebra linha)' : 'Abra um workspace primeiro'}
             disabled={!workspace}

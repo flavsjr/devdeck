@@ -7,8 +7,9 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
-import type { McpServerEntry, McpTestResult } from '@shared/types'
+import type { McpServerEntry, McpServerView, McpTestResult } from '@shared/types'
 import { getMcpServers, saveMcpServers } from './store'
+import { redact, secretValues } from './lib/secrets'
 
 const TEST_TIMEOUT_MS = 20_000
 
@@ -72,7 +73,8 @@ export async function testMcpServer(e: McpServerEntry): Promise<McpTestResult> {
       ms: Date.now() - started
     }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err), ...empty, ms: Date.now() - started }
+    // A mensagem vai para o renderer: tira valores de env/headers que o servidor ou o transporte ecoem.
+    return { ok: false, error: redact(err instanceof Error ? err.message : String(err), secretValues(e)), ...empty, ms: Date.now() - started }
   } finally {
     client.close().catch(() => undefined)
   }
@@ -112,7 +114,8 @@ function rawToEntry(name: string, raw: RawServer): McpServerEntry | null {
   return { name, enabled: false, type, command: raw.command, args: raw.args, env: raw.env, url: raw.url, headers: raw.headers }
 }
 
-export function importFromClaude(): { imported: string[]; servers: McpServerEntry[] } {
+/** Importa já cifrando (saveMcpServers); sem cofre do sistema e com segredos, falha sem gravar. */
+export function importFromClaude(): { imported: string[]; servers: McpServerView[] } {
   const current = getMcpServers()
   const names = new Set(current.map((s) => s.name))
   const imported: string[] = []

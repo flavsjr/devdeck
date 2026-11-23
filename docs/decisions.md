@@ -59,3 +59,21 @@ Formato curto: contexto → decisão → consequências. Novas decisões entram 
 - **Contexto:** `.claude/settings.json` e `.mcp.json` de um repositório executam comandos (hooks, permissões, MCP) sem passar pela aprovação do DevDeck.
 - **Decisão:** carregar configurações do projeto vem desligado; quando ligado e houver itens que executam código, um diálogo lista o que roda e só carrega após confiança explícita, registrada por realpath + hash dos arquivos (mudou, pergunta de novo). "Aprovar todas da sessão" fica confinado ao workspace (realpath) e fora de pastas sensíveis.
 - **Consequências:** abrir repositório de terceiros não executa nada sozinho; o usuário vê um diálogo extra na primeira vez.
+
+## ADR-014 — Sistema de estilos: tokens em camadas
+- **Contexto:** a paleta (terracota `#d97757` e creme) era a da marca Claude; cores literais espalhadas por ~1.700 linhas de CSS e em componentes.
+- **Decisão:** CSS puro com `@layer tokens, legacy, base, shell`. `styles/tokens.css` é o único arquivo com cor literal, em duas camadas (primitivos → semânticos), identidade "Índigo Noturno". O CSS antigo foi migrado para tokens e envolvido em `@layer legacy`; regras novas vencem pela ordem da camada, sem `!important`. Testes: guarda de cor literal e da paleta antiga, contraste WCAG AA dos pares usados (`lib/contrast`). Sem Tailwind nem CSS-in-JS.
+- **Consequências:** trocar de tema = trocar semânticos (tema claro na Sprint 05). Regra de `shell` que sobrescreve um seletor do legado precisa redeclarar as variantes (ex.: `.btn.primary`).
+
+## ADR-015 — Segredos de configuração cifrados e mascarados
+- **Contexto:** env/headers de MCP e o link ICS ficavam em texto puro no disco e voltavam inteiros ao renderer.
+- **Decisão:** cifrados com `safeStorage` (`basic_text` no Linux conta como indisponível); sem cofre, o salvamento é recusado. O renderer recebe só máscara; para manter um valor, manda `null`, aceito só com o mesmo transporte, URL, comando e argumentos e sem variável de ambiente sensível nova (`NODE_OPTIONS`, `*_PROXY`…). Migração no boot, inclusive da cópia legada; gravação atômica. Lógica pura em `src/main/lib/secrets.ts`.
+- **Consequências:** voltar para a v0.3.0 deixa esses segredos ilegíveis. Apagar texto puro em SSD não é garantido: o CHANGELOG recomenda trocar os tokens.
+
+## ADR-016 — Atalhos no renderer, menu nulo em produção
+- **Decisão:** uma tabela (`lib/shortcuts.ts`) alimenta o listener global, a paleta e a ajuda. Atalhos com Ctrl não disparam em campo editável (exceto paleta e ajuda), nem com IME ou AltGr. Nenhum atalho global aprova: Alt+A/Alt+R só valem com foco no cartão, sem repetição e 600 ms após ele aparecer. `Menu.setApplicationMenu(null)` fora de dev (Alt não abre menu, Ctrl+R não recarrega).
+- **Consequências:** sem DevTools por atalho no app empacotado.
+
+## ADR-017 — Dependências de UI
+- **Decisão:** `lucide-react` (ícones) e `@fontsource-variable/inter` / `jetbrains-mono` (fontes locais, `font-src 'self'`, nunca `data:`) entram com versão exata, publicadas há mais de 7 dias, sem scripts de instalação. `axe-core` só em dev (`DEVDECK_AXE`). `cmdk` rejeitado: puxaria vários pacotes Radix e um fuzzy próprio; a paleta é nossa (`lib/fuzzy` testada) e reaproveita o `Modal` com focus-trap.
+- **Consequências:** +~300 KB de fontes no pacote (só o subset latino carrega).

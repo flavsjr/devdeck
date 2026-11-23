@@ -4,7 +4,9 @@
 
 DevDeck is a local cockpit for developers. It brings vibe coding with Claude, MCP servers, reviewable diffs, AI cost tracking, your git activity across platforms, achievements, your daily agenda and a community feed together in one desktop app.
 
-Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Claude Agent SDK · MCP SDK · Supabase · ical.js
+Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Claude Agent SDK · MCP SDK · Supabase · ical.js · lucide · Inter / JetBrains Mono
+
+![DevDeck with the command palette open](docs/sprints/sprint-04/depois/chat-palette.png)
 
 ## Features
 
@@ -19,6 +21,8 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Agenda** | Recurring local events (with a one-click daily stand-up), reminders with a Join button, and read-only ICS subscriptions (Outlook/Google). |
 | **Community** | Articles and code snippets on Supabase, with likes, comments and reports. Access is enforced by row-level security. |
 | **Flow** | Spotify embed and a 25/5 focus timer. |
+| **Keyboard first** | `Ctrl+K` command palette (tabs, chats, actions, fuzzy search), `Ctrl+1–8` to switch tabs, `Ctrl+N` new chat, `Ctrl+L` focus the prompt, `Ctrl+B` / `Ctrl+Alt+B` toggle the side panels, `Ctrl+/` or `F1` lists every shortcut. Approve or reject the focused change with `Alt+A` / `Alt+R`. |
+| **Layout** | "Indigo Night" dark theme built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
 
 ## Getting started
 
@@ -40,6 +44,8 @@ Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones),
 - Only the DevDeck UI can call the main process, and every argument is validated (zod). Navigation, new windows and browser permissions are denied by default.
 - Project settings (`.claude/settings.json`, `.mcp.json`) are **off by default**. When enabled, DevDeck lists the hooks, permissions and MCP servers a repository wants to run and only loads them after you trust the workspace. It asks again if those files change.
 - "Approve all for this session" never applies outside the workspace or to `.git`, `.claude`, `.vscode`, `.github` and similar folders.
+- MCP environment variables and headers, ICS links, git tokens and the API key are encrypted with the OS keychain. The UI only ever sees a mask, and a stored secret is never reused for a different server target.
+- Trusting a workspace also covers every file under `.claude/` (skills, commands, agents); links there make DevDeck ask every time.
 
 ## How we work
 

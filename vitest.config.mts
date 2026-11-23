@@ -15,7 +15,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/main/lib/**', 'src/renderer/src/lib/**', 'src/shared/achievements.ts'],
+      include: ['src/main/lib/**', 'src/renderer/src/lib/**', 'src/shared/achievements.ts', 'src/shared/layout.ts'],
       reporter: ['text-summary', 'text'],
       thresholds: { lines: 80 }
     },

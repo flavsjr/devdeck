@@ -4,7 +4,9 @@
 
 O DevDeck é o cockpit local do dev. Num único app desktop, ele junta vibe coding com o Claude, servidores MCP, diffs revisáveis, controle de custo de IA, sua atividade git em várias plataformas, conquistas, a agenda do dia e um feed da comunidade.
 
-Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Claude Agent SDK · MCP SDK · Supabase · ical.js
+Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Claude Agent SDK · MCP SDK · Supabase · ical.js · lucide · Inter / JetBrains Mono
+
+![DevDeck com a paleta de comandos aberta](docs/sprints/sprint-04/depois/chat-palette.png)
 
 ## Funcionalidades
 
@@ -19,6 +21,8 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Agenda** | Eventos locais recorrentes (com atalho de daily), lembretes com botão Entrar e assinatura ICS somente leitura (Outlook/Google). |
 | **Comunidade** | Artigos e snippets no Supabase, com curtidas, comentários e denúncias. O acesso é controlado por row-level security. |
 | **Flow** | Embed do Spotify e timer de foco 25/5. |
+| **Teclado primeiro** | Paleta de comandos `Ctrl+K` (abas, chats e ações, com busca aproximada), `Ctrl+1–8` troca de aba, `Ctrl+N` novo chat, `Ctrl+L` foca a mensagem, `Ctrl+B` / `Ctrl+Alt+B` mostram e ocultam os painéis, `Ctrl+/` ou `F1` lista todos os atalhos. Aprove ou rejeite a alteração focada com `Alt+A` / `Alt+R`. |
+| **Layout** | Tema escuro "Índigo Noturno" com design tokens (contraste AA conferido por teste), barra lateral recolhível e painel direito redimensionável e recolhível, que fica aberto enquanto houver aprovação pendente. |
 
 ## Como rodar
 
@@ -40,6 +44,8 @@ Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `n
 - Só a interface do DevDeck chama o processo principal, e todo argumento é validado (zod). Navegação, janelas novas e permissões do navegador são negadas por padrão.
 - Configurações do projeto (`.claude/settings.json`, `.mcp.json`) vêm **desligadas**. Quando ligadas, o DevDeck lista os hooks, permissões e servidores MCP que o repositório quer executar e só carrega depois que você confia no workspace. Se esses arquivos mudarem, ele pergunta de novo.
 - "Aprovar todas da sessão" nunca vale fora do workspace nem em `.git`, `.claude`, `.vscode`, `.github` e pastas parecidas.
+- Variáveis e headers de MCP, links ICS, tokens git e a chave da API ficam cifrados no cofre do sistema. A interface só vê uma máscara, e um segredo guardado nunca é reaproveitado para outro destino.
+- Confiar num workspace cobre também os arquivos de `.claude/` (skills, comandos, agentes); se houver links ali, o DevDeck pergunta toda vez.
 
 ## Como trabalhamos
 

@@ -50,7 +50,11 @@ export default defineConfig(({ mode }) => {
           '@shared': resolve('src/shared')
         }
       },
-      plugins: [react(), prodCsp]
+      plugins: [react(), prodCsp],
+      build: {
+        // Fonte nunca vira data: URI (a CSP só aceita font-src 'self'); demais assets seguem o padrão do Vite.
+        assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf)$/i.test(file) ? false : undefined)
+      }
     }
   }
 })
