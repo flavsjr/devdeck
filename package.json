@@ -10,7 +10,7 @@
     "url": "https://github.com/flavsjr/devdeck.git"
   },
   "scripts": {
-    "postinstall": "node node_modules/electron/install.js",
+    "postinstall": "node scripts/postinstall.mjs",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
