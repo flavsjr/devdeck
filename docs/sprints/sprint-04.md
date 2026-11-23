@@ -122,18 +122,19 @@ Diagnóstico: accent terracota `#d97757` e texto creme `#e6e2da` são a paleta d
 | Passo | Commit | História |
 |---|---|---|
 | Planejamento e debate | `da93709` | — |
-| Segredos de MCP/ICS cifrados, máscara, migração, `lib/secrets` + testes | `1717896` | H04.1 |
-| Dependências (lucide, fontes, axe-core) com versão exata, `font-src 'self'`, fontes nunca `data:` | `8cd009e` | H04.2, H04.3 |
-| Tokens em camadas, CSS legado migrado, logo, lucide, rail, status bar, guarda de cor e teste de contraste | `919e81b` | H04.2, H04.3 |
-| Layout persistido (zod + clamp), painel recolhível/redimensionável, paleta, atalhos, `Modal` com focus-trap, menu nulo, árvore por teclado, correções do axe | `30d17b3` | H04.4, H04.5, H04.6, H04.8, H04.9 |
-| Confiança cobre `.claude/**` | `7a9b7f8` | H04.7 |
-| Painel em janela estreita só sob demanda; achados do security review (links em `.claude/`, env sensível, `redact` do webcal) | `8243665` | H04.5, H04.1, H04.7 |
-| Correções do QA (`.meter` escopado, blob ICS preservado, IME na paleta, `lib/secretInput` + teste) e fechamento | este commit | — |
+| Segredos de MCP/ICS cifrados, máscara, migração, `lib/secrets` + testes | `9b8b8f8` | H04.1 |
+| Dependências (lucide, fontes, axe-core) com versão exata, `font-src 'self'`, fontes nunca `data:` | `00dcf16` | H04.2, H04.3 |
+| Tokens em camadas, CSS legado migrado, logo, lucide, rail, status bar, guarda de cor e teste de contraste | `7b5a85e` | H04.2, H04.3 |
+| Layout persistido (zod + clamp), painel recolhível/redimensionável, paleta, atalhos, `Modal` com focus-trap, menu nulo, árvore por teclado, correções do axe | `9a8c16a` | H04.4, H04.5, H04.6, H04.8, H04.9 |
+| Confiança cobre `.claude/**` | `55dc6ac` | H04.7 |
+| Painel em janela estreita só sob demanda; achados do security review (links em `.claude/`, env sensível, `redact` do webcal) | `3ad13de` | H04.5, H04.1, H04.7 |
+| Correções do QA (`.meter` escopado, blob ICS preservado, IME na paleta, `lib/secretInput` + teste) e fechamento | `ebcc644` | — |
+| Token falso de teste reescrito no histórico (falso positivo do gitleaks no CI do PR) | rebase + `push --force-with-lease` | — |
 
 Could (`it.todo` de diff) **não executado**: capacidade usada na H04.7 e nos achados de QA/segurança.
 
 ## QA — resultado
-Executado pelo agente `qa` no HEAD `8243665` e reconferido após as correções.
+Executado pelo agente `qa` no HEAD `3ad13de` e reconferido após as correções.
 
 | Caso | Resultado | Evidência |
 |---|---|---|
@@ -147,7 +148,7 @@ Executado pelo agente `qa` no HEAD `8243665` e reconferido após as correções.
 | Contraste AA dos tokens | ✅ | `tests/unit/renderer/contrast.test.ts` (texto ≥ 4,5; foco e borda ≥ 3) |
 | axe-core em 8 abas + paleta, ajuda e painel recolhido | ✅ | [`sprint-04/axe/`](sprint-04/axe/): 11 arquivos com 0 violações de qualquer impacto (1ª rodada achou 4 tipos, corrigidos) |
 | Capturas antes/depois | ✅ | [`antes/`](sprint-04/antes/) (6 abas) e [`depois/`](sprint-04/depois/) (8 abas, paleta, ajuda, painel recolhido e 8 abas em 1280×720) |
-| 1280×720 sem rolagem horizontal | ✅ | `depois/*-1280x720.png`; bug encontrado na captura (painel cobria o chat) corrigido em `8243665` |
+| 1280×720 sem rolagem horizontal | ✅ | `depois/*-1280x720.png`; bug encontrado na captura (painel cobria o chat) corrigido em `3ad13de` |
 | Atalho em textarea, IME, AltGr | ✅ | `lib/shortcuts` + testes |
 | Painel recolhido com aprovação pendente | ✅ | `rightPanelVisible` (teste), botão desabilitado, conteúdo fora do DOM |
 | Alt+A/R: foco no card, repeat, 600 ms, nunca "sempre" | ✅ | `matchApprovalKey` + testes; não age de dentro do campo de comentário |
@@ -162,7 +163,7 @@ Executado pelo agente `qa` no HEAD `8243665` e reconferido após as correções.
 | Linux com `basic_text` | ⏳ | manual |
 
 ## Security review
-Revalidação pelo agente `cybersecurity` no HEAD `7a9b7f8`.
+Revalidação pelo agente `cybersecurity` no HEAD `55dc6ac`.
 
 | Bloqueante | Fechamento | Evidência |
 |---|---|---|
@@ -173,9 +174,9 @@ Revalidação pelo agente `cybersecurity` no HEAD `7a9b7f8`.
 
 | Severidade | Onde | Achado | Mitigação |
 |---|---|---|---|
-| média | `src/main/trust.ts` | Link em `.claude/` entrava no hash só pelo alvo | ✅ corrigido: link faz perguntar sempre (`8243665`) |
-| média | `lib/secrets.ts` | Mesmo comando + `NODE_OPTIONS`/`*_PROXY` novos mantinham o segredo | ✅ corrigido: `changesRiskyEnv` exige redigitar (`8243665`) |
-| baixa | `src/main/agenda.ts` | `redact` não cobria a forma `https://` de um link `webcal://` | ✅ corrigido (`8243665`) |
+| média | `src/main/trust.ts` | Link em `.claude/` entrava no hash só pelo alvo | ✅ corrigido: link faz perguntar sempre (`3ad13de`) |
+| média | `lib/secrets.ts` | Mesmo comando + `NODE_OPTIONS`/`*_PROXY` novos mantinham o segredo | ✅ corrigido: `changesRiskyEnv` exige redigitar (`3ad13de`) |
+| baixa | `src/main/agenda.ts` | `redact` não cobria a forma `https://` de um link `webcal://` | ✅ corrigido (`3ad13de`) |
 | baixa | `lib/secrets.ts` (`maskValue`) | Mostra 4 últimos caracteres de valores ≥ 16 | Aceito (mesma prática do GitHub); registrado no ADR-015 |
 | baixa | URL de MCP | Token na query da URL fica em claro e aparece na tela | Sprint 05: avaliar cifrar a URL; documentar "token vai em header" |
 
