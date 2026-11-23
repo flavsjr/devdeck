@@ -10,6 +10,10 @@ export interface ProjectConfigSummary {
   helpers: string[]
   mcpServers: string[]
   invalid: string[]
+  /** Outros arquivos em .claude/ (skills, comandos, agentes…): carregam com as configurações do projeto. */
+  claudeFiles: string[]
+  /** .claude/ grande demais para conferir: pergunta sempre (falha fechada). */
+  overflow: boolean
   hash: string
   risky: boolean
 }
@@ -49,7 +53,42 @@ function describeHook(h: unknown): string {
   return `${clip(String(o.type ?? 'command'), 40)}: ${clip(String(body))}`
 }
 
-export function summarizeProjectConfig(settingsText: string | null, mcpText: string | null): ProjectConfigSummary {
+// ---------- .claude/** (Sprint 04, H04.7) ----------
+
+export interface ClaudeDirEntry {
+  /** Caminho relativo a .claude/, com separador já normalizado ou não (normalizamos aqui). */
+  path: string
+  kind: 'file' | 'link' | 'other'
+  /** sha256 do conteúdo (arquivo) ou alvo do link. */
+  digest: string
+}
+
+export interface ClaudeDirScan {
+  entries: ClaudeDirEntry[]
+  overflow: boolean
+}
+
+/** Limites da varredura: acima disso o diálogo aparece sempre e a confiança não é guardada. */
+export const CLAUDE_DIR_LIMITS = { files: 400, bytes: 4 * 1024 * 1024, depth: 8 }
+
+/** settings.json já é resumido à parte; settings.local.json é do próprio usuário e não vem com a fonte 'project'. */
+const ROOT_IGNORED = new Set(['settings.json', 'settings.local.json'])
+
+const normPath = (p: string): string => p.split('\\').join('/').replace(/^\.\//, '')
+
+/** Lista e hash determinísticos (ordem e separador normalizados) do que existe em .claude/. */
+export function summarizeClaudeDir(scan: ClaudeDirScan): { files: string[]; hash: string } {
+  const entries = scan.entries
+    .map((e) => ({ ...e, path: normPath(e.path) }))
+    .filter((e) => !ROOT_IGNORED.has(e.path.toLowerCase()))
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+  const files = entries.map((e) => (e.kind === 'link' ? `${clip(e.path, 160)} (link)` : e.kind === 'other' ? `${clip(e.path, 160)} (especial)` : clip(e.path, 160)))
+  // JSON evita ambiguidade quando o nome do arquivo contém separadores.
+  const hash = sha(JSON.stringify(entries.map((e) => [e.kind, e.path, e.digest])))
+  return { files, hash }
+}
+
+export function summarizeProjectConfig(settingsText: string | null, mcpText: string | null, claudeDir?: ClaudeDirScan): ProjectConfigSummary {
   const invalid: string[] = []
   const hooks: string[] = []
   const allow: string[] = []
@@ -94,9 +133,14 @@ export function summarizeProjectConfig(settingsText: string | null, mcpText: str
     }
   }
 
-  const hash = `${sha(settingsText)}:${sha(mcpText)}`
-  const risky = [hooks, allow, env, helpers, mcpServers, invalid].some((l) => l.length > 0)
-  return { hooks, allow, env, helpers, mcpServers, invalid, hash, risky }
+  const dir = claudeDir ? summarizeClaudeDir(claudeDir) : { files: [], hash: '' }
+  const overflow = Boolean(claudeDir?.overflow)
+  const claudeFiles = dir.files.slice(0, 40)
+  if (dir.files.length > claudeFiles.length) claudeFiles.push(`… e mais ${dir.files.length - claudeFiles.length} arquivo(s)`)
+  // Sem arquivos extras o hash mantém o formato antigo: confiança dada antes da v0.4.0 continua valendo.
+  const hash = `${sha(settingsText)}:${sha(mcpText)}${dir.files.length ? `:${dir.hash}` : ''}`
+  const risky = overflow || [hooks, allow, env, helpers, mcpServers, invalid, claudeFiles].some((l) => l.length > 0)
+  return { hooks, allow, env, helpers, mcpServers, invalid, claudeFiles, overflow, hash, risky }
 }
 
 /** Texto do diálogo de confiança. */
@@ -108,7 +152,10 @@ export function describeSummary(s: ProjectConfigSummary): string {
     block('Variáveis de ambiente', s.env),
     block('Comandos auxiliares', s.helpers),
     block('Servidores MCP do projeto (.mcp.json)', s.mcpServers),
-    block('Arquivos inválidos', s.invalid)
+    block('Arquivos inválidos', s.invalid),
+    block('Outros arquivos em .claude/ (skills, comandos e agentes podem pedir ferramentas e hooks)', s.claudeFiles),
+    s.overflow ? `A pasta .claude/ passa de ${CLAUDE_DIR_LIMITS.files} arquivos ou ${CLAUDE_DIR_LIMITS.bytes / 1024 / 1024} MB: o DevDeck não consegue conferir tudo e vai perguntar toda vez.` : '',
+    s.claudeFiles.length || s.hooks.length ? 'Scripts chamados por hooks ou skills fora de .claude/ não são conferidos.' : ''
   ]
     .filter(Boolean)
     .join('\n')
