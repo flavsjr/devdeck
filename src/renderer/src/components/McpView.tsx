@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { McpServerInput, McpServerView, McpTestResult, McpTransport, ToolPolicy } from '@shared/types'
 import { useStore } from '../store'
+import { keepAll, textToSecrets } from '../lib/secretInput'
 import { IconPlus } from './Icons'
 
 // Painel de MCPs estilo Claude: liga/desliga, edita, testa conexão, política por tool.
@@ -23,25 +24,6 @@ function kvToText(rec: Record<string, string> | undefined, sep: string): string 
     .join('\n')
 }
 
-/**
- * Texto do editor → segredos para o main. Linha que ficou igual à máscara mostrada vira `null` (manter o valor
- * guardado); o main só aceita isso se o destino não mudou. Linha apagada = remover.
- */
-function textToSecrets(text: string, sep: string, masked: Record<string, string> | undefined): Record<string, string | null> {
-  const out: Record<string, string | null> = {}
-  for (const line of text.split('\n')) {
-    const i = line.indexOf(sep)
-    if (i <= 0) continue
-    const k = line.slice(0, i).trim()
-    const v = line.slice(i + sep.length).trim()
-    out[k] = masked?.[k] !== undefined && v === masked[k] ? null : v
-  }
-  return out
-}
-
-/** Mantém todos os segredos guardados (para ligar/desligar e mudar política sem redigitar). */
-const keepAll = (rec: Record<string, string> | undefined): Record<string, null> | undefined =>
-  rec ? Object.fromEntries(Object.keys(rec).map((k) => [k, null])) : undefined
 
 function viewToInput(v: McpServerView): McpServerInput {
   const { envMasked, headersMasked, secretsLost: _lost, ...rest } = v

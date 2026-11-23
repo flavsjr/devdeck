@@ -405,7 +405,18 @@ export function listIcsFeedViews(): IcsFeedView[] {
 
 /** Cifra o link e grava. Sem cofre do sistema, recusa. */
 export function saveIcsFeeds(feeds: IcsFeed[]): IcsFeedView[] {
-  writeJson(agendaFile(), { ...getAgendaRaw(), feeds: feeds.map((f) => sealFeed(f, systemCipher)) })
+  const raw = getAgendaRaw()
+  const prev = new Map(raw.feeds.map((f) => [f.id, f]))
+  const sealed = feeds.map((f) => {
+    const old = prev.get(f.id)
+    // Link que não abriu agora (cofre bloqueado?) não é trocado por vazio só porque outro feed foi salvo.
+    if (!f.url && old?.urlEnc) {
+      const { url: _url, ...rest } = f
+      return { ...rest, urlEnc: old.urlEnc }
+    }
+    return sealFeed(f, systemCipher)
+  })
+  writeJson(agendaFile(), { ...raw, feeds: sealed })
   return listIcsFeedViews()
 }
 

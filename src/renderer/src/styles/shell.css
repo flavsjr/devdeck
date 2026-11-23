@@ -142,7 +142,7 @@
     background: var(--line);
   }
   /* Medidor com texto em % ao lado: a barra nunca é a única pista. */
-  .meter {
+  .statusbar .meter {
     position: relative;
     width: 44px;
     height: 4px;
@@ -150,15 +150,15 @@
     background: var(--line-2);
     overflow: hidden;
   }
-  .meter > span {
+  .statusbar .meter > span {
     position: absolute;
     inset: 0 auto 0 0;
     background: var(--accent);
   }
-  .meter.warn > span {
+  .statusbar .meter.warn > span {
     background: var(--warn);
   }
-  .meter.bad > span {
+  .statusbar .meter.bad > span {
     background: var(--bad);
   }
 

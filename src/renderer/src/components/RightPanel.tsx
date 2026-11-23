@@ -59,6 +59,8 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
 
   // Alt+A / Alt+R só com o foco dentro deste card e para este approvalId; Alt+A nunca liga "sempre".
   const onKeyDown = (e: React.KeyboardEvent): void => {
+    // Dentro do campo de comentário, Alt+A/Alt+R não aprovam nem rejeitam.
+    if ((e.target as HTMLElement).closest('textarea, input')) return
     const hit = matchApprovalKey(
       { key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, altGraph: e.getModifierState('AltGraph') },
       shownAt.current,

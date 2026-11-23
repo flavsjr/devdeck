@@ -4,6 +4,35 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-23 · Sprint 04
+
+### Adicionado
+- **Identidade visual própria "Índigo Noturno"**: neutros frios com accent índigo (no lugar da paleta terracota/creme, que era a da marca Claude), logo novo (duas cartas empilhadas com um prompt), fontes Inter e JetBrains Mono empacotadas no app e ícones lucide.
+- **Paleta de comandos** (`Ctrl+K`) com busca aproximada sem acento: abas, chats do workspace e ações.
+- **Atalhos de teclado**: `Ctrl+1–8` (abas), `Ctrl+N` (novo chat), `Ctrl+L` (escrever mensagem), `Ctrl+B` (barra lateral), `Ctrl+Alt+B` (painel direito), `Ctrl+/` ou `F1` (lista de atalhos), `Alt+A` / `Alt+R` para aprovar ou rejeitar a alteração focada.
+- **Painel direito recolhível e redimensionável** (320–640 px, por mouse ou setas), com largura e estado lembrados. Em janela estreita ele vira sobreposição sob demanda.
+- Barra lateral recolhível; árvore de arquivos navegável por teclado (setas, Enter, `@` anexa ao contexto).
+- Barra de status reorganizada: workspace e modelo à esquerda; contexto e gasto do dia com medidor e porcentagem à direita; atalho para a paleta.
+- Tela inicial do chat com os atalhos principais e aviso de aprovação com botão "Revisar" que leva o foco ao cartão.
+
+### Alterado
+- CSS reorganizado em camadas (`tokens`, `legacy`, `base`, `shell`) com todas as cores em `styles/tokens.css`; testes garantem que não há cor fora dos tokens e que os pares de texto passam no contraste AA.
+- Botão primário com texto escuro sobre o accent (branco não passava no contraste).
+- Painel direito começa com 360 px (antes 420 px fixos).
+- Sem menu da aplicação no app empacotado: `Alt` não abre barra de menu e `Ctrl+R` não recarrega a interface.
+
+### Corrigido
+- Foco de teclado visível em todo o app (antes os campos tinham `outline: none`); botões só com ícone têm rótulo acessível; modais prendem e devolvem o foco; `prefers-reduced-motion` respeitado. Auditoria axe-core sem violações em todas as abas.
+- Conquistas bloqueadas tinham texto abaixo do contraste mínimo.
+
+### Segurança
+- **Variáveis de ambiente e headers de MCP e o link de calendário ICS passam a ser cifrados no cofre do sistema** e migrados automaticamente na primeira execução (inclusive a cópia antiga em `%APPDATA%/vibedeck`). A interface recebe só uma máscara. Sem cofre disponível, o DevDeck recusa salvar em vez de gravar em claro. **Recomendado: troque os tokens que estavam nesses campos**, porque cópias antigas em disco podem não ter sido apagadas fisicamente. Voltar para a v0.3.0 deixa esses valores ilegíveis.
+- Um segredo guardado só é reaproveitado se transporte, URL, comando e argumentos do servidor MCP não mudaram e nenhuma variável sensível (`NODE_OPTIONS`, `*_PROXY`…) foi acrescentada; caso contrário é preciso digitar de novo.
+- Erros de sincronização de calendário e de teste de MCP não ecoam valores secretos.
+- Confiar num workspace passa a cobrir os arquivos de `.claude/` (skills, comandos, agentes); links ou pastas grandes demais fazem o DevDeck perguntar sempre.
+- Aprovação pendente mantém o painel aberto; atalhos não aprovam nada fora do cartão focado e ignoram teclas nos primeiros 600 ms.
+- CSP com `font-src 'self'`; fontes nunca embutidas como `data:`. Dependências novas com versão exata.
+
 ## [0.3.0] — 2026-11-23 · Sprint 03
 
 ### Adicionado
@@ -62,6 +91,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Custos e métricas: por turno, sessão, dia, mês e modelo; teto diário e por sessão; uso de contexto.
 - Modo Flow: embed do Spotify e timer de foco 25/5.
 
-[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/flavsjr/devdeck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/flavsjr/devdeck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/flavsjr/devdeck/releases/tag/v0.2.0

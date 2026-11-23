@@ -12,7 +12,6 @@
   kbd,
   .mono {
     font-family: var(--mono);
-    font-size: 12.5px;
     font-variant-ligatures: none;
   }
   /* Números que comparamos de relance: custo, tokens, horários. */

@@ -1,6 +1,6 @@
 # Sprint 04 — Identidade visual e uso diário
 
-**Período:** 2026-11-23 · **Versão alvo:** v0.4.0 · **Branch:** `sprint/04-visual` · **Status:** em andamento
+**Período:** 2026-11-23 · **Versão alvo:** v0.4.0 · **Branch:** `sprint/04-visual` · **Status:** concluída (pendências manuais listadas em QA)
 
 ## Objetivo
 Dar ao DevDeck uma identidade visual própria, com cara de ferramenta de dev e sem a paleta do Claude, deixar o uso diário mais rápido pelo teclado e cumprir a regra de segredos pendente da Sprint 03.
@@ -118,8 +118,80 @@ Diagnóstico: accent terracota `#d97757` e texto creme `#e6e2da` são a paleta d
 11. `docs:` ADRs, CHANGELOG 0.4.0, sprint, READMEs.
 12. Push, PR e tag só com aprovação do usuário.
 
+## Tarefas executadas
+| Passo | Commit | História |
+|---|---|---|
+| Planejamento e debate | `da93709` | — |
+| Segredos de MCP/ICS cifrados, máscara, migração, `lib/secrets` + testes | `1717896` | H04.1 |
+| Dependências (lucide, fontes, axe-core) com versão exata, `font-src 'self'`, fontes nunca `data:` | `8cd009e` | H04.2, H04.3 |
+| Tokens em camadas, CSS legado migrado, logo, lucide, rail, status bar, guarda de cor e teste de contraste | `919e81b` | H04.2, H04.3 |
+| Layout persistido (zod + clamp), painel recolhível/redimensionável, paleta, atalhos, `Modal` com focus-trap, menu nulo, árvore por teclado, correções do axe | `30d17b3` | H04.4, H04.5, H04.6, H04.8, H04.9 |
+| Confiança cobre `.claude/**` | `7a9b7f8` | H04.7 |
+| Painel em janela estreita só sob demanda; achados do security review (links em `.claude/`, env sensível, `redact` do webcal) | `8243665` | H04.5, H04.1, H04.7 |
+| Correções do QA (`.meter` escopado, blob ICS preservado, IME na paleta, `lib/secretInput` + teste) e fechamento | este commit | — |
+
+Could (`it.todo` de diff) **não executado**: capacidade usada na H04.7 e nos achados de QA/segurança.
+
+## QA — resultado
+Executado pelo agente `qa` no HEAD `8243665` e reconferido após as correções.
+
+| Caso | Resultado | Evidência |
+|---|---|---|
+| `npm run typecheck` (node, web, test) | ✅ | sem erros |
+| `npm test` | ✅ | 750 testes, 16 `it.todo`, dois fusos |
+| Cobertura de `lib/` | ✅ | linhas 98,8% |
+| `npm run build` | ✅ | JS do renderer 799 kB (v0.3.0: 741 kB; +58 kB, +7,9% — ícones e paleta) + ~300 kB de fontes em `.woff2` |
+| `npm audit --omit=dev` | ✅ | 0 vulnerabilidades |
+| CSP `font-src 'self'`, nenhum `data:font` | ✅ | `out/renderer/index.html`, `grep` no CSS do build |
+| Guarda de cor literal e da paleta antiga | ✅ | `tests/unit/renderer/style-guard.test.ts` |
+| Contraste AA dos tokens | ✅ | `tests/unit/renderer/contrast.test.ts` (texto ≥ 4,5; foco e borda ≥ 3) |
+| axe-core em 8 abas + paleta, ajuda e painel recolhido | ✅ | [`sprint-04/axe/`](sprint-04/axe/): 11 arquivos com 0 violações de qualquer impacto (1ª rodada achou 4 tipos, corrigidos) |
+| Capturas antes/depois | ✅ | [`antes/`](sprint-04/antes/) (6 abas) e [`depois/`](sprint-04/depois/) (8 abas, paleta, ajuda, painel recolhido e 8 abas em 1280×720) |
+| 1280×720 sem rolagem horizontal | ✅ | `depois/*-1280x720.png`; bug encontrado na captura (painel cobria o chat) corrigido em `8243665` |
+| Atalho em textarea, IME, AltGr | ✅ | `lib/shortcuts` + testes |
+| Painel recolhido com aprovação pendente | ✅ | `rightPanelVisible` (teste), botão desabilitado, conteúdo fora do DOM |
+| Alt+A/R: foco no card, repeat, 600 ms, nunca "sempre" | ✅ | `matchApprovalKey` + testes; não age de dentro do campo de comentário |
+| Esc devolve o foco | ✅ | `components/Modal.tsx` |
+| Cofre indisponível / dado antigo em claro / máscara nunca gravada | ✅ | `tests/unit/main/secrets.test.ts` |
+| `prefers-reduced-motion` | ✅ | `styles/base.css` |
+| Varredura de conflitos entre camadas | ✅ | QA achou `.meter` do shell atingindo barras do legado (Custos, Perfil) — corrigido; demais conflitos cosméticos resolvidos |
+| Ctrl+Alt+B e Ctrl+/ em teclado ABNT2 real | ⏳ | manual. No Windows o Chromium pode marcar Ctrl+Alt como AltGraph; a paleta e o botão da faixa cobrem o caso |
+| Aprovação real com painel recolhido e em janela estreita | ⏳ | manual — exige chamada paga ao agente |
+| Leitor de tela (NVDA) no rail e na paleta | ⏳ | manual |
+| MCP e ICS reais (token e link) conferindo máscara e arquivo em disco | ⏳ | manual |
+| Linux com `basic_text` | ⏳ | manual |
+
+## Security review
+Revalidação pelo agente `cybersecurity` no HEAD `7a9b7f8`.
+
+| Bloqueante | Fechamento | Evidência |
+|---|---|---|
+| B1 — segredo para destino novo | ✅ fechado | `sameTarget` + `mergeSecrets`; `mcp:test` com a mesma regra; testes de URL, comando, transporte e servidor novo |
+| B2 — texto puro remanescente | ✅ fechado | `systemCipher` (`basic_text` = indisponível), migração da cópia legada, gravação atômica, `importFromClaude` pelo mesmo caminho, `icsFeedInput` sem estado do renderer, `redact` |
+| B4 — aprovação escondida ou às cegas | ✅ fechado | `rightPanelVisible`, toggle recusado, faixa sem card no DOM, `matchApprovalKey`, paleta sem aprovar |
+| B3 — git config | ↪ Sprint 05 | confirmado: nenhuma operação git nova nesta sprint |
+
+| Severidade | Onde | Achado | Mitigação |
+|---|---|---|---|
+| média | `src/main/trust.ts` | Link em `.claude/` entrava no hash só pelo alvo | ✅ corrigido: link faz perguntar sempre (`8243665`) |
+| média | `lib/secrets.ts` | Mesmo comando + `NODE_OPTIONS`/`*_PROXY` novos mantinham o segredo | ✅ corrigido: `changesRiskyEnv` exige redigitar (`8243665`) |
+| baixa | `src/main/agenda.ts` | `redact` não cobria a forma `https://` de um link `webcal://` | ✅ corrigido (`8243665`) |
+| baixa | `lib/secrets.ts` (`maskValue`) | Mostra 4 últimos caracteres de valores ≥ 16 | Aceito (mesma prática do GitHub); registrado no ADR-015 |
+| baixa | URL de MCP | Token na query da URL fica em claro e aparece na tela | Sprint 05: avaliar cifrar a URL; documentar "token vai em header" |
+
+- **Condições de fechamento:** atendidas (CSP, versão exata, sem scripts de instalação, zod + clamp, menu nulo, hooks de dev só com `devUrl()`).
+- **Veredito:** ✅ Sprint 04 pode fechar pela segurança.
+
+## Entregas
+- v0.4.0: identidade "Índigo Noturno", paleta de comandos, atalhos, painéis recolhíveis, acessibilidade (axe sem violações), segredos de MCP/ICS cifrados, confiança cobrindo `.claude/**`.
+- ADRs 014 (tokens em camadas), 015 (segredos cifrados), 016 (atalhos e menu nulo), 017 (dependências de UI).
+- `CHANGELOG.md` 0.4.0, READMEs EN/PT com captura nova.
+
 ## Riscos aceitos
 - **Alta → Sprint 05 (Must):** B3 — git executa filtros/`textconv`/`fsmonitor`/`hooksPath` de `.git/config`. Só afeta repositório recebido com `.git/` pronto (zip, pasta copiada); `git clone` não traz `.git/config` de terceiros. Esta sprint não cria operação git nova.
+
+- **Baixa → Sprint 05:** token na query de URL de MCP fica em claro.
+- **Baixa:** `maskValue` mostra os 4 últimos caracteres (decisão registrada).
 
 ## Movido para a Sprint 05
 1. Confiança em `.git/config` (B3 completo).
@@ -127,3 +199,10 @@ Diagnóstico: accent terracota `#d97757` e texto creme `#e6e2da` são a paleta d
 3. Tema claro.
 4. Riscos baixos da Sprint 03 e migration `0002`.
 5. `it.todo` de agenda, ICS e diff.
+6. URL de MCP cifrada (token em query).
+7. Roteiro manual da Sprint 04 (ABNT2, NVDA, aprovação real com painel recolhido, MCP/ICS reais, Linux).
+
+## Retro
+- **Funcionou:** o debate mudou o rumo de três decisões antes do código: Tech Lead trocou `cmdk` por paleta própria testada, Cybersecurity transformou "painel recolhível" num requisito de segurança (B4) e PO cortou o B3 quando ele cresceu de P para M–G. Envolver o CSS antigo em `@layer legacy` e trocar só os tokens mudou a identidade inteira em um commit, sem big bang. Capturas automáticas (`DEVDECK_SNAPSHOT` + `DEVDECK_SIZE`) e axe injetado em dev pegaram bugs que teste unitário não pega: botão primário ilegível, painel cobrindo o chat em 1280×720 e barra de custo encolhida.
+- **Melhorar:** regra nova numa camada superior que reutiliza um seletor do legado (`.btn`, `.meter`) sobrescreve variantes sem avisar — dois bugs vieram daí. Escapes `\uXXXX` e `\\` em heredoc/ferramentas de escrita viraram caracteres crus (de novo, como na Sprint 03).
+- **Ações:** classes novas do `shell` com prefixo ou escopo (`.statusbar .meter`) em vez de reusar nomes do legado; migrar o legado por área até o `@layer legacy` sumir; nada de escapes em heredoc — usar `String.raw`, `\p{M}` ou arquivo de script; rodar a varredura de camadas do QA no CI.

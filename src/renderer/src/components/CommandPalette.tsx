@@ -77,6 +77,7 @@ export function CommandPalette() {
   }
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActive((current + 1) % Math.max(1, results.length))
@@ -86,7 +87,7 @@ export function CommandPalette() {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       run(results[current])
-    } else if (e.key === 'Home' || e.key === 'End') {
+    } else if ((e.key === 'Home' || e.key === 'End') && e.ctrlKey) {
       e.preventDefault()
       setActive(e.key === 'Home' ? 0 : results.length - 1)
     }
