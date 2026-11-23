@@ -65,3 +65,9 @@ docs/          squad, sprints, ADRs
 ```
 
 Os dados locais ficam em `%APPDATA%/DevDeck`.
+
+## Contribuição, segurança e licença
+
+- Como contribuir: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Reporte vulnerabilidades de forma privada: [SECURITY.md](SECURITY.md)
+- Licença: [MIT](LICENSE)
