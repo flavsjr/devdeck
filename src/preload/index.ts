@@ -11,7 +11,6 @@ const api: DeckApi = {
   },
   workspace: {
     pick: () => invoke('workspace:pick'),
-    open: (p) => invoke('workspace:open', p),
     list: (rel) => invoke('workspace:list', rel),
     read: (rel) => invoke('workspace:read', rel)
   },

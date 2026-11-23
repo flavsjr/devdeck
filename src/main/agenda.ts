@@ -1,68 +1,20 @@
 import { BrowserWindow, Notification, net } from 'electron'
 import { randomUUID } from 'node:crypto'
-import ICAL from 'ical.js'
+import type ICAL from 'ical.js'
 import type { AgendaEvent, IcsFeed, Occurrence } from '@shared/types'
 import { bumpStats, deleteIcsText, getAgendaEvents, getIcsFeeds, readIcsText, saveAgendaEvents, saveIcsFeeds, saveIcsText } from './store'
 import { checkAchievements } from './achievements'
 import { emit } from './events'
+import { MAX_DAYS, expandLocal, isValidLocalStart } from './lib/recurrence'
+import { expandIcsEvents, parseIcs } from './lib/ics'
 
 // Agenda local com recorrência + assinaturas ICS somente leitura + lembretes.
 
 const DAY = 86_400_000
-const MAX_DAYS = 400
-const MAX_ITER = 5000
 const SYNC_EVERY_MS = 30 * 60 * 1000
+const MAX_REMIND_MIN = 24 * 60
 
-// ---------- eventos locais ----------
-
-function parseLocal(start: string): Date {
-  const [d, t = '00:00'] = start.split('T')
-  const [y, m, day] = d.split('-').map(Number)
-  const [hh, mm] = t.split(':').map(Number)
-  return new Date(y, m - 1, day, hh, mm)
-}
-
-function matches(ev: AgendaEvent, day: Date): boolean {
-  const r = ev.recurrence
-  const wd = day.getDay()
-  if (r.kind === 'daily') return true
-  if (r.kind === 'weekdays') return wd >= 1 && wd <= 5
-  if (r.kind === 'weekly') return r.days.includes(wd)
-  return false
-}
-
-function expandLocal(ev: AgendaEvent, from: number, to: number): Occurrence[] {
-  const first = parseLocal(ev.start)
-  const make = (start: Date): Occurrence => ({
-    key: `local:${ev.id}:${start.getTime()}`,
-    source: 'local',
-    eventId: ev.id,
-    title: ev.title,
-    start: start.getTime(),
-    end: start.getTime() + ev.durationMin * 60_000,
-    kind: ev.kind,
-    link: ev.link,
-    notes: ev.notes
-  })
-  if (ev.recurrence.kind === 'none') {
-    const end = first.getTime() + ev.durationMin * 60_000
-    return end >= from && first.getTime() <= to ? [make(first)] : []
-  }
-  const until = ev.until ? parseLocal(`${ev.until}T23:59`).getTime() : Infinity
-  const out: Occurrence[] = []
-  const cursor = new Date(Math.max(first.getTime(), from - DAY))
-  cursor.setHours(first.getHours(), first.getMinutes(), 0, 0)
-  for (let i = 0; i < MAX_DAYS && cursor.getTime() <= Math.min(to, until); i++) {
-    if (cursor.getTime() >= first.getTime() && matches(ev, cursor)) {
-      const o = make(new Date(cursor))
-      if (o.end >= from) out.push(o)
-    }
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return out
-}
-
-// ---------- ICS ----------
+// ---------- ICS (cache do parse por feed) ----------
 
 const parsedCache = new Map<string, { text: string; events: ICAL.Event[] }>()
 
@@ -71,72 +23,9 @@ function parseFeed(feed: IcsFeed): ICAL.Event[] {
   if (!text) return []
   const cached = parsedCache.get(feed.id)
   if (cached?.text === text) return cached.events
-
-  const root = new ICAL.Component(ICAL.parse(text))
-  for (const tz of root.getAllSubcomponents('vtimezone')) {
-    try {
-      ICAL.TimezoneService.register(tz)
-    } catch {
-      // fuso inválido: o horário cai como local
-    }
-  }
-  const masters = new Map<string, ICAL.Event>()
-  const exceptions: ICAL.Event[] = []
-  for (const comp of root.getAllSubcomponents('vevent')) {
-    const ev = new ICAL.Event(comp, { strictExceptions: false })
-    if (ev.isRecurrenceException()) exceptions.push(ev)
-    else masters.set(ev.uid, ev)
-  }
-  for (const ex of exceptions) masters.get(ex.uid)?.relateException(ex)
-  const events = [...masters.values()]
+  const events = parseIcs(text)
   parsedCache.set(feed.id, { text, events })
   return events
-}
-
-function expandIcs(feed: IcsFeed, from: number, to: number): Occurrence[] {
-  const out: Occurrence[] = []
-  for (const ev of parseFeed(feed)) {
-    const push = (start: ICAL.Time, end: ICAL.Time, item: ICAL.Event): void => {
-      const s = start.toJSDate().getTime()
-      const e = end.toJSDate().getTime()
-      if (e < from || s > to) return
-      if (/^(cancelad|cancel+ed)/i.test(item.summary ?? '')) return
-      out.push({
-        key: `ics:${feed.id}:${item.uid}:${s}`,
-        source: 'ics',
-        eventId: item.uid,
-        feedName: feed.name,
-        title: item.summary || '(sem título)',
-        start: s,
-        end: e,
-        kind: 'meeting',
-        location: item.location || undefined,
-        link: extractLink(`${item.location ?? ''} ${item.description ?? ''}`),
-        allDay: start.isDate
-      })
-    }
-    try {
-      if (!ev.isRecurring()) {
-        push(ev.startDate, ev.endDate, ev)
-        continue
-      }
-      const it = ev.iterator()
-      let next: ICAL.Time | null
-      for (let i = 0; i < MAX_ITER && (next = it.next()); i++) {
-        if (next.toJSDate().getTime() > to) break
-        const det = ev.getOccurrenceDetails(next)
-        push(det.startDate, det.endDate, det.item)
-      }
-    } catch {
-      // evento malformado: ignora
-    }
-  }
-  return out
-}
-
-function extractLink(text: string): string | undefined {
-  const m = /(https:\/\/(?:teams\.microsoft\.com|meet\.google\.com|[\w.-]*zoom\.us)\/[^\s"<>]+)/i.exec(text)
-  return m?.[1]
 }
 
 async function syncFeed(feed: IcsFeed): Promise<IcsFeed> {
@@ -160,24 +49,33 @@ async function syncFeed(feed: IcsFeed): Promise<IcsFeed> {
 
 // ---------- API ----------
 
+/** Ocorrências que intersectam [from, to). */
 export function listOccurrences(from: number, to: number): Occurrence[] {
   const span = Math.min(to, from + MAX_DAYS * DAY)
   const local = getAgendaEvents().flatMap((e) => expandLocal(e, from, span))
   const ics = getIcsFeeds()
     .filter((f) => f.enabled)
-    .flatMap((f) => expandIcs(f, from, span))
+    .flatMap((f) => expandIcsEvents(parseFeed(f), f, from, span))
   return [...local, ...ics].sort((a, b) => a.start - b.start)
 }
 
 export function saveEvent(ev: AgendaEvent): AgendaEvent[] {
+  if (!isValidLocalStart(ev.start)) throw new Error('Informe data e hora de início válidas.')
+  if (ev.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(ev.until)) throw new Error('Data "até" inválida.')
   const list = getAgendaEvents()
   const isNew = !ev.id || !list.some((e) => e.id === ev.id)
+  const recurrence: AgendaEvent['recurrence'] =
+    ev.recurrence.kind === 'weekly'
+      ? { kind: 'weekly', days: [...new Set(ev.recurrence.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))] }
+      : ev.recurrence
+  if (recurrence.kind === 'weekly' && recurrence.days.length === 0) throw new Error('Escolha ao menos um dia da semana.')
   const clean: AgendaEvent = {
     ...ev,
+    recurrence,
     id: ev.id || randomUUID(),
     title: ev.title.trim().slice(0, 120) || 'Sem título',
     durationMin: Math.max(5, Math.min(24 * 60, Math.round(ev.durationMin) || 30)),
-    remindMin: Math.max(0, Math.min(24 * 60, Math.round(ev.remindMin) || 0)),
+    remindMin: Math.max(0, Math.min(MAX_REMIND_MIN, Math.round(ev.remindMin) || 0)),
     link: ev.link && /^https:\/\//.test(ev.link) ? ev.link : undefined
   }
   const next = isNew ? [...list, clean] : list.map((e) => (e.id === clean.id ? clean : e))
@@ -196,7 +94,12 @@ export function removeEvent(id: string): AgendaEvent[] {
 
 export async function saveFeed(feed: IcsFeed): Promise<IcsFeed[]> {
   const list = getIcsFeeds()
-  const clean: IcsFeed = { ...feed, id: feed.id || randomUUID(), name: feed.name.trim().slice(0, 60) || 'Calendário', remindMin: Math.max(0, feed.remindMin) }
+  const clean: IcsFeed = {
+    ...feed,
+    id: feed.id || randomUUID(),
+    name: feed.name.trim().slice(0, 60) || 'Calendário',
+    remindMin: Math.max(0, Math.min(MAX_REMIND_MIN, Math.round(feed.remindMin) || 0))
+  }
   const synced = clean.enabled ? await syncFeed(clean) : clean
   const next = list.some((f) => f.id === synced.id) ? list.map((f) => (f.id === synced.id ? synced : f)) : [...list, synced]
   saveIcsFeeds(next)
@@ -216,6 +119,7 @@ export function removeFeed(id: string): IcsFeed[] {
 export async function syncAllFeeds(): Promise<IcsFeed[]> {
   const synced = await Promise.all(getIcsFeeds().map((f) => (f.enabled ? syncFeed(f) : Promise.resolve(f))))
   saveIcsFeeds(synced)
+  checkAchievements()
   emit({ type: 'agenda-changed' })
   return synced
 }
@@ -228,7 +132,10 @@ function tickReminders(): void {
   const now = Date.now()
   const feeds = new Map(getIcsFeeds().map((f) => [f.id, f]))
   const events = new Map(getAgendaEvents().map((e) => [e.id, e]))
-  for (const o of listOccurrences(now, now + 3 * 60 * 60 * 1000)) {
+  // A janela cobre o maior lembrete configurado (antes era fixa em 3 h e lembretes maiores disparavam atrasados).
+  const maxRemind = Math.max(0, ...[...events.values()].map((e) => e.remindMin), ...[...feeds.values()].map((f) => f.remindMin))
+  if (!maxRemind) return
+  for (const o of listOccurrences(now, now + (maxRemind + 1) * 60_000)) {
     if (o.allDay || notified.has(o.key)) continue
     const remindMin = o.source === 'local' ? (events.get(o.eventId)?.remindMin ?? 0) : (feeds.get(o.key.split(':')[1])?.remindMin ?? 0)
     if (!remindMin) continue

@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { applyPatch, createTwoFilesPatch, parsePatch, reversePatch } from 'diff'
-import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import { applyEdit, makePatch, revertText } from './lib/edit'
+import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
   appendLedger,
@@ -18,6 +18,7 @@ import {
   type StoredSession
 } from './store'
 import { getRoot, toRel } from './workspace'
+import { classifyEditTarget, projectSettingSources } from './trust'
 import { toSdkMcpServers } from './mcp'
 import { emit } from './events'
 import { checkAchievements } from './achievements'
@@ -73,6 +74,7 @@ interface LiveSession {
   pendingChanges: Map<string, PendingChange>
   contextWindow: number
   turnStartedAt: number
+  cwd: string
 }
 
 interface PendingApproval {
@@ -155,15 +157,6 @@ function stringifyToolResult(content: unknown): string {
   return JSON.stringify(content)
 }
 
-/** Simula o Edit para mostrar o diff antes de aplicar. */
-function applyEdit(before: string, input: Record<string, unknown>): string {
-  const oldS = String(input.old_string ?? '')
-  const newS = String(input.new_string ?? '')
-  if (!oldS) return before
-  if (input.replace_all) return before.split(oldS).join(newS)
-  const i = before.indexOf(oldS)
-  return i < 0 ? before : before.slice(0, i) + newS + before.slice(i + oldS.length)
-}
 
 // ---------- sessões ----------
 
@@ -265,12 +258,20 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     alwaysAllowed: new Set(),
     pendingChanges: new Map(),
     contextWindow: 0,
-    turnStartedAt: now()
+    turnStartedAt: now(),
+    cwd: s.meta.cwd
   }
   live.set(ls.id, ls)
 
   const settings = getSettings()
   const apiKey = getApiKey()
+  let settingSources: SettingSource[] = []
+  try {
+    settingSources = await projectSettingSources(s.meta.cwd, settings.loadProjectSettings)
+  } catch (err) {
+    live.delete(ls.id)
+    throw err
+  }
   const options: Options = {
     cwd: s.meta.cwd,
     model: settings.model || undefined,
@@ -280,7 +281,7 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     permissionMode: 'default',
     canUseTool: makeCanUseTool(ls),
     includePartialMessages: true,
-    settingSources: settings.loadProjectSettings ? ['project'] : [],
+    settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
     resume: s.meta.claudeSessionId,
     env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : { ...process.env },
@@ -388,7 +389,7 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
 
 function recordChange(sessionId: string, c: PendingChange): void {
   const rel = toRel(c.filePath) ?? basename(c.filePath)
-  const patch = createTwoFilesPatch(rel, rel, c.before, c.after, undefined, undefined, { context: 3 })
+  const patch = makePatch(rel, c.before, c.after)
   pushItem(sessionId, { kind: 'change', id: randomUUID(), filePath: c.filePath, patch, created: c.created, ts: now() })
 }
 
@@ -462,15 +463,18 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
       const before = exists ? await readFile(filePath, 'utf8').catch(() => '') : ''
       const after = toolName === 'Write' ? String(input.content ?? '') : applyEdit(before, input)
       const change: PendingChange = { filePath, before, after, created: !exists }
+      // "Aprovar todas da sessão" só vale dentro do workspace e fora de pastas sensíveis (resolve symlink/junction).
+      const verdict = classifyEditTarget(ls.cwd, filePath)
 
-      if (ls.autoApproveEdits) {
+      if (ls.autoApproveEdits && verdict === 'inside') {
         ls.pendingChanges.set(opts.toolUseID, change)
         return { behavior: 'allow', updatedInput: input }
       }
+      const warn = verdict === 'outside' ? '⚠ Fora do workspace — ' : verdict === 'sensitive' ? '⚠ Pasta sensível — ' : ''
       return ask(ls, opts, input, {
         kind: toolName === 'Write' ? 'write' : 'edit',
         toolName,
-        title: opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`,
+        title: warn + (opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`),
         filePath,
         relPath: toRel(filePath) ?? filePath,
         before,
@@ -573,13 +577,21 @@ export async function revertChange(sessionId: string, itemId: string): Promise<{
   if (!item || item.kind !== 'change') return { ok: false, error: 'Alteração não encontrada.' }
   if (item.reverted) return { ok: false, error: 'Já revertida.' }
 
-  const current = existsSync(item.filePath) ? await readFile(item.filePath, 'utf8') : ''
-  const [parsed] = parsePatch(item.patch)
-  const restored = applyPatch(current, reversePatch(parsed))
-  if (restored === false) return { ok: false, error: 'O arquivo mudou depois desta alteração; reversão automática conflitou.' }
+  let current = ''
+  try {
+    current = existsSync(item.filePath) ? await readFile(item.filePath, 'utf8') : ''
+  } catch (err) {
+    return { ok: false, error: `Não foi possível ler o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+  }
+  const result = revertText(current, item.patch)
+  if (!result.ok) return { ok: false, error: result.error }
 
-  if (item.created && restored === '') await unlink(item.filePath).catch(() => undefined)
-  else await writeFile(item.filePath, restored, 'utf8')
+  try {
+    if (item.created && result.text === '') await unlink(item.filePath).catch(() => undefined)
+    else await writeFile(item.filePath, result.text, 'utf8')
+  } catch (err) {
+    return { ok: false, error: `Não foi possível gravar o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+  }
 
   updateItem(sessionId, itemId, (it) => (it.kind === 'change' ? { ...it, reverted: true } : it))
   bumpStats({ reverts: 1 })

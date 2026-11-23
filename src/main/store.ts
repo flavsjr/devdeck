@@ -54,6 +54,21 @@ function writeJson(file: string, data: unknown): void {
 
 interface StoredSettings extends Omit<AppSettings, 'hasApiKey'> {
   apiKeyEnc?: string // base64 do safeStorage
+  settingsVersion?: number
+}
+
+const SETTINGS_VERSION = 3
+
+/**
+ * v0.3.0: carregar configurações do projeto passou a exigir confiança explícita. Instalações antigas que
+ * gravaram loadProjectSettings: true voltam para desligado uma única vez.
+ */
+export function migrateSettings(): void {
+  const file = settingsFile()
+  if (!existsSync(file)) return
+  const raw = readJson<Partial<StoredSettings>>(file, {})
+  if ((raw.settingsVersion ?? 0) >= SETTINGS_VERSION) return
+  writeJson(file, { ...raw, loadProjectSettings: false, settingsVersion: SETTINGS_VERSION })
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
@@ -61,10 +76,11 @@ const DEFAULT_SETTINGS: StoredSettings = {
   effort: 'high',
   dailyBudgetUsd: 10,
   sessionBudgetUsd: 0,
-  loadProjectSettings: true,
+  loadProjectSettings: false,
   appendSystemPrompt: 'Responda sempre em português do Brasil.',
   spotifyUrl: '',
-  lastWorkspace: null
+  lastWorkspace: null,
+  settingsVersion: SETTINGS_VERSION
 }
 
 const settingsFile = (): string => join(root(), 'settings.json')
@@ -124,7 +140,15 @@ export function saveMcpServers(list: McpServerEntry[]): McpServerEntry[] {
 
 // ---------- Sessões ----------
 
-const sessionFile = (id: string): string => join(sessionsDir(), `${id}.json`)
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Ids viram nome de arquivo: só UUID passa (evita .. e caminhos arbitrários). */
+function assertUuid(id: string): string {
+  if (!UUID.test(id)) throw new Error('Id inválido.')
+  return id
+}
+
+const sessionFile = (id: string): string => join(sessionsDir(), `${assertUuid(id)}.json`)
 
 interface StoredSession {
   meta: SessionMeta
@@ -318,14 +342,32 @@ const icsDir = (): string => join(root(), 'ics')
 
 export function saveIcsText(feedId: string, text: string): void {
   mkdirSync(icsDir(), { recursive: true })
-  writeFileSync(join(icsDir(), `${feedId}.ics`), text, 'utf8')
+  writeFileSync(join(icsDir(), `${assertUuid(feedId)}.ics`), text, 'utf8')
 }
 
 export function readIcsText(feedId: string): string | null {
-  const f = join(icsDir(), `${feedId}.ics`)
+  const f = join(icsDir(), `${assertUuid(feedId)}.ics`)
   return existsSync(f) ? readFileSync(f, 'utf8') : null
 }
 
 export function deleteIcsText(feedId: string): void {
-  rmSync(join(icsDir(), `${feedId}.ics`), { force: true })
+  rmSync(join(icsDir(), `${assertUuid(feedId)}.ics`), { force: true })
+}
+
+// ---------- Workspaces confiados ----------
+
+const trustFile = (): string => join(root(), 'trusted-workspaces.json')
+
+type TrustMap = Record<string, { hash: string; trustedAt: number }>
+
+const trustKey = (p: string): string => (process.platform === 'win32' ? p.toLowerCase() : p)
+
+export function getTrustedHash(rootReal: string): string | null {
+  return readJson<TrustMap>(trustFile(), {})[trustKey(rootReal)]?.hash ?? null
+}
+
+export function trustWorkspace(rootReal: string, hash: string): void {
+  const all = readJson<TrustMap>(trustFile(), {})
+  all[trustKey(rootReal)] = { hash, trustedAt: Date.now() }
+  writeJson(trustFile(), all)
 }

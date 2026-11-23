@@ -5,11 +5,23 @@ import { IconMusic } from './Icons'
 // Modo Flow: player Spotify (embed oficial, sem OAuth) + timer de foco/pausa.
 // Controle completo via Spotify Web API (device, fila, busca) fica para a Fase 2.
 
-function toEmbed(url: string): string | null {
+/** Tipo e id do conteúdo a partir de link ou URI do Spotify. */
+function parseSpotify(url: string): { type: string; id: string } | null {
   const uri = /^spotify:(playlist|album|track|artist|episode|show):([A-Za-z0-9]+)/.exec(url.trim())
-  if (uri) return `https://open.spotify.com/embed/${uri[1]}/${uri[2]}`
+  if (uri) return { type: uri[1], id: uri[2] }
   const m = /open\.spotify\.com\/(?:intl-[a-z-]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/.exec(url)
-  return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0` : null
+  return m ? { type: m[1], id: m[2] } : null
+}
+
+function toEmbed(url: string): string | null {
+  const p = parseSpotify(url)
+  return p ? `https://open.spotify.com/embed/${p.type}/${p.id}?theme=0` : null
+}
+
+/** Forma canônica salva nas configurações (o main só aceita https://open.spotify.com/...). */
+function toCanonical(url: string): string | null {
+  const p = parseSpotify(url)
+  return p ? `https://open.spotify.com/${p.type}/${p.id}` : null
 }
 
 const PRESETS = { foco: 25 * 60, pausa: 5 * 60 } as const
@@ -81,7 +93,9 @@ export function FlowCard() {
 
   const saveUrl = async (): Promise<void> => {
     if (!toEmbed(draft)) return
-    setSettings(await window.deck.settings.update({ spotifyUrl: draft.trim() }))
+    const canonical = toCanonical(draft)
+    if (!canonical) return
+    setSettings(await window.deck.settings.update({ spotifyUrl: canonical }))
     setDraft('')
   }
 
@@ -101,6 +115,7 @@ export function FlowCard() {
                 className="spotify"
                 src={embed}
                 title="Spotify"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
               />

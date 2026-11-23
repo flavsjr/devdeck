@@ -1,21 +1,15 @@
 import { net } from 'electron'
 import type { ProviderId, ProviderStats } from '@shared/types'
+import { dayKey, startOfDayAgo } from './lib/dates'
+import { WINDOW_DAYS, countLanguages } from './lib/streak'
 
 // Métricas de GitHub, GitLab e Bitbucket Cloud via token pessoal (somente leitura).
 // net.fetch usa a pilha de rede do Chromium: respeita proxy corporativo do sistema.
 
-export const WINDOW_DAYS = 182 // ~26 semanas, casa com o heatmap
 const TIMEOUT_MS = 20_000
 
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function sinceDate(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - WINDOW_DAYS)
-  return d
+  return startOfDayAgo(new Date(), WINDOW_DAYS)
 }
 
 async function getJson<T>(url: string, headers: Record<string, string>, init: { method?: string; body?: string } = {}): Promise<{ data: T; res: Response }> {
@@ -31,12 +25,6 @@ async function getJson<T>(url: string, headers: Record<string, string>, init: { 
   } finally {
     clearTimeout(t)
   }
-}
-
-function countLanguages(langs: (string | null | undefined)[]): { name: string; count: number }[] {
-  const m = new Map<string, number>()
-  for (const l of langs) if (l) m.set(l, (m.get(l) ?? 0) + 1)
-  return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
 }
 
 function base(provider: ProviderId): ProviderStats {
@@ -274,31 +262,4 @@ export async function fetchProvider(id: ProviderId, token: string, opts: { gitla
   } catch (err) {
     return { ...base(id), error: err instanceof Error ? err.message : String(err) }
   }
-}
-
-/** Soma dias de todos os provedores e calcula sequências. */
-export function mergeDays(all: ProviderStats[]): { days: Record<string, number>; activeDays: number; currentStreak: number; longestStreak: number } {
-  const days: Record<string, number> = {}
-  for (const s of all) for (const [k, v] of Object.entries(s.days)) days[k] = (days[k] ?? 0) + v
-
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  let longest = 0
-  let run = 0
-  let current = 0
-  let currentOpen = true
-  // Hoje sem commit não quebra a sequência atual (o dia ainda não acabou).
-  if (!days[dayKey(cursor)]) cursor.setDate(cursor.getDate() - 1)
-  for (let i = 0; i <= WINDOW_DAYS; i++) {
-    if (days[dayKey(cursor)]) {
-      run++
-      if (currentOpen) current = run
-    } else {
-      currentOpen = false
-      run = 0
-    }
-    longest = Math.max(longest, run)
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  return { days, activeDays: Object.values(days).filter((v) => v > 0).length, currentStreak: current, longestStreak: longest }
 }

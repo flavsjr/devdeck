@@ -37,3 +37,25 @@ Formato curto: contexto → decisão → consequências. Novas decisões entram 
 ## ADR-008 — Squad, sprints e changelog
 - **Decisão:** processo com papéis (PO, Tech Lead, UX, Front, Back, QA, Cybersecurity, DevOps) como subagentes em `.claude/agents/`, uma sprint por arquivo em `docs/sprints/`, `CHANGELOG.md` no formato Keep a Changelog e SemVer.
 - **Consequências:** toda entrega deixa rastro de decisão, teste e segurança.
+
+## ADR-009 — Testes com Vitest em lógica pura isolada
+- **Contexto:** nenhuma regra de negócio era testável: tudo importava `electron`, disco ou o store.
+- **Decisão:** lógica pura em `src/main/lib/` e `src/renderer/src/lib/` (sem `electron`, `fs`, `store`, `events`, garantido por teste-guarda); Vitest 5 em ambiente `node`, rodando em dois fusos (São Paulo e Nova York) com relógio fixo.
+- **Consequências:** testes rápidos e determinísticos sem Electron; código com efeito colateral fica fino em volta da `lib/`. Sem testes de componente (DOM) por enquanto.
+
+## ADR-010 — CI no GitHub Actions
+- **Decisão:** workflow `ci.yml` em push (`main`, `sprint/**`), PR e manual: `npm ci → typecheck → test → build` em Windows e Ubuntu, Node 24; job separado com gitleaks. `permissions: contents: read`, actions fixadas por SHA, `persist-credentials: false`, sem `pull_request_target`; Dependabot atualiza as actions.
+- **Consequências:** o binário do Electron não é baixado na checagem (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`); empacotamento fica num workflow de release separado (Sprint 04).
+
+## ADR-011 — Instalador NSIS per-user
+- **Status:** reservado — decidido na Sprint 04 junto com a H03.4 (instalador).
+
+## ADR-012 — Fronteira do IPC: origem + zod
+- **Contexto:** handlers aceitavam qualquer chamador e qualquer argumento; ids viravam caminhos de arquivo.
+- **Decisão:** todo handler é registrado por `handle()` (`src/main/ipc.ts`), que exige o frame principal da UI do app (`isAppUrl`) e valida a tupla de argumentos com `zod` (`src/main/lib/validation.ts`). Ids são UUID; o store recusa id não-UUID antes de montar caminho. Navegação, janelas novas, webview e permissões do Chromium são negadas por padrão.
+- **Consequências:** novo canal IPC exige esquema; chamada fora do padrão falha com erro legível em vez de executar.
+
+## ADR-013 — Confiança explícita em configurações de projeto
+- **Contexto:** `.claude/settings.json` e `.mcp.json` de um repositório executam comandos (hooks, permissões, MCP) sem passar pela aprovação do DevDeck.
+- **Decisão:** carregar configurações do projeto vem desligado; quando ligado e houver itens que executam código, um diálogo lista o que roda e só carrega após confiança explícita, registrada por realpath + hash dos arquivos (mudou, pergunta de novo). "Aprovar todas da sessão" fica confinado ao workspace (realpath) e fora de pastas sensíveis.
+- **Consequências:** abrir repositório de terceiros não executa nada sozinho; o usuário vê um diálogo extra na primeira vez.
