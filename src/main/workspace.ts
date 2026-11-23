@@ -1,7 +1,8 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { open, readdir, stat } from 'node:fs/promises'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep, isAbsolute } from 'node:path'
 import ignore, { type Ignore } from 'ignore'
+import { isInsideRoot } from './lib/paths'
 import type { FileContent, TreeNode } from '@shared/types'
 
 // Estado do workspace ativo + leitura segura (sempre confinada à raiz).
@@ -37,6 +38,16 @@ export function safeResolve(relPath: string): string {
   const abs = resolve(r, relPath)
   const rel = relative(r, abs)
   if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('Caminho fora do workspace.')
+  // Symlink/junction dentro do workspace não pode apontar para fora dele.
+  if (existsSync(abs)) {
+    let real: string
+    try {
+      real = realpathSync.native(abs)
+    } catch {
+      throw new Error('Caminho inacessível.')
+    }
+    if (!isInsideRoot(realpathSync.native(r), real)) throw new Error('Caminho fora do workspace (link simbólico).')
+  }
   return abs
 }
 
@@ -77,9 +88,18 @@ function looksBinary(buf: Buffer): boolean {
 export async function readWorkspaceFile(relPath: string): Promise<FileContent> {
   const abs = safeResolve(relPath)
   const st = await stat(abs)
-  const buf = await readFile(abs)
+  // Lê no máximo o tamanho da prévia + 1 byte (detecta truncamento sem carregar arquivos enormes).
+  const fh = await open(abs, 'r')
+  const chunk = Buffer.alloc(Math.min(st.size, MAX_PREVIEW_BYTES + 1))
+  let buf: Buffer
+  try {
+    const { bytesRead } = await fh.read(chunk, 0, chunk.length, 0)
+    buf = chunk.subarray(0, bytesRead)
+  } finally {
+    await fh.close()
+  }
   if (looksBinary(buf)) return { path: relPath, content: null, truncated: false, binary: true, size: st.size }
-  const truncated = buf.length > MAX_PREVIEW_BYTES
+  const truncated = st.size > MAX_PREVIEW_BYTES
   return {
     path: relPath,
     content: buf.subarray(0, MAX_PREVIEW_BYTES).toString('utf8'),

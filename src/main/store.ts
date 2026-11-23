@@ -61,7 +61,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   effort: 'high',
   dailyBudgetUsd: 10,
   sessionBudgetUsd: 0,
-  loadProjectSettings: true,
+  loadProjectSettings: false,
   appendSystemPrompt: 'Responda sempre em português do Brasil.',
   spotifyUrl: '',
   lastWorkspace: null
@@ -336,4 +336,22 @@ export function readIcsText(feedId: string): string | null {
 
 export function deleteIcsText(feedId: string): void {
   rmSync(join(icsDir(), `${assertUuid(feedId)}.ics`), { force: true })
+}
+
+// ---------- Workspaces confiados ----------
+
+const trustFile = (): string => join(root(), 'trusted-workspaces.json')
+
+type TrustMap = Record<string, { hash: string; trustedAt: number }>
+
+const trustKey = (p: string): string => (process.platform === 'win32' ? p.toLowerCase() : p)
+
+export function getTrustedHash(rootReal: string): string | null {
+  return readJson<TrustMap>(trustFile(), {})[trustKey(rootReal)]?.hash ?? null
+}
+
+export function trustWorkspace(rootReal: string, hash: string): void {
+  const all = readJson<TrustMap>(trustFile(), {})
+  all[trustKey(rootReal)] = { hash, trustedAt: Date.now() }
+  writeJson(trustFile(), all)
 }

@@ -89,6 +89,9 @@ export function SettingsView() {
           <input type="checkbox" checked={settings.loadProjectSettings} onChange={(e) => void update({ loadProjectSettings: e.target.checked })} />
           Carregar CLAUDE.md e .claude/settings.json do projeto
         </label>
+        <p className="muted small">
+          Se o repositório tiver hooks, permissões liberadas, variáveis de ambiente ou servidores MCP (.mcp.json), o DevDeck mostra o que será executado e só carrega depois de você confiar. Se esses arquivos mudarem, ele pergunta de novo.
+        </p>
         <p className="muted small">Mudanças valem a partir do próximo envio (chats ociosos são reiniciados e retomam o histórico).</p>
       </div>
 

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { applyEdit, makePatch, revertText } from './lib/edit'
-import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
   appendLedger,
@@ -18,6 +18,7 @@ import {
   type StoredSession
 } from './store'
 import { getRoot, toRel } from './workspace'
+import { classifyEditTarget, projectSettingSources } from './trust'
 import { toSdkMcpServers } from './mcp'
 import { emit } from './events'
 import { checkAchievements } from './achievements'
@@ -73,6 +74,7 @@ interface LiveSession {
   pendingChanges: Map<string, PendingChange>
   contextWindow: number
   turnStartedAt: number
+  cwd: string
 }
 
 interface PendingApproval {
@@ -256,12 +258,20 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     alwaysAllowed: new Set(),
     pendingChanges: new Map(),
     contextWindow: 0,
-    turnStartedAt: now()
+    turnStartedAt: now(),
+    cwd: s.meta.cwd
   }
   live.set(ls.id, ls)
 
   const settings = getSettings()
   const apiKey = getApiKey()
+  let settingSources: SettingSource[] = []
+  try {
+    settingSources = await projectSettingSources(s.meta.cwd, settings.loadProjectSettings)
+  } catch (err) {
+    live.delete(ls.id)
+    throw err
+  }
   const options: Options = {
     cwd: s.meta.cwd,
     model: settings.model || undefined,
@@ -271,7 +281,7 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     permissionMode: 'default',
     canUseTool: makeCanUseTool(ls),
     includePartialMessages: true,
-    settingSources: settings.loadProjectSettings ? ['project'] : [],
+    settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
     resume: s.meta.claudeSessionId,
     env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : { ...process.env },
@@ -453,15 +463,18 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
       const before = exists ? await readFile(filePath, 'utf8').catch(() => '') : ''
       const after = toolName === 'Write' ? String(input.content ?? '') : applyEdit(before, input)
       const change: PendingChange = { filePath, before, after, created: !exists }
+      // "Aprovar todas da sessão" só vale dentro do workspace e fora de pastas sensíveis (resolve symlink/junction).
+      const verdict = classifyEditTarget(ls.cwd, filePath)
 
-      if (ls.autoApproveEdits) {
+      if (ls.autoApproveEdits && verdict === 'inside') {
         ls.pendingChanges.set(opts.toolUseID, change)
         return { behavior: 'allow', updatedInput: input }
       }
+      const warn = verdict === 'outside' ? '⚠ Fora do workspace — ' : verdict === 'sensitive' ? '⚠ Pasta sensível — ' : ''
       return ask(ls, opts, input, {
         kind: toolName === 'Write' ? 'write' : 'edit',
         toolName,
-        title: opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`,
+        title: warn + (opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`),
         filePath,
         relPath: toRel(filePath) ?? filePath,
         before,
