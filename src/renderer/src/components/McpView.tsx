@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { McpServerEntry, McpTestResult, McpTransport, ToolPolicy } from '@shared/types'
+import type { McpServerInput, McpServerView, McpTestResult, McpTransport, ToolPolicy } from '@shared/types'
 import { useStore } from '../store'
 import { IconPlus } from './Icons'
 
@@ -23,50 +23,64 @@ function kvToText(rec: Record<string, string> | undefined, sep: string): string 
     .join('\n')
 }
 
-function textToKv(text: string, sep: string): Record<string, string> {
-  const out: Record<string, string> = {}
+/**
+ * Texto do editor → segredos para o main. Linha que ficou igual à máscara mostrada vira `null` (manter o valor
+ * guardado); o main só aceita isso se o destino não mudou. Linha apagada = remover.
+ */
+function textToSecrets(text: string, sep: string, masked: Record<string, string> | undefined): Record<string, string | null> {
+  const out: Record<string, string | null> = {}
   for (const line of text.split('\n')) {
     const i = line.indexOf(sep)
     if (i <= 0) continue
-    out[line.slice(0, i).trim()] = line.slice(i + sep.length).trim()
+    const k = line.slice(0, i).trim()
+    const v = line.slice(i + sep.length).trim()
+    out[k] = masked?.[k] !== undefined && v === masked[k] ? null : v
   }
   return out
 }
 
-function toDraft(e: McpServerEntry): Draft {
+/** Mantém todos os segredos guardados (para ligar/desligar e mudar política sem redigitar). */
+const keepAll = (rec: Record<string, string> | undefined): Record<string, null> | undefined =>
+  rec ? Object.fromEntries(Object.keys(rec).map((k) => [k, null])) : undefined
+
+function viewToInput(v: McpServerView): McpServerInput {
+  const { envMasked, headersMasked, secretsLost: _lost, ...rest } = v
+  return { ...rest, env: keepAll(envMasked), headers: keepAll(headersMasked) }
+}
+
+function toDraft(e: McpServerView): Draft {
   return {
     name: e.name,
     type: e.type,
     command: e.command ?? '',
     args: (e.args ?? []).join('\n'),
-    env: kvToText(e.env, '='),
+    env: kvToText(e.envMasked, '='),
     url: e.url ?? '',
-    headers: kvToText(e.headers, ': ')
+    headers: kvToText(e.headersMasked, ': ')
   }
 }
 
-function fromDraft(d: Draft, base?: McpServerEntry): McpServerEntry {
+function fromDraft(d: Draft, base?: McpServerView): McpServerInput {
   return {
     name: d.name.trim(),
     enabled: base?.enabled ?? true,
     type: d.type,
     command: d.type === 'stdio' ? d.command.trim() : undefined,
     args: d.type === 'stdio' ? d.args.split('\n').map((a) => a.trim()).filter(Boolean) : undefined,
-    env: d.type === 'stdio' ? textToKv(d.env, '=') : undefined,
+    env: d.type === 'stdio' ? textToSecrets(d.env, '=', base?.envMasked) : undefined,
     url: d.type !== 'stdio' ? d.url.trim() : undefined,
-    headers: d.type !== 'stdio' ? textToKv(d.headers, ':') : undefined,
+    headers: d.type !== 'stdio' ? textToSecrets(d.headers, ':', base?.headersMasked) : undefined,
     toolPolicies: base?.toolPolicies
   }
 }
 
-function mask(v: string): string {
-  return v.length <= 4 ? '••••' : `${v.slice(0, 2)}••••${v.slice(-2)}`
-}
+const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
 export function McpView() {
   const notify = useStore((s) => s.notify)
-  const [servers, setServers] = useState<McpServerEntry[]>([])
-  const [editing, setEditing] = useState<{ draft: Draft; original?: McpServerEntry } | null>(null)
+  const settings = useStore((s) => s.settings)
+  const [servers, setServers] = useState<McpServerView[]>([])
+  const [editing, setEditing] = useState<{ draft: Draft; original?: McpServerView } | null>(null)
   const [tests, setTests] = useState<Record<string, McpTestResult | 'loading'>>({})
 
   useEffect(() => {
@@ -79,31 +93,46 @@ export function McpView() {
     if (!/^[A-Za-z0-9_-]+$/.test(entry.name)) return notify('Nome: use só letras, números, - e _.')
     if (entry.type === 'stdio' && !entry.command) return notify('Informe o comando.')
     if (entry.type !== 'stdio' && !entry.url) return notify('Informe a URL.')
-    setServers(await window.deck.mcp.save(entry, editing.original?.name))
-    setEditing(null)
+    try {
+      setServers(await window.deck.mcp.save(entry, editing.original?.name))
+      setEditing(null)
+    } catch (e) {
+      notify(errorText(e))
+    }
   }
 
-  const toggle = async (e: McpServerEntry): Promise<void> => {
-    setServers(await window.deck.mcp.save({ ...e, enabled: !e.enabled }))
+  const saveView = (v: McpServerView, patch: Partial<McpServerInput>): void => {
+    window.deck.mcp
+      .save({ ...viewToInput(v), ...patch })
+      .then(setServers)
+      .catch((e: unknown) => notify(errorText(e)))
   }
 
-  const test = async (e: McpServerEntry): Promise<void> => {
+  const toggle = (e: McpServerView): void => saveView(e, { enabled: !e.enabled })
+
+  const test = async (e: McpServerView): Promise<void> => {
     setTests((t) => ({ ...t, [e.name]: 'loading' }))
-    const r = await window.deck.mcp.test(e)
+    const r = await window.deck.mcp
+      .test(viewToInput(e))
+      .catch((err: unknown): McpTestResult => ({ ok: false, error: errorText(err), tools: [], resources: [], prompts: [], ms: 0 }))
     setTests((t) => ({ ...t, [e.name]: r }))
   }
 
-  const setPolicy = async (e: McpServerEntry, tool: string, policy: ToolPolicy): Promise<void> => {
-    setServers(await window.deck.mcp.save({ ...e, toolPolicies: { ...(e.toolPolicies ?? {}), [tool]: policy } }))
-  }
+  const setPolicy = (e: McpServerView, tool: string, policy: ToolPolicy): void =>
+    saveView(e, { toolPolicies: { ...(e.toolPolicies ?? {}), [tool]: policy } })
 
-  const remove = async (e: McpServerEntry): Promise<void> => {
+  const remove = async (e: McpServerView): Promise<void> => {
     if (!confirm(`Remover o servidor MCP "${e.name}"?`)) return
     setServers(await window.deck.mcp.remove(e.name))
   }
 
   const importClaude = async (): Promise<void> => {
-    const r = await window.deck.mcp.importClaude()
+    let r: Awaited<ReturnType<typeof window.deck.mcp.importClaude>>
+    try {
+      r = await window.deck.mcp.importClaude()
+    } catch (e) {
+      return notify(errorText(e))
+    }
     setServers(r.servers)
     notify(r.imported.length ? `Importados (desligados): ${r.imported.join(', ')}` : 'Nada novo para importar.')
   }
@@ -122,7 +151,14 @@ export function McpView() {
       </div>
       <p className="muted small">
         Servidores ligados entram no próximo turno de cada chat. Tools com política <b>auto</b> rodam sem perguntar; <b>pedir</b> passa pelo painel de aprovação.
+        Variáveis e headers ficam cifrados no cofre do sistema; aqui você só vê o final de cada valor.
       </p>
+      {settings && !settings.encryptionAvailable && (
+        <p className="small alert-text" role="alert">
+          O cofre do sistema não está disponível. Servidores com variáveis ou headers não podem ser salvos até ele voltar.
+          {settings.secretsPending && ' Há segredos antigos ainda em texto puro: eles serão cifrados assim que o cofre estiver disponível.'}
+        </p>
+      )}
 
       {editing && (
         <div className="card editor">
@@ -188,7 +224,7 @@ export function McpView() {
           <div key={s.name} className={`card server ${s.enabled ? '' : 'off'}`}>
             <div className="server-head">
               <label className="switch" title={s.enabled ? 'Desligar' : 'Ligar'}>
-                <input type="checkbox" checked={s.enabled} onChange={() => void toggle(s)} />
+                <input type="checkbox" checked={s.enabled} onChange={() => toggle(s)} />
                 <span />
               </label>
               <span className="server-name">{s.name}</span>
@@ -207,11 +243,12 @@ export function McpView() {
                 Remover
               </button>
             </div>
-            {Object.keys(s.env ?? {}).length > 0 && (
+            {s.secretsLost && <div className="small alert-text">Os segredos deste servidor não puderam ser lidos neste computador. Edite e digite de novo.</div>}
+            {Object.keys(s.envMasked ?? {}).length > 0 && (
               <div className="env-list small mono">
-                {Object.entries(s.env ?? {}).map(([k, v]) => (
+                {Object.entries(s.envMasked ?? {}).map(([k, v]) => (
                   <span key={k}>
-                    {k}={mask(v)}
+                    {k}={v}
                   </span>
                 ))}
               </div>
@@ -236,10 +273,10 @@ export function McpView() {
                                 </td>
                                 <td>
                                   <div className="seg">
-                                    <button className={policy === 'auto' ? 'on' : ''} onClick={() => void setPolicy(s, tool.name, 'auto')}>
+                                    <button className={policy === 'auto' ? 'on' : ''} onClick={() => setPolicy(s, tool.name, 'auto')}>
                                       auto
                                     </button>
-                                    <button className={policy === 'ask' ? 'on' : ''} onClick={() => void setPolicy(s, tool.name, 'ask')}>
+                                    <button className={policy === 'ask' ? 'on' : ''} onClick={() => setPolicy(s, tool.name, 'ask')}>
                                       pedir
                                     </button>
                                   </div>

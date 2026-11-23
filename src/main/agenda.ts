@@ -1,8 +1,9 @@
 import { BrowserWindow, Notification, net } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type ICAL from 'ical.js'
-import type { AgendaEvent, IcsFeed, Occurrence } from '@shared/types'
-import { bumpStats, deleteIcsText, getAgendaEvents, getIcsFeeds, readIcsText, saveAgendaEvents, saveIcsFeeds, saveIcsText } from './store'
+import type { AgendaEvent, IcsFeed, IcsFeedInput, IcsFeedView, Occurrence } from '@shared/types'
+import { bumpStats, deleteIcsText, getAgendaEvents, getIcsFeeds, listIcsFeedViews, readIcsText, saveAgendaEvents, saveIcsFeeds, saveIcsText } from './store'
+import { redact, resolveFeedInput } from './lib/secrets'
 import { checkAchievements } from './achievements'
 import { emit } from './events'
 import { MAX_DAYS, expandLocal, isValidLocalStart } from './lib/recurrence'
@@ -43,7 +44,8 @@ async function syncFeed(feed: IcsFeed): Promise<IcsFeed> {
     const count = parseFeed(feed).length
     return { ...feed, lastSync: Date.now(), error: undefined, count }
   } catch (err) {
-    return { ...feed, lastSync: Date.now(), error: err instanceof Error ? err.message : String(err) }
+    // A mensagem vai para o renderer: nunca com o link (que carrega o token).
+    return { ...feed, lastSync: Date.now(), error: redact(err instanceof Error ? err.message : String(err), [feed.url]) }
   }
 }
 
@@ -92,8 +94,9 @@ export function removeEvent(id: string): AgendaEvent[] {
   return next
 }
 
-export async function saveFeed(feed: IcsFeed): Promise<IcsFeed[]> {
+export async function saveFeed(input: IcsFeedInput): Promise<IcsFeedView[]> {
   const list = getIcsFeeds()
+  const feed = resolveFeedInput(input, input.id ? list.find((f) => f.id === input.id) : undefined)
   const clean: IcsFeed = {
     ...feed,
     id: feed.id || randomUUID(),
@@ -102,13 +105,13 @@ export async function saveFeed(feed: IcsFeed): Promise<IcsFeed[]> {
   }
   const synced = clean.enabled ? await syncFeed(clean) : clean
   const next = list.some((f) => f.id === synced.id) ? list.map((f) => (f.id === synced.id ? synced : f)) : [...list, synced]
-  saveIcsFeeds(next)
+  const views = saveIcsFeeds(next)
   checkAchievements()
   emit({ type: 'agenda-changed' })
-  return next
+  return views
 }
 
-export function removeFeed(id: string): IcsFeed[] {
+export function removeFeed(id: string): IcsFeedView[] {
   deleteIcsText(id)
   parsedCache.delete(id)
   const next = saveIcsFeeds(getIcsFeeds().filter((f) => f.id !== id))
@@ -116,12 +119,20 @@ export function removeFeed(id: string): IcsFeed[] {
   return next
 }
 
-export async function syncAllFeeds(): Promise<IcsFeed[]> {
-  const synced = await Promise.all(getIcsFeeds().map((f) => (f.enabled ? syncFeed(f) : Promise.resolve(f))))
-  saveIcsFeeds(synced)
+export async function syncAllFeeds(): Promise<IcsFeedView[]> {
+  const feeds = getIcsFeeds()
+  if (!feeds.length) return []
+  const synced = await Promise.all(feeds.map((f) => (f.enabled && f.url ? syncFeed(f) : Promise.resolve(f))))
+  let views: IcsFeedView[]
+  try {
+    views = saveIcsFeeds(synced)
+  } catch {
+    // Sem cofre do sistema (dados antigos ainda em claro): não regrava, só devolve o estado atual.
+    views = listIcsFeedViews()
+  }
   checkAchievements()
   emit({ type: 'agenda-changed' })
-  return synced
+  return views
 }
 
 // ---------- lembretes ----------

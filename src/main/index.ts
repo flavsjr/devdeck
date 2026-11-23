@@ -6,10 +6,12 @@ import type { AppSettings } from '@shared/types'
 import {
   bumpStats,
   getAgendaEvents,
-  getIcsFeeds,
   getMcpServers,
   getSettings,
+  listIcsFeedViews,
+  listMcpServerViews,
   migrateLegacyData,
+  migrateSecrets,
   migrateSettings,
   saveMcpServers,
   saveProfile,
@@ -27,6 +29,7 @@ import { handle } from './ipc'
 import { isAllowedSubframeUrl, isAppUrl, isPermissionAllowed } from './lib/origin'
 import { appLocation } from './appLocation'
 import * as v from './lib/validation'
+import { resolveMcpInput } from './lib/secrets'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
@@ -154,9 +157,12 @@ function registerIpc(): void {
   handle('git:restore', [v.relPath], (rel) => gitRestore(rel))
 
   // mcp
-  handle('mcp:list', [], () => getMcpServers())
-  handle('mcp:save', [v.mcpEntry, v.mcpName.optional()], (entry, previousName) => {
-    const list = getMcpServers().filter((s) => s.name !== (previousName ?? entry.name) && s.name !== entry.name)
+  handle('mcp:list', [], () => listMcpServerViews())
+  handle('mcp:save', [v.mcpInput, v.mcpName.optional()], (input, previousName) => {
+    const all = getMcpServers()
+    // Segredos mantidos (null) vêm do servidor guardado, e só se o destino não mudou (lib/secrets).
+    const entry = resolveMcpInput(input, all.find((s) => s.name === (previousName ?? input.name)))
+    const list = all.filter((s) => s.name !== (previousName ?? entry.name) && s.name !== entry.name)
     const saved = saveMcpServers([...list, entry])
     agent.resetIdleSessions()
     checkAchievements()
@@ -168,7 +174,9 @@ function registerIpc(): void {
     checkAchievements()
     return saved
   })
-  handle('mcp:test', [v.mcpEntry], (entry) => testMcpServer(entry))
+  handle('mcp:test', [v.mcpInput, v.mcpName.optional()], (input, previousName) =>
+    testMcpServer(resolveMcpInput(input, getMcpServers().find((s) => s.name === (previousName ?? input.name))))
+  )
   handle('mcp:importClaude', [], () => importFromClaude())
 
   // agent
@@ -207,8 +215,8 @@ function registerIpc(): void {
   handle('agenda:events', [], () => getAgendaEvents())
   handle('agenda:save', [v.agendaEvent], (ev) => agenda.saveEvent(ev))
   handle('agenda:remove', [v.uuid], (id) => agenda.removeEvent(id))
-  handle('agenda:feeds', [], () => getIcsFeeds())
-  handle('agenda:saveFeed', [v.icsFeed], (feed) => agenda.saveFeed(feed))
+  handle('agenda:feeds', [], () => listIcsFeedViews())
+  handle('agenda:saveFeed', [v.icsFeedInput], (feed) => agenda.saveFeed(feed))
   handle('agenda:removeFeed', [v.uuid], (id) => agenda.removeFeed(id))
   handle('agenda:syncFeeds', [], () => agenda.syncAllFeeds())
 
@@ -216,6 +224,8 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // safeStorage só funciona depois do ready: cifra segredos antigos em texto puro (v0.4.0).
+  migrateSecrets()
   const last = getSettings().lastWorkspace
   if (last) {
     try {

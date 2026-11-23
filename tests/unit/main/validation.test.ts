@@ -46,11 +46,31 @@ describe('agendaEvent', () => {
   })
 })
 
-describe('mcpEntry', () => {
+describe('mcpInput', () => {
   it('recusa nome com caminho e campos extras', () => {
-    expect(v.mcpEntry.safeParse({ name: 'ok_1', enabled: true, type: 'stdio', command: 'npx' }).success).toBe(true)
-    expect(v.mcpEntry.safeParse({ name: '../x', enabled: true, type: 'stdio' }).success).toBe(false)
-    expect(v.mcpEntry.safeParse({ name: 'x', enabled: true, type: 'stdio', extra: 1 }).success).toBe(false)
+    expect(v.mcpInput.safeParse({ name: 'ok_1', enabled: true, type: 'stdio', command: 'npx' }).success).toBe(true)
+    expect(v.mcpInput.safeParse({ name: '../x', enabled: true, type: 'stdio' }).success).toBe(false)
+    expect(v.mcpInput.safeParse({ name: 'x', enabled: true, type: 'stdio', extra: 1 }).success).toBe(false)
+  })
+  it('aceita null (manter segredo) em env e headers, mas não outros tipos', () => {
+    expect(v.mcpInput.safeParse({ name: 'x', enabled: true, type: 'stdio', command: 'npx', env: { TOKEN: null } }).success).toBe(true)
+    expect(v.mcpInput.safeParse({ name: 'x', enabled: true, type: 'http', url: 'https://a', headers: { Authorization: null } }).success).toBe(true)
+    expect(v.mcpInput.safeParse({ name: 'x', enabled: true, type: 'stdio', env: { TOKEN: 1 } }).success).toBe(false)
+  })
+})
+
+describe('icsFeedInput', () => {
+  const base = { id: '', name: 'Trabalho', url: 'https://cal.example.com/secret.ics', enabled: true, remindMin: 10 }
+  it('aceita link https/webcal ou vazio (manter)', () => {
+    expect(v.icsFeedInput.safeParse(base).success).toBe(true)
+    expect(v.icsFeedInput.safeParse({ ...base, url: 'webcal://cal.example.com/x' }).success).toBe(true)
+    expect(v.icsFeedInput.safeParse({ ...base, url: '' }).success).toBe(true)
+  })
+  it('recusa http, lastSync/error/count vindos do renderer', () => {
+    expect(v.icsFeedInput.safeParse({ ...base, url: 'http://cal.example.com/x' }).success).toBe(false)
+    expect(v.icsFeedInput.safeParse({ ...base, lastSync: 1 }).success).toBe(false)
+    expect(v.icsFeedInput.safeParse({ ...base, error: 'x' }).success).toBe(false)
+    expect(v.icsFeedInput.safeParse({ ...base, count: 3 }).success).toBe(false)
   })
 })
 

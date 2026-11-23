@@ -1,5 +1,5 @@
 import { app, safeStorage } from 'electron'
-import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, rmSync, readdirSync, cpSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, rmSync, readdirSync, cpSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
   AchievementState,
@@ -9,12 +9,15 @@ import type {
   CommunityStats,
   DevProfile,
   IcsFeed,
+  IcsFeedView,
   LedgerEntry,
   McpServerEntry,
+  McpServerView,
   ProviderId,
   ProviderStats,
   SessionMeta
 } from '@shared/types'
+import { feedView, mcpView, migrateFeeds, migrateMcpList, sealFeed, sealMcp, unsealFeed, unsealMcp, type Cipher, type StoredIcsFeed, type StoredMcpEntry } from './lib/secrets'
 
 // Persistência simples em JSON dentro de %APPDATA%/DevDeck.
 
@@ -32,6 +35,29 @@ export function migrateLegacyData(): void {
 }
 const sessionsDir = (): string => join(root(), 'sessions')
 
+/**
+ * v0.4.0: env/headers de MCP e link ICS passam a ser cifrados. Migra o arquivo atual e a cópia legada
+ * (%APPDATA%/vibedeck). Sem cofre do sistema, não mexe e marca `secretsPending` (a UI avisa).
+ * Rode depois de `app.whenReady()` (o safeStorage exige no Linux/macOS).
+ */
+export function migrateSecrets(): void {
+  let pending = false
+  const legacyMcp = join(app.getPath('appData'), 'vibedeck', 'mcp-servers.json')
+  for (const file of [mcpFile(), legacyMcp]) {
+    if (!existsSync(file)) continue
+    const r = migrateMcpList(readJson<StoredMcpEntry[]>(file, []), systemCipher)
+    if (r.changed) writeJson(file, r.list)
+    pending ||= r.pending
+  }
+  if (existsSync(agendaFile())) {
+    const raw = getAgendaRaw()
+    const r = migrateFeeds(raw.feeds, systemCipher)
+    if (r.changed) writeJson(agendaFile(), { ...raw, feeds: r.list })
+    pending ||= r.pending
+  }
+  secretsPending = pending
+}
+
 function ensureDirs(): void {
   mkdirSync(sessionsDir(), { recursive: true })
 }
@@ -45,14 +71,29 @@ function readJson<T>(file: string, fallback: T): T {
   }
 }
 
+/** Grava via arquivo temporário + rename: nunca deixa JSON pela metade nem cópia antiga ao lado. */
 function writeJson(file: string, data: unknown): void {
   ensureDirs()
-  writeFileSync(file, JSON.stringify(data, null, 2), 'utf8')
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
+  renameSync(tmp, file)
 }
+
+// ---------- Cofre do sistema ----------
+
+/** safeStorage como `Cipher`. No Linux, `basic_text` (senha fixa) não conta como cofre. */
+export const systemCipher: Cipher = {
+  available: () =>
+    safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
+  encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
+  decrypt: (enc) => safeStorage.decryptString(Buffer.from(enc, 'base64'))
+}
+
+let secretsPending = false
 
 // ---------- Settings ----------
 
-interface StoredSettings extends Omit<AppSettings, 'hasApiKey'> {
+interface StoredSettings extends Omit<AppSettings, 'hasApiKey' | 'encryptionAvailable' | 'secretsPending'> {
   apiKeyEnc?: string // base64 do safeStorage
   settingsVersion?: number
 }
@@ -91,13 +132,13 @@ function loadStoredSettings(): StoredSettings {
 
 export function getSettings(): AppSettings {
   const { apiKeyEnc, ...rest } = loadStoredSettings()
-  return { ...rest, hasApiKey: Boolean(apiKeyEnc) }
+  return { ...rest, hasApiKey: Boolean(apiKeyEnc), encryptionAvailable: systemCipher.available(), secretsPending }
 }
 
 export function updateSettings(patch: Partial<AppSettings>): AppSettings {
   const current = loadStoredSettings()
-  // hasApiKey é derivado; nunca persiste.
-  const { hasApiKey: _ignored, ...clean } = patch
+  // Campos derivados nunca persistem.
+  const { hasApiKey: _a, encryptionAvailable: _b, secretsPending: _c, ...clean } = patch
   writeJson(settingsFile(), { ...current, ...clean })
   return getSettings()
 }
@@ -107,8 +148,8 @@ export function setApiKey(key: string | null): AppSettings {
   if (!key) {
     delete current.apiKeyEnc
   } else {
-    if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema indisponível; chave não salva.')
-    current.apiKeyEnc = safeStorage.encryptString(key.trim()).toString('base64')
+    if (!systemCipher.available()) throw new Error('Criptografia do sistema indisponível; chave não salva.')
+    current.apiKeyEnc = systemCipher.encrypt(key.trim())
   }
   writeJson(settingsFile(), current)
   return getSettings()
@@ -128,14 +169,32 @@ export function getApiKey(): string | null {
 
 const mcpFile = (): string => join(root(), 'mcp-servers.json')
 
+const readMcpRaw = (): StoredMcpEntry[] => readJson<StoredMcpEntry[]>(mcpFile(), [])
+
+/** Servidores com segredos decifrados — só para uso no main (agente, teste de conexão). */
 export function getMcpServers(): McpServerEntry[] {
-  return readJson<McpServerEntry[]>(mcpFile(), [])
+  return readMcpRaw().map((s) => unsealMcp(s, systemCipher).entry)
 }
 
-export function saveMcpServers(list: McpServerEntry[]): McpServerEntry[] {
+/** Versão mascarada para o renderer. */
+export function listMcpServerViews(): McpServerView[] {
+  return readMcpRaw().map((s) => mcpView(s, systemCipher))
+}
+
+/** Cifra e grava. Sem cofre do sistema e com segredo na lista, recusa (não grava em claro). */
+export function saveMcpServers(list: McpServerEntry[]): McpServerView[] {
   const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
-  writeJson(mcpFile(), sorted)
-  return sorted
+  const raw = new Map(readMcpRaw().map((s) => [s.name, s]))
+  writeJson(
+    mcpFile(),
+    sorted.map((e) => {
+      const prev = raw.get(e.name)
+      // Segredo que não abriu agora (cofre bloqueado?) não é descartado por um salvamento sem segredos.
+      const keepBlob = prev?.secretsEnc && !e.env && !e.headers && unsealMcp(prev, systemCipher).lost
+      return keepBlob ? { ...sealMcp(e, systemCipher), secretsEnc: prev.secretsEnc } : sealMcp(e, systemCipher)
+    })
+  )
+  return listMcpServerViews()
 }
 
 // ---------- Sessões ----------
@@ -252,8 +311,8 @@ export function setProviderToken(id: ProviderId, token: string | null): void {
   const all = readJson<Partial<Record<ProviderId, string>>>(secretsFile(), {})
   if (!token) delete all[id]
   else {
-    if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do sistema indisponível; token não salvo.')
-    all[id] = safeStorage.encryptString(token.trim()).toString('base64')
+    if (!systemCipher.available()) throw new Error('Criptografia do sistema indisponível; token não salvo.')
+    all[id] = systemCipher.encrypt(token.trim())
   }
   writeJson(secretsFile(), all)
 }
@@ -313,12 +372,14 @@ const agendaFile = (): string => join(root(), 'agenda.json')
 
 interface StoredAgenda {
   events: AgendaEvent[]
-  feeds: IcsFeed[]
+  feeds: StoredIcsFeed[]
 }
 
 function getAgenda(): StoredAgenda {
   return { events: [], feeds: [], ...readJson<Partial<StoredAgenda>>(agendaFile(), {}) }
 }
+
+const getAgendaRaw = getAgenda
 
 export function getAgendaEvents(): AgendaEvent[] {
   return getAgenda().events
@@ -329,13 +390,19 @@ export function saveAgendaEvents(events: AgendaEvent[]): AgendaEvent[] {
   return events
 }
 
+/** Feeds com o link decifrado — só para uso no main. */
 export function getIcsFeeds(): IcsFeed[] {
-  return getAgenda().feeds
+  return getAgendaRaw().feeds.map((f) => unsealFeed(f, systemCipher).feed)
 }
 
-export function saveIcsFeeds(feeds: IcsFeed[]): IcsFeed[] {
-  writeJson(agendaFile(), { ...getAgenda(), feeds })
-  return feeds
+export function listIcsFeedViews(): IcsFeedView[] {
+  return getAgendaRaw().feeds.map((f) => feedView(f, systemCipher))
+}
+
+/** Cifra o link e grava. Sem cofre do sistema, recusa. */
+export function saveIcsFeeds(feeds: IcsFeed[]): IcsFeedView[] {
+  writeJson(agendaFile(), { ...getAgendaRaw(), feeds: feeds.map((f) => sealFeed(f, systemCipher)) })
+  return listIcsFeedViews()
 }
 
 const icsDir = (): string => join(root(), 'ics')

@@ -36,15 +36,18 @@ export const devProfilePatch = z
 export const providerId = z.enum(['github', 'gitlab', 'bitbucket'])
 export const providerToken = z.union([z.null(), z.string().min(1).max(512)])
 
-export const mcpEntry = z.strictObject({
+/** Valor de segredo vindo do renderer: `null` = manter o guardado (ver lib/secrets). */
+const secretValue = z.union([z.null(), shortText(4000)])
+
+export const mcpInput = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
   enabled: z.boolean(),
   type: z.enum(['stdio', 'http', 'sse']),
   command: shortText(1000).optional(),
   args: z.array(shortText(2000)).max(100).optional(),
-  env: z.record(z.string().max(200), shortText(4000)).optional(),
+  env: z.record(z.string().max(200), secretValue).optional(),
   url: z.string().max(2000).regex(/^https?:\/\//i).optional(),
-  headers: z.record(z.string().max(200), shortText(4000)).optional(),
+  headers: z.record(z.string().max(200), secretValue).optional(),
   toolPolicies: z.record(z.string().max(200), z.enum(['auto', 'ask'])).optional()
 })
 
@@ -70,15 +73,13 @@ export const agendaEvent = z.strictObject({
   until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
 })
 
-export const icsFeed = z.strictObject({
+/** lastSync/error/count só o main escreve; `url: ''` mantém o link guardado. */
+export const icsFeedInput = z.strictObject({
   id: newOrUuid,
   name: shortText(60),
-  url: z.string().max(2000).regex(/^(https|webcal):\/\//i),
+  url: z.union([z.literal(''), z.string().max(2000).regex(/^(https|webcal):\/\//i)]),
   enabled: z.boolean(),
-  remindMin: minutes,
-  lastSync: z.number().optional(),
-  error: shortText(1000).optional(),
-  count: z.number().optional()
+  remindMin: minutes
 })
 
 export const communityStats = z.strictObject({

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AgendaEvent, EventKind, IcsFeed, Occurrence, Recurrence } from '@shared/types'
+import type { AgendaEvent, EventKind, IcsFeedInput, IcsFeedView, Occurrence, Recurrence } from '@shared/types'
 import { useStore } from '../store'
 import { IconPlus, IconRefresh } from './Icons'
 
@@ -179,7 +179,7 @@ function EventEditor({ ev, onClose }: { ev: AgendaEvent; onClose: () => void }) 
 
 function Feeds() {
   const notify = useStore((s) => s.notify)
-  const [feeds, setFeeds] = useState<IcsFeed[]>([])
+  const [feeds, setFeeds] = useState<IcsFeedView[]>([])
   const [draft, setDraft] = useState({ name: '', url: '' })
   const [busy, setBusy] = useState(false)
   const agendaVersion = useStore((s) => s.agendaVersion)
@@ -188,10 +188,25 @@ function Feeds() {
     void window.deck.agenda.feeds().then(setFeeds)
   }, [agendaVersion])
 
+  /** O link nunca volta do main: editar um feed existente manda `url: ''` (manter). */
+  const update = (f: IcsFeedView, patch: Partial<IcsFeedInput>): void => {
+    const input: IcsFeedInput = { id: f.id, name: f.name, url: '', enabled: f.enabled, remindMin: f.remindMin, ...patch }
+    window.deck.agenda
+      .saveFeed(input)
+      .then(setFeeds)
+      .catch((e: unknown) => notify(e instanceof Error ? e.message : String(e)))
+  }
+
   const add = async (): Promise<void> => {
     if (!/^(https|webcal):\/\//i.test(draft.url.trim())) return notify('Cole um link https:// ou webcal:// de calendário ICS.')
     setBusy(true)
-    const list = await window.deck.agenda.saveFeed({ id: '', name: draft.name || 'Calendário', url: draft.url.trim(), enabled: true, remindMin: 10 })
+    let list: IcsFeedView[]
+    try {
+      list = await window.deck.agenda.saveFeed({ id: '', name: draft.name || 'Calendário', url: draft.url.trim(), enabled: true, remindMin: 10 })
+    } catch (e) {
+      setBusy(false)
+      return notify(e instanceof Error ? e.message : String(e))
+    }
     setFeeds(list)
     setBusy(false)
     setDraft({ name: '', url: '' })
@@ -214,13 +229,16 @@ function Feeds() {
       {feeds.map((f) => (
         <div key={f.id} className="feed-row">
           <label className="switch">
-            <input type="checkbox" checked={f.enabled} onChange={() => void window.deck.agenda.saveFeed({ ...f, enabled: !f.enabled }).then(setFeeds)} />
+            <input type="checkbox" checked={f.enabled} aria-label={`Sincronizar ${f.name}`} onChange={() => update(f, { enabled: !f.enabled })} />
             <span />
           </label>
-          <span className="feed-name">{f.name}</span>
+          <span className="feed-name" title={f.urlMasked}>
+            {f.name}
+          </span>
+          {f.urlLost && <span className="small alert-text">link ilegível: remova e assine de novo</span>}
           <span className="small muted">{f.error ? <span className="alert-text">{f.error}</span> : f.lastSync ? `${f.count ?? 0} eventos · ${new Date(f.lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'não sincronizado'}</span>
           <span className="spacer" />
-          <select className="sm-select" value={f.remindMin} onChange={(e) => void window.deck.agenda.saveFeed({ ...f, remindMin: Number(e.target.value) }).then(setFeeds)} title="Lembrete">
+          <select className="sm-select" value={f.remindMin} onChange={(e) => update(f, { remindMin: Number(e.target.value) })} title="Lembrete">
             {[0, 5, 10, 15].map((m) => (
               <option key={m} value={m}>
                 {m === 0 ? 'sem lembrete' : `${m} min antes`}

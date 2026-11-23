@@ -14,6 +14,10 @@ export interface AppSettings {
   appendSystemPrompt: string
   spotifyUrl: string
   hasApiKey: boolean
+  /** Derivado: cofre do sistema disponível para cifrar segredos. Nunca persiste. */
+  encryptionAvailable: boolean
+  /** Derivado: há segredos antigos em texto puro esperando o cofre do sistema. Nunca persiste. */
+  secretsPending: boolean
   lastWorkspace: string | null
 }
 
@@ -31,6 +35,23 @@ export interface McpServerEntry {
   headers?: Record<string, string>
   /** Política por tool (nome curto da tool no servidor). Ausente = 'ask'. */
   toolPolicies?: Record<string, ToolPolicy>
+}
+
+/** Como o renderer vê um servidor MCP: valores de env/headers só como máscara. */
+export interface McpServerView extends Omit<McpServerEntry, 'env' | 'headers'> {
+  envMasked?: Record<string, string>
+  headersMasked?: Record<string, string>
+  /** Havia segredo guardado que não pôde ser decifrado (redigite). */
+  secretsLost?: boolean
+}
+
+/**
+ * Entrada do renderer para salvar/testar. Valor `null` = manter o valor guardado,
+ * aceito só se transporte, URL, comando e argumentos não mudaram.
+ */
+export interface McpServerInput extends Omit<McpServerEntry, 'env' | 'headers'> {
+  env?: Record<string, string | null>
+  headers?: Record<string, string | null>
 }
 
 export interface McpTestResult {
@@ -331,6 +352,15 @@ export interface IcsFeed {
   count?: number
 }
 
+/** Feed como o renderer vê: o link (que carrega token) vira só esquema + host. */
+export interface IcsFeedView extends Omit<IcsFeed, 'url'> {
+  urlMasked: string
+  urlLost?: boolean
+}
+
+/** Entrada do renderer: `url: ''` mantém o link guardado. */
+export type IcsFeedInput = Pick<IcsFeed, 'id' | 'name' | 'url' | 'enabled' | 'remindMin'>
+
 export interface Occurrence {
   key: string
   source: 'local' | 'ics'
@@ -365,11 +395,12 @@ export interface DeckApi {
     restore(relPath: string): Promise<void>
   }
   mcp: {
-    list(): Promise<McpServerEntry[]>
-    save(entry: McpServerEntry, previousName?: string): Promise<McpServerEntry[]>
-    remove(name: string): Promise<McpServerEntry[]>
-    test(entry: McpServerEntry): Promise<McpTestResult>
-    importClaude(): Promise<{ imported: string[]; servers: McpServerEntry[] }>
+    list(): Promise<McpServerView[]>
+    save(entry: McpServerInput, previousName?: string): Promise<McpServerView[]>
+    remove(name: string): Promise<McpServerView[]>
+    /** previousName: servidor guardado de onde vêm os segredos mantidos (null). */
+    test(entry: McpServerInput, previousName?: string): Promise<McpTestResult>
+    importClaude(): Promise<{ imported: string[]; servers: McpServerView[] }>
   }
   agent: {
     sessions(): Promise<SessionMeta[]>
@@ -402,10 +433,10 @@ export interface DeckApi {
     events(): Promise<AgendaEvent[]>
     save(ev: AgendaEvent): Promise<AgendaEvent[]>
     remove(id: string): Promise<AgendaEvent[]>
-    feeds(): Promise<IcsFeed[]>
-    saveFeed(feed: IcsFeed): Promise<IcsFeed[]>
-    removeFeed(id: string): Promise<IcsFeed[]>
-    syncFeeds(): Promise<IcsFeed[]>
+    feeds(): Promise<IcsFeedView[]>
+    saveFeed(feed: IcsFeedInput): Promise<IcsFeedView[]>
+    removeFeed(id: string): Promise<IcsFeedView[]>
+    syncFeeds(): Promise<IcsFeedView[]>
   }
   openExternal(url: string): Promise<void>
 }
