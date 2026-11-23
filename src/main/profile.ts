@@ -1,6 +1,7 @@
 import type { DevProfile, ProfileSummary, ProviderConfig, ProviderId, ProviderStats } from '@shared/types'
 import { getMcpServers, getProfile, getProviderCache, getProviderToken, getStats, saveProfile, saveProviderCache, setProviderToken } from './store'
-import { fetchProvider, mergeDays } from './providers'
+import { fetchProvider } from './providers'
+import { mergeDays } from './lib/streak'
 import { checkAchievements } from './achievements'
 import { costSummary } from './costs'
 

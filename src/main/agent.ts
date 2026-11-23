@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { applyPatch, createTwoFilesPatch, parsePatch, reversePatch } from 'diff'
+import { applyEdit, makePatch, revertText } from './lib/edit'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -155,15 +155,6 @@ function stringifyToolResult(content: unknown): string {
   return JSON.stringify(content)
 }
 
-/** Simula o Edit para mostrar o diff antes de aplicar. */
-function applyEdit(before: string, input: Record<string, unknown>): string {
-  const oldS = String(input.old_string ?? '')
-  const newS = String(input.new_string ?? '')
-  if (!oldS) return before
-  if (input.replace_all) return before.split(oldS).join(newS)
-  const i = before.indexOf(oldS)
-  return i < 0 ? before : before.slice(0, i) + newS + before.slice(i + oldS.length)
-}
 
 // ---------- sessões ----------
 
@@ -388,7 +379,7 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
 
 function recordChange(sessionId: string, c: PendingChange): void {
   const rel = toRel(c.filePath) ?? basename(c.filePath)
-  const patch = createTwoFilesPatch(rel, rel, c.before, c.after, undefined, undefined, { context: 3 })
+  const patch = makePatch(rel, c.before, c.after)
   pushItem(sessionId, { kind: 'change', id: randomUUID(), filePath: c.filePath, patch, created: c.created, ts: now() })
 }
 
@@ -573,13 +564,21 @@ export async function revertChange(sessionId: string, itemId: string): Promise<{
   if (!item || item.kind !== 'change') return { ok: false, error: 'Alteração não encontrada.' }
   if (item.reverted) return { ok: false, error: 'Já revertida.' }
 
-  const current = existsSync(item.filePath) ? await readFile(item.filePath, 'utf8') : ''
-  const [parsed] = parsePatch(item.patch)
-  const restored = applyPatch(current, reversePatch(parsed))
-  if (restored === false) return { ok: false, error: 'O arquivo mudou depois desta alteração; reversão automática conflitou.' }
+  let current = ''
+  try {
+    current = existsSync(item.filePath) ? await readFile(item.filePath, 'utf8') : ''
+  } catch (err) {
+    return { ok: false, error: `Não foi possível ler o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+  }
+  const result = revertText(current, item.patch)
+  if (!result.ok) return { ok: false, error: result.error }
 
-  if (item.created && restored === '') await unlink(item.filePath).catch(() => undefined)
-  else await writeFile(item.filePath, restored, 'utf8')
+  try {
+    if (item.created && result.text === '') await unlink(item.filePath).catch(() => undefined)
+    else await writeFile(item.filePath, result.text, 'utf8')
+  } catch (err) {
+    return { ok: false, error: `Não foi possível gravar o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+  }
 
   updateItem(sessionId, itemId, (it) => (it.kind === 'change' ? { ...it, reverted: true } : it))
   bumpStats({ reverts: 1 })

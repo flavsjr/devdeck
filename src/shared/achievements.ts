@@ -1,4 +1,4 @@
-import type { AchievementDef } from './types'
+import type { AchievementDef, AchievementState, MetricKey } from './types'
 
 // Catálogo de conquistas. Adicionar aqui = aparece no perfil e é avaliado no main.
 // Nunca reutilize um id: ele é a chave persistida e sincronizada com a comunidade.
@@ -56,13 +56,36 @@ export const CATEGORY_LABEL: Record<AchievementDef['category'], string> = {
   comunidade: 'Comunidade'
 }
 
+export const MAX_LEVEL = 999
+
 /** XP acumulado para atingir o nível n (n >= 1): 50 · (n-1) · n / 2. */
 export function xpForLevel(level: number): number {
   return (50 * (level - 1) * level) / 2
 }
 
 export function levelFromXp(xp: number): { level: number; levelStartXp: number; nextLevelXp: number } {
+  const safe = Number.isNaN(xp) || xp < 0 ? 0 : xp
   let level = 1
-  while (xpForLevel(level + 1) <= xp) level++
+  while (level < MAX_LEVEL && xpForLevel(level + 1) <= safe) level++
   return { level, levelStartXp: xpForLevel(level), nextLevelXp: xpForLevel(level + 1) }
+}
+
+/** Avalia progresso e desbloqueios. Puro: recebe métricas, estado anterior e "agora". */
+export function evaluateAchievements(
+  defs: AchievementDef[],
+  metrics: Record<MetricKey, number>,
+  prev: Record<string, AchievementState>,
+  now: number
+): { states: Record<string, AchievementState>; unlocked: string[] } {
+  const states: Record<string, AchievementState> = { ...prev }
+  const unlocked: string[] = []
+  for (const def of defs) {
+    const before = prev[def.id]
+    const value = metrics[def.metric]
+    const progress = Math.min(Number.isFinite(value) ? Math.max(0, value) : 0, def.target)
+    const unlockedAt = before?.unlockedAt ?? (progress >= def.target ? now : undefined)
+    if (!before?.unlockedAt && unlockedAt) unlocked.push(def.id)
+    states[def.id] = { id: def.id, progress, unlockedAt }
+  }
+  return { states, unlocked }
 }

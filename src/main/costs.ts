@@ -1,9 +1,9 @@
 import type { CostSummary, ModelTotals } from '@shared/types'
 import { getSettings, getStats, listSessions, readLedger } from './store'
+import { dayKey as localDayKey } from './lib/dates'
 
 function dayKey(ts: number): string {
-  const d = new Date(ts)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localDayKey(new Date(ts))
 }
 
 export function costSummary(): CostSummary {
