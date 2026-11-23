@@ -356,7 +356,6 @@ export interface DeckApi {
   }
   workspace: {
     pick(): Promise<string | null>
-    open(path: string): Promise<string>
     list(relDir: string): Promise<TreeNode[]>
     read(relPath: string): Promise<FileContent>
   }

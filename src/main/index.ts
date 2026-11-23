@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, session, shell } from 'electron'
 import { join } from 'node:path'
 import { writeFileSync } from 'node:fs'
-import type { AgendaEvent, AppSettings, ApprovalDecision, CommunityStats, DevProfile, IcsFeed, McpServerEntry, ProviderId } from '@shared/types'
+import { z } from 'zod'
+import type { AppSettings } from '@shared/types'
 import {
   bumpStats,
   getAgendaEvents,
@@ -21,14 +22,53 @@ import { costSummary } from './costs'
 import { setEmitter } from './events'
 import { achievementsSummary, checkAchievements } from './achievements'
 import { getProfileSummary, refreshProfile, setToken, updateProfile } from './profile'
+import { handle } from './ipc'
+import { isAllowedSubframeUrl, isAppUrl, isPermissionAllowed } from './lib/origin'
+import * as v from './lib/validation'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
 let win: BrowserWindow | null = null
+const devUrl = (): string | undefined => process.env.ELECTRON_RENDERER_URL
 
 // Antes de qualquer leitura de userData: herda dados da época VibeDeck.
 migrateLegacyData()
 app.setAppUserModelId('com.devdeck.app')
+
+function openExternalSafe(url: string): void {
+  if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+}
+
+/** Navegação, janelas novas e permissões: nega tudo que não for a UI do app (ou o embed do Spotify). */
+function hardenWebContents(): void {
+  app.on('web-contents-created', (_e, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      openExternalSafe(url)
+      return { action: 'deny' }
+    })
+    contents.on('will-attach-webview', (e) => e.preventDefault())
+    contents.on('will-navigate', (e, url) => {
+      if (!isAppUrl(url, devUrl())) {
+        e.preventDefault()
+        openExternalSafe(url)
+      }
+    })
+    contents.on('will-redirect', (e, url) => {
+      if (!isAppUrl(url, devUrl())) e.preventDefault()
+    })
+    contents.on('will-frame-navigate', (e) => {
+      const ok = e.isMainFrame ? isAppUrl(e.url, devUrl()) : isAllowedSubframeUrl(e.url)
+      if (!ok) e.preventDefault()
+    })
+  })
+
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    callback(isPermissionAllowed(permission, details.requestingUrl ?? '', devUrl()))
+  })
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
+    isPermissionAllowed(permission, requestingOrigin, devUrl())
+  )
+}
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -43,30 +83,25 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      webviewTag: false
     }
-  })
-
-  // Links externos abrem no navegador do sistema.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
-    return { action: 'deny' }
   })
 
   win.webContents.on('preload-error', (_e, path, err) => console.error('[preload-error]', path, err))
   win.webContents.on('render-process-gone', (_e, d) => console.error('[renderer-gone]', d.reason))
 
-  if (process.env.ELECTRON_RENDERER_URL) {
+  if (devUrl()) {
     // Em dev, espelha o console do renderer no terminal.
     win.webContents.on('console-message', (e) => console.log(`[renderer:${e.level}]`, e.message))
-    void win.loadURL(process.env.ELECTRON_RENDERER_URL + (process.env.DEVDECK_VIEW ? `#${process.env.DEVDECK_VIEW}` : ''))
+    void win.loadURL(devUrl()! + (process.env.DEVDECK_VIEW ? `#${process.env.DEVDECK_VIEW}` : ''))
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Captura de tela opcional para depuração: DEVDECK_SNAPSHOT=caminho.png
+  // Captura de tela para depuração (DEVDECK_SNAPSHOT=caminho.png) — só fora do app empacotado.
   const snap = process.env.DEVDECK_SNAPSHOT
-  if (snap) {
+  if (snap && !app.isPackaged) {
     win.webContents.once('did-finish-load', () => {
       setTimeout(async () => {
         const img = await win?.webContents.capturePage()
@@ -81,110 +116,98 @@ function registerIpc(): void {
   setEmitter((e) => win?.webContents.send('agent:event', e))
 
   // settings
-  ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', (_e, patch: Partial<AppSettings>) => {
+  handle('settings:get', [], () => getSettings())
+  handle('settings:update', [v.settingsPatch], (patch) => {
     const before = getSettings()
     const after = updateSettings(patch)
-    const runtimeChanged = ['model', 'effort', 'sessionBudgetUsd', 'loadProjectSettings', 'appendSystemPrompt'].some(
-      (k) => before[k as keyof AppSettings] !== after[k as keyof AppSettings]
+    const runtimeChanged = (['model', 'effort', 'sessionBudgetUsd', 'loadProjectSettings', 'appendSystemPrompt'] as (keyof AppSettings)[]).some(
+      (k) => before[k] !== after[k]
     )
     if (runtimeChanged) agent.resetIdleSessions()
     return after
   })
-  ipcMain.handle('settings:setApiKey', (_e, key: string | null) => {
+  handle('settings:setApiKey', [v.apiKey], (key) => {
     const s = setApiKey(key)
     agent.resetIdleSessions()
     return s
   })
 
   // workspace
-  ipcMain.handle('workspace:pick', async () => {
+  handle('workspace:pick', [], async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory'], title: 'Escolher workspace' })
     if (r.canceled || !r.filePaths[0]) return null
     const abs = openWorkspace(r.filePaths[0])
     updateSettings({ lastWorkspace: abs })
     return abs
   })
-  ipcMain.handle('workspace:open', (_e, p: string) => {
-    const abs = openWorkspace(p)
-    updateSettings({ lastWorkspace: abs })
-    return abs
-  })
-  ipcMain.handle('workspace:list', (_e, rel: string) => listDir(rel))
-  ipcMain.handle('workspace:read', (_e, rel: string) => readWorkspaceFile(rel))
+  handle('workspace:list', [v.relPath], (rel) => listDir(rel))
+  handle('workspace:read', [v.relPath], (rel) => readWorkspaceFile(rel))
 
   // git
-  ipcMain.handle('git:status', () => gitStatus())
-  ipcMain.handle('git:diff', (_e, rel: string) => gitDiff(rel))
-  ipcMain.handle('git:restore', (_e, rel: string) => gitRestore(rel))
+  handle('git:status', [], () => gitStatus())
+  handle('git:diff', [v.relPath], (rel) => gitDiff(rel))
+  handle('git:restore', [v.relPath], (rel) => gitRestore(rel))
 
   // mcp
-  ipcMain.handle('mcp:list', () => getMcpServers())
-  ipcMain.handle('mcp:save', (_e, entry: McpServerEntry, previousName?: string) => {
+  handle('mcp:list', [], () => getMcpServers())
+  handle('mcp:save', [v.mcpEntry, v.mcpName.optional()], (entry, previousName) => {
     const list = getMcpServers().filter((s) => s.name !== (previousName ?? entry.name) && s.name !== entry.name)
     const saved = saveMcpServers([...list, entry])
     agent.resetIdleSessions()
     checkAchievements()
     return saved
   })
-  ipcMain.handle('mcp:remove', (_e, name: string) => {
+  handle('mcp:remove', [v.mcpName], (name) => {
     const saved = saveMcpServers(getMcpServers().filter((s) => s.name !== name))
     agent.resetIdleSessions()
     checkAchievements()
     return saved
   })
-  ipcMain.handle('mcp:test', (_e, entry: McpServerEntry) => testMcpServer(entry))
-  ipcMain.handle('mcp:importClaude', () => importFromClaude())
+  handle('mcp:test', [v.mcpEntry], (entry) => testMcpServer(entry))
+  handle('mcp:importClaude', [], () => importFromClaude())
 
   // agent
-  ipcMain.handle('agent:sessions', () => agent.listAllSessions())
-  ipcMain.handle('agent:create', (_e, title?: string) => agent.createSession(title))
-  ipcMain.handle('agent:load', (_e, id: string) => agent.getSessionState(id))
-  ipcMain.handle('agent:rename', (_e, id: string, title: string) => agent.renameSession(id, title))
-  ipcMain.handle('agent:remove', (_e, id: string) => agent.removeSession(id))
-  ipcMain.handle('agent:send', (_e, id: string, text: string, context: string[]) => agent.sendMessage(id, text, context))
-  ipcMain.handle('agent:interrupt', (_e, id: string) => agent.interrupt(id))
-  ipcMain.handle('agent:decide', (_e, approvalId: string, decision: ApprovalDecision) => agent.decide(approvalId, decision))
-  ipcMain.handle('agent:revertChange', (_e, sessionId: string, itemId: string) => agent.revertChange(sessionId, itemId))
+  handle('agent:sessions', [], () => agent.listAllSessions())
+  handle('agent:create', [v.sessionTitle.optional()], (title) => agent.createSession(title))
+  handle('agent:load', [v.uuid], (id) => agent.getSessionState(id))
+  handle('agent:rename', [v.uuid, v.sessionTitle], (id, title) => agent.renameSession(id, title))
+  handle('agent:remove', [v.uuid], (id) => agent.removeSession(id))
+  handle('agent:send', [v.uuid, v.chatText, v.chatContext], (id, text, context) => agent.sendMessage(id, text, context))
+  handle('agent:interrupt', [v.uuid], (id) => agent.interrupt(id))
+  handle('agent:decide', [v.uuid, v.approvalDecision], (approvalId, decision) => agent.decide(approvalId, decision))
+  handle('agent:revertChange', [v.uuid, v.uuid], (sessionId, itemId) => agent.revertChange(sessionId, itemId))
 
   // custos
-  ipcMain.handle('costs:summary', () => costSummary())
+  handle('costs:summary', [], () => costSummary())
 
   // perfil
-  ipcMain.handle('profile:get', () => getProfileSummary())
-  ipcMain.handle('profile:refresh', () => refreshProfile())
-  ipcMain.handle('profile:update', (_e, patch: Partial<DevProfile>) => updateProfile(patch))
-  ipcMain.handle('profile:setToken', (_e, id: ProviderId, token: string | null, baseUrl?: string) => {
-    if (!['github', 'gitlab', 'bitbucket'].includes(id)) throw new Error('Provedor inválido.')
-    return setToken(id, token, baseUrl)
-  })
+  handle('profile:get', [], () => getProfileSummary())
+  handle('profile:refresh', [], () => refreshProfile())
+  handle('profile:update', [v.devProfilePatch], (patch) => updateProfile(patch))
+  handle('profile:setToken', [v.providerId, v.providerToken, z.string().max(2000).optional()], (id, token, baseUrl) => setToken(id, token, baseUrl))
 
   // conquistas
-  ipcMain.handle('achievements:get', () => achievementsSummary())
-  ipcMain.handle('achievements:reportCommunity', (_e, s: CommunityStats) => {
-    const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0)
-    saveProfile({ community: { articles: n(s?.articles), snippets: n(s?.snippets), likesReceived: n(s?.likesReceived) } })
+  handle('achievements:get', [], () => achievementsSummary())
+  handle('achievements:reportCommunity', [v.communityStats], (s) => {
+    saveProfile({ community: s })
     checkAchievements()
   })
-  ipcMain.handle('achievements:focusCompleted', () => {
+  handle('achievements:focusCompleted', [], () => {
     bumpStats({ focusSessions: 1 })
     checkAchievements()
   })
 
   // agenda
-  ipcMain.handle('agenda:occurrences', (_e, from: number, to: number) => agenda.listOccurrences(from, to))
-  ipcMain.handle('agenda:events', () => getAgendaEvents())
-  ipcMain.handle('agenda:save', (_e, ev: AgendaEvent) => agenda.saveEvent(ev))
-  ipcMain.handle('agenda:remove', (_e, id: string) => agenda.removeEvent(id))
-  ipcMain.handle('agenda:feeds', () => getIcsFeeds())
-  ipcMain.handle('agenda:saveFeed', (_e, feed: IcsFeed) => agenda.saveFeed(feed))
-  ipcMain.handle('agenda:removeFeed', (_e, id: string) => agenda.removeFeed(id))
-  ipcMain.handle('agenda:syncFeeds', () => agenda.syncAllFeeds())
+  handle('agenda:occurrences', [v.timestamp, v.timestamp], (from, to) => agenda.listOccurrences(from, to))
+  handle('agenda:events', [], () => getAgendaEvents())
+  handle('agenda:save', [v.agendaEvent], (ev) => agenda.saveEvent(ev))
+  handle('agenda:remove', [v.uuid], (id) => agenda.removeEvent(id))
+  handle('agenda:feeds', [], () => getIcsFeeds())
+  handle('agenda:saveFeed', [v.icsFeed], (feed) => agenda.saveFeed(feed))
+  handle('agenda:removeFeed', [v.uuid], (id) => agenda.removeFeed(id))
+  handle('agenda:syncFeeds', [], () => agenda.syncAllFeeds())
 
-  ipcMain.handle('shell:openExternal', (_e, url: string) => {
-    if (/^https?:\/\//.test(url)) return shell.openExternal(url)
-    return undefined
-  })
+  handle('shell:openExternal', [v.externalUrl], (url) => openExternalSafe(url))
 }
 
 app.whenReady().then(() => {
@@ -196,6 +219,7 @@ app.whenReady().then(() => {
       updateSettings({ lastWorkspace: null })
     }
   }
+  hardenWebContents()
   registerIpc()
   createWindow()
   agenda.startAgendaScheduler()

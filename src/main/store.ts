@@ -124,7 +124,15 @@ export function saveMcpServers(list: McpServerEntry[]): McpServerEntry[] {
 
 // ---------- Sessões ----------
 
-const sessionFile = (id: string): string => join(sessionsDir(), `${id}.json`)
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Ids viram nome de arquivo: só UUID passa (evita .. e caminhos arbitrários). */
+function assertUuid(id: string): string {
+  if (!UUID.test(id)) throw new Error('Id inválido.')
+  return id
+}
+
+const sessionFile = (id: string): string => join(sessionsDir(), `${assertUuid(id)}.json`)
 
 interface StoredSession {
   meta: SessionMeta
@@ -318,14 +326,14 @@ const icsDir = (): string => join(root(), 'ics')
 
 export function saveIcsText(feedId: string, text: string): void {
   mkdirSync(icsDir(), { recursive: true })
-  writeFileSync(join(icsDir(), `${feedId}.ics`), text, 'utf8')
+  writeFileSync(join(icsDir(), `${assertUuid(feedId)}.ics`), text, 'utf8')
 }
 
 export function readIcsText(feedId: string): string | null {
-  const f = join(icsDir(), `${feedId}.ics`)
+  const f = join(icsDir(), `${assertUuid(feedId)}.ics`)
   return existsSync(f) ? readFileSync(f, 'utf8') : null
 }
 
 export function deleteIcsText(feedId: string): void {
-  rmSync(join(icsDir(), `${feedId}.ics`), { force: true })
+  rmSync(join(icsDir(), `${assertUuid(feedId)}.ics`), { force: true })
 }
