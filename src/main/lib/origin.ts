@@ -18,8 +18,14 @@ function parse(url: string): URL | null {
   }
 }
 
-function normalizeFilePath(u: URL): string {
-  const p = decodeURIComponent(u.pathname).replace(/\\/g, '/')
+/** Caminho normalizado; null se o percent-encoding for inválido (ex.: %ZZ) — quem chama recusa. */
+function normalizeFilePath(u: URL): string | null {
+  let p: string
+  try {
+    p = decodeURIComponent(u.pathname).replace(/\\/g, '/')
+  } catch {
+    return null
+  }
   // Windows: unidade e caminho sem diferenciar maiúsculas.
   return /^\/[A-Za-z]:\//.test(p) ? p.toLowerCase() : p
 }
@@ -37,7 +43,8 @@ export function isAppUrl(url: string, loc: AppLocation): boolean {
   if (!app || u.protocol !== 'file:' || app.protocol !== 'file:') return false
   if (u.host !== '' || u.host !== app.host) return false // file://servidor/compartilhamento (UNC/WebDAV) recusado
   if (u.search !== '') return false
-  return normalizeFilePath(u) === normalizeFilePath(app)
+  const got = normalizeFilePath(u)
+  return got !== null && got === normalizeFilePath(app)
 }
 
 /** Subframes permitidos: só o player embutido do Spotify. */

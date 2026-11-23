@@ -79,7 +79,8 @@ const DEFAULT_SETTINGS: StoredSettings = {
   loadProjectSettings: false,
   appendSystemPrompt: 'Responda sempre em português do Brasil.',
   spotifyUrl: '',
-  lastWorkspace: null
+  lastWorkspace: null,
+  settingsVersion: SETTINGS_VERSION
 }
 
 const settingsFile = (): string => join(root(), 'settings.json')

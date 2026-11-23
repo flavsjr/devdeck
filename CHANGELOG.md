@@ -7,7 +7,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 ## [0.3.0] — 2026-11-23 · Sprint 03
 
 ### Adicionado
-- Testes automatizados com Vitest (232 testes) para sequência de commits, agenda/ICS, edit/revert, conquistas, diff, validação de IPC, origens e confiança em workspace, rodando nos fusos de São Paulo e Nova York.
+- Testes automatizados com Vitest (250 testes) para sequência de commits, agenda/ICS, edit/revert, conquistas, diff, validação de IPC, origens e confiança em workspace, rodando nos fusos de São Paulo e Nova York.
 - CI no GitHub Actions: typecheck, testes e build em Windows e Ubuntu, mais varredura de segredos com gitleaks. Dependabot para as actions.
 - Diálogo "Confiar neste workspace?" listando hooks, permissões, variáveis, helpers e servidores MCP do repositório antes de carregá-los.
 - Modal próprio para denunciar posts na Comunidade.

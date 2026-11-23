@@ -1,6 +1,6 @@
 # Sprint 03 — Qualidade, segurança e instalador
 
-**Período:** a partir de 2026-11-23 · **Versão alvo:** v0.3.0 · **Branch:** `sprint/03-qualidade` · **Status:** planejada
+**Período:** 2026-11-23 · **Versão:** v0.3.0 · **Branch:** `sprint/03-qualidade` · **Status:** concluída (pendências manuais listadas em QA)
 
 ## Objetivo
 Dar base de qualidade ao DevDeck (testes + CI) e fechar os 4 bloqueantes de segurança da primeira revisão real do squad. Instalador Windows completo fica para a Sprint 04 (aqui só spike).
@@ -150,10 +150,62 @@ Dar base de qualidade ao DevDeck (testes + CI) e fechar os 4 bloqueantes de segu
 - **Baixas:** todas para a Sprint 04. CSP endurecida e remoção de `workspace:open` entram como Could se sobrar timebox na H03.6.
 - **Instalador** (fuses, SHA-256, attestation, hash do SDK, sem auto-update): sem risco nesta sprint — nada é distribuído.
 
+### Riscos aceitos no fechamento (Cybersecurity, revalidação de `d74151a`)
+- **Média:** com "carregar configurações do projeto" ligado, skills, commands e agents de `.claude/` carregam sem diálogo quando `settings.json` e `.mcp.json` estão limpos (o hash não cobre `.claude/**`; frontmatter pode trazer `allowed-tools`/hooks). Dono: Sprint 04 — incluir `.claude/**` no hash ou usar `managedSettings` (`allowManagedHooksOnly`, `allowManagedPermissionRulesOnly`) em workspace não confiado.
+- **Média:** `git status` respeita `core.fsmonitor` de um `.git/config` vindo em zip/pasta copiada. Dono: Sprint 04.
+- **Baixa:** detecção do B1 por lista de chaves proibidas; chave nova do Claude Code passa sem diálogo. Trocar por lista de permitidas na Sprint 04.
+- **Baixa:** "sempre nesta sessão" libera tools como NotebookEdit pelo nome, sem confinamento ao workspace. Sprint 04.
+
 ## Movido para a Sprint 04
 - H03.4 completa: NSIS per-user, `asarUnpack`, fuses, `release.yml` em draft com `SHA256SUMS.txt`, attestation, ícone, versão exata e hash do SDK, sem auto-update, ADR-011.
 - Bugs: horário de verão, ICS sem UID ou exceção órfã, `STATUS:CANCELLED`, série > 5.000 ocorrências, patch gravado com conteúdo real (CRLF), limite do `diffLines`, `old_string` vazio, fuso do GitHub.
 - Riscos médios e baixos de segurança listados acima.
+
+## Tarefas executadas
+| Passo | Commit | História |
+|---|---|---|
+| Lockfile sincronizado | `edd96d1` | — |
+| Planejamento e debate | `64554d7` | — |
+| Lógica pura em `lib/` + correções de agenda/conquistas/diff | `ae20720` | H03.1, H03.7 |
+| Vitest em dois fusos, teste-guarda, `it.todo` da Sprint 04 | `b3a7fd1` | H03.1 |
+| CI (typecheck, testes, build, gitleaks), Dependabot, trava da chave do Supabase | `bcc3b6e` | H03.2 |
+| IPC com origem + zod, UUID, navegação e permissões | `49d99b8` | H03.6 |
+| Confiança no workspace + confinamento de edições | `210780e` | H03.3 |
+| Denunciar com modal | `b2a9f93` | H03.5 |
+| Condições de fechamento da Cybersecurity | `d74151a` | H03.3, H03.6 |
+| Spike de empacotamento | — | H03.4a **não executado** (Could; capacidade usada nas condições de segurança) |
+
+## QA — resultado
+| Caso | Resultado | Evidência |
+|---|---|---|
+| `npm test` sem Electron, fusos São Paulo e Nova York | ✅ | 250 testes, 16 `it.todo` (Sprint 04); `tz.test.ts` comprova o fuso de cada projeto |
+| Cobertura em `lib/` ≥ 80% | ✅ | 99,5% das linhas na primeira medição |
+| Teste-guarda de pureza da `lib/` | ✅ | `tests/unit/guard.test.ts` |
+| `npm run typecheck` (node, web, test) e `npm run build` | ✅ | sem erros |
+| Build recusa chave `sb_secret_` | ✅ | erro "RENDERER_VITE_SUPABASE_KEY parece ser uma chave secreta" |
+| CSP de produção sem `ws://localhost` | ✅ | `out/renderer/index.html` |
+| App em dev e em produção (`electron-vite preview`, file://, caminho com "ç") com IPC funcionando | ✅ | capturas: árvore, settings e "Hoje" carregam |
+| `npm audit --omit=dev` e `npm audit` | ✅ | 0 vulnerabilidades |
+| Nenhum `prompt(` no renderer | ✅ | `tests/unit/renderer/no-native-prompt.test.ts` |
+| CI verde no GitHub | ⏳ | depende do push da branch (aprovação do usuário) |
+| Diálogo "Confiar neste workspace?" com repo real que tenha hooks | ⏳ | manual — aparece no primeiro envio de mensagem (chamada paga) |
+| Denunciar com Supabase real (item 9) | ⏳ | manual — depende do projeto Supabase |
+| Itens 1–15 do roteiro abaixo | ⏳ | manual |
+
+## Security review
+Revisão real pelo agente `cybersecurity` em duas rodadas.
+
+| Bloqueante | Abertura | Fechamento | Evidência |
+|---|---|---|---|
+| B1 — repo executa hooks/permissões sem confiança | aberto | ✅ fechado (com riscos aceitos acima) | `src/main/trust.ts`, `src/main/lib/trust.ts`, default desligado + migração em `store.ts` |
+| B2 — "aprovar todas" sem confinamento | aberto | ✅ fechado | `src/main/lib/paths.ts` (realpath, `canonicalSegment`), `classifyEditTarget` |
+| B3 — navegação e origem do IPC | aberto → reaberto na 1ª revalidação (`isAppUrl` aceitava qualquer `out/renderer/index.html`) | ✅ fechado em `d74151a` | URL exata do build, drop bloqueado, `will-redirect` por frame |
+| B4 — ids e settings sem validação | aberto | ✅ fechado | `src/main/ipc.ts`, `src/main/lib/validation.ts`, `assertUuid` |
+
+- **CI (H03.2):** atende — `contents: read`, actions por SHA, `persist-credentials: false`, sem `pull_request_target`, gitleaks, só `GITHUB_TOKEN` automático.
+- **Correções extras no fechamento:** `%` malformado em URL file:// não lança mais erro na checagem de origem; `settingsVersion` no default (instalação nova não reseta o toggle).
+- **`npm audit`:** 0 vulnerabilidades (prod e dev).
+- **Veredito:** ✅ Sprint 03 pode fechar pela segurança.
 
 ## QA — roteiro manual pendente da Sprint 02
 1. Perfil → conectar GitHub (token só leitura) → login, commits e heatmap aparecem.
@@ -171,3 +223,8 @@ Dar base de qualidade ao DevDeck (testes + CI) e fechar os 4 bloqueantes de segu
 13. Esperado: notificação e banner com Entrar; clicar traz a janela; não repete.
 14. Lembrete de 240 min → anotar quando dispara (esperado 4 h antes).
 15. ICS com evento de dia inteiro ontem → não aparece em "Hoje".
+
+## Retro
+- **Funcionou:** debate com agentes reais encontrou falhas que eu não tinha visto (4 bloqueantes + bug do Denunciar); a revalidação pegou uma brecha nova na própria correção (`isAppUrl` permissivo) antes de fechar. Extrair `lib/` pura deixou os testes rápidos (< 1 s) e determinísticos nos dois fusos.
+- **Melhorar:** escrever arquivos com `node -e` dentro do bash quebrou com crases e escapes Unicode (um regex chegou a gravar caracteres de controle crus) — usar scripts em arquivo. O spike de empacotamento ficou de fora.
+- **Ações (Sprint 04):** instalador NSIS completo (H03.4) com fuses e SHA-256; tokens de MCP e link ICS criptografados; riscos aceitos acima; `it.todo` dos bugs de agenda/ICS/diff; tag `v0.2.0`/`v0.3.0` e PR mediante aprovação.

@@ -24,6 +24,11 @@ describe('isAppUrl', () => {
     expect(isAppUrl('file:///C:/Users/dev/Downloads/evil.html', PROD)).toBe(false)
   })
 
+  it('produção: percent-encoding inválido é recusado sem lançar erro', () => {
+    expect(() => isAppUrl('file:///C:/repo/evil%ZZ.html', PROD)).not.toThrow()
+    expect(isAppUrl('file:///C:/repo/evil%ZZ.html', PROD)).toBe(false)
+  })
+
   it('produção: recusa host UNC/WebDAV e query', () => {
     expect(isAppUrl('file://servidor/share/DevDeck/resources/app.asar/out/renderer/index.html', PROD)).toBe(false)
     expect(isAppUrl(`${APP_FILE}?x=1`, PROD)).toBe(false)
