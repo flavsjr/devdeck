@@ -465,3 +465,18 @@
 .login .row-actions input {
   max-width: 320px;
 }
+
+/* Modal genérico (ex.: denúncia na comunidade) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 30;
+}
+.modal {
+  width: min(520px, calc(100vw - 32px));
+  margin: 0;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}

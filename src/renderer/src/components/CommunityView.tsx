@@ -264,11 +264,26 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
     void loadComments()
   }
 
-  const report = async (): Promise<void> => {
-    const reason = prompt('Motivo da denúncia (spam, ofensivo, segredo exposto…):')
-    if (!reason || reason.trim().length < 3) return
-    const { error } = await supabase!.from('reports').insert({ post_id: post.id, reporter_id: uid, reason: reason.trim().slice(0, 500) })
-    notify(error ? (error.code === '23505' ? 'Você já denunciou este post.' : error.message) : 'Denúncia registrada. Obrigado!')
+  // Electron não tem diálogo de texto nativo (window.prompt): o motivo é coletado num modal próprio.
+  const [reporting, setReporting] = useState(false)
+  const [reason, setReason] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const openReport = (): void => {
+    if (!uid) return notify('Entre na comunidade para denunciar um post.')
+    setReason('')
+    setReporting(true)
+  }
+
+  const sendReport = async (): Promise<void> => {
+    const r = reason.trim()
+    if (r.length < 3) return notify('Descreva o motivo (mínimo 3 caracteres).')
+    setSending(true)
+    const { error } = await supabase!.from('reports').insert({ post_id: post.id, reporter_id: uid, reason: r.slice(0, 500) })
+    setSending(false)
+    if (error) return notify(error.code === '23505' ? 'Você já denunciou este post.' : error.message)
+    setReporting(false)
+    notify('Denúncia registrada. Obrigado por ajudar a comunidade!')
   }
 
   const remove = async (): Promise<void> => {
@@ -280,6 +295,25 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
 
   return (
     <div className="post-detail">
+      {reporting && (
+        <div className="modal-backdrop" role="presentation" onClick={() => !sending && setReporting(false)}>
+          <div className="modal card" role="dialog" aria-modal="true" aria-labelledby="report-title" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-title" id="report-title">
+              Denunciar "{post.title}"
+            </div>
+            <p className="small muted">Spam, conteúdo ofensivo, segredo exposto (token, senha) ou código proprietário. Com 3 denúncias o post fica oculto até revisão.</p>
+            <textarea autoFocus rows={4} maxLength={500} placeholder="Motivo da denúncia" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <div className="row-actions">
+              <button className="btn danger" disabled={sending || reason.trim().length < 3} onClick={() => void sendReport()}>
+                {sending ? 'Enviando…' : 'Enviar denúncia'}
+              </button>
+              <button className="btn ghost" disabled={sending} onClick={() => setReporting(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <button className="link" onClick={onBack}>
         ‹ voltar ao feed
       </button>
@@ -307,8 +341,8 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
         <button className={`btn ${liked ? 'primary' : 'ghost'}`} disabled={!uid} onClick={onLike}>
           ♥ {post.like_count}
         </button>
-        {uid && uid !== post.author_id && (
-          <button className="btn ghost sm" onClick={() => void report()}>
+        {uid !== post.author_id && (
+          <button className="btn ghost sm" onClick={openReport}>
             Denunciar
           </button>
         )}
