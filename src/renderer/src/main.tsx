@@ -1,8 +1,15 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import './styles.css'
-import './styles-sprint2.css'
+// Ordem importa: index.css declara a ordem das camadas antes de qualquer outra regra (ADR-014).
+import './styles/index.css'
+import '@fontsource-variable/inter/wght.css'
+import '@fontsource-variable/jetbrains-mono/wght.css'
+import './styles/tokens.css'
+import './styles/app.css'
+import './styles/views.css'
+import './styles/base.css'
+import './styles/shell.css'
 
 // Arquivo ou link arrastado para a janela não pode navegar a UI para fora do app.
 window.addEventListener('dragover', (e) => e.preventDefault())
