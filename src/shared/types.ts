@@ -1,4 +1,5 @@
 // Tipos compartilhados entre main, preload e renderer.
+import type { UiPrefs } from './layout'
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
@@ -19,6 +20,8 @@ export interface AppSettings {
   /** Derivado: há segredos antigos em texto puro esperando o cofre do sistema. Nunca persiste. */
   secretsPending: boolean
   lastWorkspace: string | null
+  /** Layout: sidebar, painel direito e largura (persistidos). */
+  ui: UiPrefs
 }
 
 export type McpTransport = 'stdio' | 'http' | 'sse'

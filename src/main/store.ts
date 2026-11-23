@@ -17,6 +17,7 @@ import type {
   ProviderStats,
   SessionMeta
 } from '@shared/types'
+import { DEFAULT_UI, sanitizeUi } from '@shared/layout'
 import { feedView, mcpView, migrateFeeds, migrateMcpList, sealFeed, sealMcp, unsealFeed, unsealMcp, type Cipher, type StoredIcsFeed, type StoredMcpEntry } from './lib/secrets'
 
 // Persistência simples em JSON dentro de %APPDATA%/DevDeck.
@@ -121,13 +122,16 @@ const DEFAULT_SETTINGS: StoredSettings = {
   appendSystemPrompt: 'Responda sempre em português do Brasil.',
   spotifyUrl: '',
   lastWorkspace: null,
+  ui: DEFAULT_UI,
   settingsVersion: SETTINGS_VERSION
 }
 
 const settingsFile = (): string => join(root(), 'settings.json')
 
 function loadStoredSettings(): StoredSettings {
-  return { ...DEFAULT_SETTINGS, ...readJson<Partial<StoredSettings>>(settingsFile(), {}) }
+  const raw = { ...DEFAULT_SETTINGS, ...readJson<Partial<StoredSettings>>(settingsFile(), {}) }
+  // Valor de disco fora da faixa (arquivo editado à mão, versão antiga) volta para o limite.
+  return { ...raw, ui: sanitizeUi(raw.ui) }
 }
 
 export function getSettings(): AppSettings {
@@ -139,7 +143,7 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
   const current = loadStoredSettings()
   // Campos derivados nunca persistem.
   const { hasApiKey: _a, encryptionAvailable: _b, secretsPending: _c, ...clean } = patch
-  writeJson(settingsFile(), { ...current, ...clean })
+  writeJson(settingsFile(), { ...current, ...clean, ...(clean.ui ? { ui: sanitizeUi(clean.ui) } : {}) })
   return getSettings()
 }
 

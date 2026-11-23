@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, Occurrence, SessionInfo, SessionMeta } from '@shared/types'
+import { DEFAULT_UI, sanitizeUi, type UiPrefs } from '@shared/layout'
 
 export type View = 'chat' | 'changes' | 'mcp' | 'profile' | 'agenda' | 'community' | 'costs' | 'settings'
 
@@ -24,10 +25,18 @@ interface State {
   agendaVersion: number
   achievementsVersion: number
   reminder: { occurrence: Occurrence; minutesLeft: number } | null
+  /** Paleta de comandos (Ctrl+K) e ajuda de atalhos (Ctrl+/). */
+  paletteOpen: boolean
+  helpOpen: boolean
+  /** Layout atual (espelha settings.ui; gravado com debounce). */
+  ui: UiPrefs
 
   init(): Promise<void>
   setView(v: View): void
   setSettings(s: AppSettings): void
+  setUi(patch: Partial<UiPrefs>): void
+  setPalette(open: boolean): void
+  setHelp(open: boolean): void
   pickWorkspace(): Promise<void>
   refreshSessions(): Promise<void>
   openSession(id: string, focus?: boolean): Promise<void>
@@ -44,13 +53,18 @@ interface State {
 
 const api = (): Window['deck'] => window.deck
 
+let uiTimer: ReturnType<typeof setTimeout> | undefined
+
 const VIEWS: View[] = ['chat', 'changes', 'mcp', 'profile', 'agenda', 'community', 'costs', 'settings']
 
 /** Permite abrir direto numa aba via #view (útil para depuração e capturas). */
 function initialView(): View {
-  const h = location.hash.slice(1) as View
+  const h = location.hash.slice(1).split(':')[0] as View
   return VIEWS.includes(h) ? h : 'chat'
 }
+
+/** Só para capturas de QA (#chat:palette, #chat:help): abre a paleta ou a ajuda ao carregar. */
+const hashFlag = (flag: string): boolean => location.hash.split(':').slice(1).includes(flag)
 
 export const useStore = create<State>((set, get) => ({
   settings: null,
@@ -72,10 +86,14 @@ export const useStore = create<State>((set, get) => ({
   agendaVersion: 0,
   achievementsVersion: 0,
   reminder: null,
+  paletteOpen: hashFlag('palette'),
+  helpOpen: hashFlag('help'),
+  ui: DEFAULT_UI,
 
   async init() {
     const settings = await api().settings.get()
-    set({ settings, workspace: settings.lastWorkspace })
+    const ui = sanitizeUi(settings.ui)
+    set({ settings, workspace: settings.lastWorkspace, ui: hashFlag('collapsed') ? { ...ui, rightPanelOpen: false } : ui })
     await get().refreshSessions()
     await get().refreshCosts()
     const first = get().sessions.find((s) => s.cwd === settings.lastWorkspace)
@@ -89,6 +107,27 @@ export const useStore = create<State>((set, get) => ({
 
   setSettings(settings) {
     set({ settings })
+  },
+
+  setUi(patch) {
+    const ui = sanitizeUi({ ...get().ui, ...patch })
+    set({ ui })
+    // Arrastar o divisor gera muitos eventos: grava só quando parar.
+    clearTimeout(uiTimer)
+    uiTimer = setTimeout(() => {
+      api()
+        .settings.update({ ui })
+        .then((settings) => set({ settings }))
+        .catch(() => undefined)
+    }, 400)
+  },
+
+  setPalette(paletteOpen) {
+    set({ paletteOpen, ...(paletteOpen ? { helpOpen: false } : {}) })
+  },
+
+  setHelp(helpOpen) {
+    set({ helpOpen, ...(helpOpen ? { paletteOpen: false } : {}) })
   },
 
   async pickWorkspace() {
@@ -229,7 +268,7 @@ export const useStore = create<State>((set, get) => ({
         set((s) => ({ treeVersion: s.treeVersion + 1 }))
         break
       case 'achievement':
-        get().notify(`🏆 Conquista desbloqueada: ${e.def.icon} ${e.def.title} (+${e.def.xp} XP)`)
+        get().notify(`Conquista desbloqueada: ${e.def.icon} ${e.def.title} (+${e.def.xp} XP)`)
         set((s) => ({ achievementsVersion: s.achievementsVersion + 1 }))
         break
       case 'reminder':

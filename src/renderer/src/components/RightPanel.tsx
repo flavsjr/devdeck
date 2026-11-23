@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ApprovalRequest, FileContent, Occurrence } from '@shared/types'
+import { clampPanelWidth, RIGHT_PANEL_DEFAULT, RIGHT_PANEL_MAX, RIGHT_PANEL_MIN } from '@shared/layout'
 import { useStore } from '../store'
 import { bytes } from '../format'
+import { runAction } from '../commands'
+import { keysFor, matchApprovalKey } from '../lib/shortcuts'
 import { DiffView } from './DiffView'
 import { FlowCard } from './FlowCard'
 import { OccurrenceRow } from './AgendaView'
-import { IconX } from './Icons'
+import { IconCalendar, IconPanelRight, IconX } from './Icons'
 
 function TodayAgenda() {
   const agendaVersion = useStore((s) => s.agendaVersion)
@@ -43,13 +46,32 @@ function TodayAgenda() {
 function ApprovalCard({ a }: { a: ApprovalRequest }) {
   const [feedback, setFeedback] = useState('')
   const [showFeedback, setShowFeedback] = useState(false)
+  // Janela de guarda (B4): teclas nos primeiros 600 ms depois que o card aparece ou muda são ignoradas.
+  const shownAt = useRef(Date.now())
+  useEffect(() => {
+    shownAt.current = Date.now()
+  }, [a.id, a.after, a.command])
   const decide = (approve: boolean, always = false): void => {
     void window.deck.agent.decide(a.id, approve ? { approve: true, alwaysForSession: always } : { approve: false, feedback })
   }
   const isFile = a.kind === 'edit' || a.kind === 'write'
+  const target = isFile ? a.relPath : a.title
+
+  // Alt+A / Alt+R só com o foco dentro deste card e para este approvalId; Alt+A nunca liga "sempre".
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    const hit = matchApprovalKey(
+      { key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, repeat: e.repeat, isComposing: e.nativeEvent.isComposing, altGraph: e.getModifierState('AltGraph') },
+      shownAt.current,
+      Date.now()
+    )
+    if (!hit) return
+    e.preventDefault()
+    e.stopPropagation()
+    decide(hit === 'approve')
+  }
 
   return (
-    <div className="approval">
+    <section className="approval" tabIndex={-1} data-approval={a.id} aria-label={`Aprovação: ${target}`} onKeyDown={onKeyDown}>
       <div className="approval-head">
         <span className={`kind ${a.kind}`}>{a.kind === 'command' ? 'comando' : isFile ? (a.isNewFile ? 'novo arquivo' : 'edição') : 'ferramenta'}</span>
         <span className="approval-title" title={a.title}>
@@ -83,8 +105,8 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
       )}
 
       <div className="approval-actions">
-        <button className="btn primary" onClick={() => decide(true)}>
-          Aprovar
+        <button className="btn primary" onClick={() => decide(true)} aria-keyshortcuts="Alt+A">
+          Aprovar <kbd className="on-primary">Alt+A</kbd>
         </button>
         <button
           className="btn ghost"
@@ -103,13 +125,13 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
             <button className="btn ghost" onClick={() => setShowFeedback(true)}>
               Pedir ajuste
             </button>
-            <button className="btn danger" onClick={() => decide(false)}>
+            <button className="btn danger" onClick={() => decide(false)} aria-keyshortcuts="Alt+R">
               Rejeitar
             </button>
           </>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -139,7 +161,7 @@ function FilePreview({ path }: { path: string }) {
         <button className={`btn sm ${contextFiles.includes(path) ? 'primary' : 'ghost'}`} onClick={() => toggleContextFile(path)}>
           {contextFiles.includes(path) ? '✓ no contexto' : '@ contexto'}
         </button>
-        <button className="icon-btn" onClick={() => preview(null)} title="Fechar">
+        <button className="icon-btn" onClick={() => preview(null)} title="Fechar prévia (Esc)" aria-label="Fechar prévia">
           <IconX size={14} />
         </button>
       </div>
@@ -162,19 +184,115 @@ function FilePreview({ path }: { path: string }) {
   )
 }
 
-export function RightPanel() {
+/** Divisor arrastável (mouse) e ajustável por setas (teclado), entre 320 e 640 px. */
+function Resizer() {
+  const width = useStore((s) => s.ui.rightPanelWidth)
+  const setUi = useStore((s) => s.setUi)
+  const onPointerDown = (e: React.PointerEvent): void => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = width
+    const move = (ev: PointerEvent): void => setUi({ rightPanelWidth: clampPanelWidth(startW + (startX - ev.clientX)) })
+    const up = (): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.classList.remove('resizing')
+    }
+    document.body.classList.add('resizing')
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    const step = e.shiftKey ? 64 : 16
+    if (e.key === 'ArrowLeft') setUi({ rightPanelWidth: clampPanelWidth(width + step) })
+    else if (e.key === 'ArrowRight') setUi({ rightPanelWidth: clampPanelWidth(width - step) })
+    else if (e.key === 'Home') setUi({ rightPanelWidth: RIGHT_PANEL_MAX })
+    else if (e.key === 'End') setUi({ rightPanelWidth: RIGHT_PANEL_MIN })
+    else return
+    e.preventDefault()
+  }
+  return (
+    <div
+      className="resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Largura do painel direito"
+      aria-valuemin={RIGHT_PANEL_MIN}
+      aria-valuemax={RIGHT_PANEL_MAX}
+      aria-valuenow={width}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      onDoubleClick={() => setUi({ rightPanelWidth: RIGHT_PANEL_DEFAULT })}
+    />
+  )
+}
+
+/** Painel recolhido: faixa com o botão de abrir e contadores. O conteúdo não existe no DOM (não recebe foco nem clique). */
+function CollapsedStrip({ others }: { others: number }) {
+  const setView = useStore((s) => s.setView)
+  return (
+    <aside className="right collapsed" aria-label="Painel direito (recolhido)">
+      <button className="icon-btn" onClick={() => runAction('toggleRightPanel')} aria-label="Mostrar painel direito" data-tip-left={`Mostrar painel · ${keysFor('toggleRightPanel')}`}>
+        <IconPanelRight size={16} />
+      </button>
+      {others > 0 && (
+        <button className="strip-badge" onClick={() => setView('chat')} aria-label={`${others} aprovação(ões) em outros chats`} data-tip-left="Aprovações em outros chats">
+          {others}
+        </button>
+      )}
+      <button className="icon-btn" onClick={() => setView('agenda')} aria-label="Abrir agenda" data-tip-left="Agenda">
+        <IconCalendar size={16} />
+      </button>
+    </aside>
+  )
+}
+
+export function RightPanel({ open, locked, overlay }: { open: boolean; locked: boolean; overlay: boolean }) {
   const activeId = useStore((s) => s.activeId)
   const approvals = useStore((s) => s.approvals)
   const previewPath = useStore((s) => s.previewPath)
+  const preview = useStore((s) => s.preview)
   const mine = approvals.filter((a) => a.sessionId === activeId)
   const others = approvals.length - mine.length
 
+  // Esc fecha a prévia de arquivo (fora de campos e diálogos).
+  useEffect(() => {
+    if (!previewPath) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-modal="true"]')) return
+      const t = e.target as HTMLElement
+      if (t.closest('input, textarea, select')) return
+      preview(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewPath, preview])
+
+  if (!open) return <CollapsedStrip others={others} />
+
   return (
-    <aside className="right">
+    <aside className={`right ${overlay ? 'overlay' : ''}`} aria-label="Painel direito">
+      {!overlay && <Resizer />}
+      <div className="right-head">
+        <span className="sr-only" aria-live="polite">
+          {mine.length > 0 ? `${mine.length} aprovação(ões) aguardando você` : ''}
+        </span>
+        <span className="spacer" />
+        <button
+          className="icon-btn"
+          onClick={() => runAction('toggleRightPanel')}
+          disabled={locked}
+          aria-label={locked ? 'Painel fixo enquanto houver aprovação pendente' : 'Ocultar painel direito'}
+          data-tip-left={locked ? 'Fixo até você decidir a aprovação' : `Ocultar painel · ${keysFor('toggleRightPanel')}`}
+        >
+          <IconPanelRight size={16} />
+        </button>
+      </div>
       <div className="right-main">
         {mine.length > 0 ? (
           <div className="approvals">
-            <div className="panel-title">
+            <div className="panel-title" id="approvals-title">
               Aprovações pendentes <span className="badge warn">{mine.length}</span>
             </div>
             {mine.map((a) => (

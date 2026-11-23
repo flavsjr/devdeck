@@ -1,6 +1,6 @@
-import { app, BrowserWindow, dialog, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, dialog, session, shell } from 'electron'
 import { join } from 'node:path'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { z } from 'zod'
 import type { AppSettings } from '@shared/types'
 import {
@@ -79,12 +79,15 @@ function hardenWebContents(): void {
 }
 
 function createWindow(): void {
+  // DEVDECK_SIZE=1280x720 (só em dev) para capturas de QA em janela estreita.
+  const size = devUrl() ? /^(\d{3,4})x(\d{3,4})$/.exec(process.env.DEVDECK_SIZE ?? '') : null
   win = new BrowserWindow({
-    width: 1480,
-    height: 920,
+    width: size ? Number(size[1]) : 1480,
+    height: size ? Number(size[2]) : 920,
     minWidth: 1100,
     minHeight: 680,
-    backgroundColor: '#0e1014',
+    // Mesmo tom de --bg (styles/tokens.css): evita clarão antes do CSS carregar.
+    backgroundColor: '#0b0d12',
     title: 'DevDeck',
     autoHideMenuBar: true,
     webPreferences: {
@@ -116,6 +119,26 @@ function createWindow(): void {
         if (img) writeFileSync(snap, img.toPNG())
         console.log('[snapshot]', snap)
       }, 3000)
+    })
+  }
+
+  // Auditoria de acessibilidade (DEVDECK_AXE=resultado.json) — só em dev: injeta o axe-core (devDependency)
+  // e grava as violações. Usado pelo QA da Sprint 04 (H04.4).
+  const axeOut = process.env.DEVDECK_AXE
+  if (axeOut && devUrl()) {
+    win.webContents.once('did-finish-load', () => {
+      setTimeout(async () => {
+        try {
+          const axeSrc = readFileSync(join(process.cwd(), 'node_modules/axe-core/axe.min.js'), 'utf8')
+          const result = await win?.webContents.executeJavaScript(
+            `${axeSrc}; axe.run(document, { resultTypes: ['violations'] }).then(r => r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.map(n => n.target.join(' ')).slice(0, 8) })))`
+          )
+          writeFileSync(axeOut, JSON.stringify(result, null, 2))
+          console.log('[axe]', axeOut)
+        } catch (err) {
+          writeFileSync(axeOut, JSON.stringify({ error: String(err) }))
+        }
+      }, 2500)
     })
   }
 }
@@ -234,6 +257,9 @@ app.whenReady().then(() => {
       updateSettings({ lastWorkspace: null })
     }
   }
+  // Em produção não há menu: Alt sozinho não abre barra, Ctrl+R não recarrega a UI, Ctrl+Shift+I não abre DevTools
+  // (ADR-016). Em dev o menu padrão fica para depuração.
+  if (!devUrl()) Menu.setApplicationMenu(null)
   hardenWebContents()
   registerIpc()
   createWindow()

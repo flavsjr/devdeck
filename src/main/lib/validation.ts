@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RIGHT_PANEL_MAX, RIGHT_PANEL_MIN } from '@shared/layout'
 
 // Esquemas de entrada do IPC. Tudo que vem do renderer passa por aqui antes de tocar disco, rede ou processo.
 
@@ -19,7 +20,12 @@ export const settingsPatch = z
     sessionBudgetUsd: money,
     loadProjectSettings: z.boolean(),
     appendSystemPrompt: shortText(4000),
-    spotifyUrl: z.union([z.literal(''), z.string().max(300).regex(/^(https:\/\/open\.spotify\.com\/|spotify:)/)])
+    spotifyUrl: z.union([z.literal(''), z.string().max(300).regex(/^(https:\/\/open\.spotify\.com\/|spotify:)/)]),
+    ui: z.strictObject({
+      sidebarOpen: z.boolean(),
+      rightPanelOpen: z.boolean(),
+      rightPanelWidth: z.number().int().min(RIGHT_PANEL_MIN).max(RIGHT_PANEL_MAX)
+    })
   })
   .partial()
 
