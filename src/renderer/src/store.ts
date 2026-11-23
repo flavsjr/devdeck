@@ -28,6 +28,8 @@ interface State {
   /** Paleta de comandos (Ctrl+K) e ajuda de atalhos (Ctrl+/). */
   paletteOpen: boolean
   helpOpen: boolean
+  /** Painel direito aberto como sobreposição em janela estreita (não persiste). */
+  overlayOpen: boolean
   /** Layout atual (espelha settings.ui; gravado com debounce). */
   ui: UiPrefs
 
@@ -37,6 +39,7 @@ interface State {
   setUi(patch: Partial<UiPrefs>): void
   setPalette(open: boolean): void
   setHelp(open: boolean): void
+  setOverlay(open: boolean): void
   pickWorkspace(): Promise<void>
   refreshSessions(): Promise<void>
   openSession(id: string, focus?: boolean): Promise<void>
@@ -88,6 +91,7 @@ export const useStore = create<State>((set, get) => ({
   reminder: null,
   paletteOpen: hashFlag('palette'),
   helpOpen: hashFlag('help'),
+  overlayOpen: false,
   ui: DEFAULT_UI,
 
   async init() {
@@ -124,6 +128,10 @@ export const useStore = create<State>((set, get) => ({
 
   setPalette(paletteOpen) {
     set({ paletteOpen, ...(paletteOpen ? { helpOpen: false } : {}) })
+  },
+
+  setOverlay(overlayOpen) {
+    set({ overlayOpen })
   },
 
   setHelp(helpOpen) {

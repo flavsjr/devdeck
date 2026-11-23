@@ -45,7 +45,7 @@ async function syncFeed(feed: IcsFeed): Promise<IcsFeed> {
     return { ...feed, lastSync: Date.now(), error: undefined, count }
   } catch (err) {
     // A mensagem vai para o renderer: nunca com o link (que carrega o token).
-    return { ...feed, lastSync: Date.now(), error: redact(err instanceof Error ? err.message : String(err), [feed.url]) }
+    return { ...feed, lastSync: Date.now(), error: redact(err instanceof Error ? err.message : String(err), [feed.url, feed.url.replace(/^webcal:\/\//i, 'https://'), feed.url.replace(/^(https|webcal):\/\/[^/]+/i, '')]) }
   }
 }
 

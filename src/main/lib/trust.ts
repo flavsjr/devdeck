@@ -134,7 +134,8 @@ export function summarizeProjectConfig(settingsText: string | null, mcpText: str
   }
 
   const dir = claudeDir ? summarizeClaudeDir(claudeDir) : { files: [], hash: '' }
-  const overflow = Boolean(claudeDir?.overflow)
+  // Link em .claude/ aponta para conteúdo fora do hash: pergunta sempre, como no overflow (security review).
+  const overflow = Boolean(claudeDir?.overflow) || Boolean(claudeDir?.entries.some((e) => e.kind === 'link'))
   const claudeFiles = dir.files.slice(0, 40)
   if (dir.files.length > claudeFiles.length) claudeFiles.push(`… e mais ${dir.files.length - claudeFiles.length} arquivo(s)`)
   // Sem arquivos extras o hash mantém o formato antigo: confiança dada antes da v0.4.0 continua valendo.
@@ -154,7 +155,7 @@ export function describeSummary(s: ProjectConfigSummary): string {
     block('Servidores MCP do projeto (.mcp.json)', s.mcpServers),
     block('Arquivos inválidos', s.invalid),
     block('Outros arquivos em .claude/ (skills, comandos e agentes podem pedir ferramentas e hooks)', s.claudeFiles),
-    s.overflow ? `A pasta .claude/ passa de ${CLAUDE_DIR_LIMITS.files} arquivos ou ${CLAUDE_DIR_LIMITS.bytes / 1024 / 1024} MB: o DevDeck não consegue conferir tudo e vai perguntar toda vez.` : '',
+    s.overflow ? `A pasta .claude/ tem links ou passa de ${CLAUDE_DIR_LIMITS.files} arquivos ou ${CLAUDE_DIR_LIMITS.bytes / 1024 / 1024} MB: o DevDeck não consegue conferir tudo e vai perguntar toda vez.` : '',
     s.claudeFiles.length || s.hooks.length ? 'Scripts chamados por hooks ou skills fora de .claude/ não são conferidos.' : ''
   ]
     .filter(Boolean)

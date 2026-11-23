@@ -119,6 +119,7 @@ export function App() {
   const ui = useStore((s) => s.ui)
   const paletteOpen = useStore((s) => s.paletteOpen)
   const helpOpen = useStore((s) => s.helpOpen)
+  const overlayOpen = useStore((s) => s.overlayOpen)
   const width = useWindowWidth()
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export function App() {
   useGlobalShortcuts()
 
   const narrow = width < NARROW_WINDOW
-  const rightOpen = rightPanelVisible(ui, pendingHere)
+  const rightOpen = rightPanelVisible(ui, pendingHere, narrow, overlayOpen)
   // Em janela estreita o painel aberto flutua sobre o conteúdo; a coluna fica só com a faixa.
   const rightCol = rightOpen && !narrow ? `${ui.rightPanelWidth}px` : '40px'
   const layout = { '--sidebar-w': ui.sidebarOpen ? '264px' : '0px', '--right-w': rightCol, '--right-panel-w': `${ui.rightPanelWidth}px` } as CSSProperties

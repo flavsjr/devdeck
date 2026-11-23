@@ -1,5 +1,6 @@
 import { useStore, type View } from './store'
 import type { ShortcutAction } from './lib/shortcuts'
+import { NARROW_WINDOW } from '@shared/layout'
 
 // Ações disparadas por atalho ou pela paleta. Nenhuma aprova, rejeita ou executa tool (Cybersecurity B4).
 
@@ -46,11 +47,12 @@ export function runAction(action: ShortcutAction): void {
       break
     case 'toggleRightPanel': {
       const pending = st.approvals.filter((a) => a.sessionId === st.activeId).length
-      if (pending > 0 && st.ui.rightPanelOpen) {
+      if (pending > 0) {
         st.notify('Há aprovação pendente: o painel fica aberto até você decidir.')
         return
       }
-      st.setUi({ rightPanelOpen: !st.ui.rightPanelOpen })
+      if (window.innerWidth < NARROW_WINDOW) st.setOverlay(!st.overlayOpen)
+      else st.setUi({ rightPanelOpen: !st.ui.rightPanelOpen })
       break
     }
   }

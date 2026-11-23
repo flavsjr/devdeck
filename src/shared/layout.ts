@@ -33,6 +33,8 @@ export function sanitizeUi(raw: Partial<UiPrefs> | undefined): UiPrefs {
  * Painel direito efetivamente aberto: aprovação pendente no chat ativo trava o painel aberto
  * (Cybersecurity B4 — aprovação nunca fica escondida).
  */
-export function rightPanelVisible(ui: UiPrefs, pendingApprovals: number): boolean {
-  return ui.rightPanelOpen || pendingApprovals > 0
+export function rightPanelVisible(ui: UiPrefs, pendingApprovals: number, narrow = false, overlayOpen = false): boolean {
+  if (pendingApprovals > 0) return true
+  // Janela estreita: o painel flutua sobre o chat, então só abre a pedido (não herda a preferência larga).
+  return narrow ? overlayOpen : ui.rightPanelOpen
 }

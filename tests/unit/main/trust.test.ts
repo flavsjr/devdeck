@@ -108,6 +108,12 @@ describe('.claude/** no resumo de confiança (H04.7)', () => {
     expect(summarizeClaudeDir({ entries: [link], overflow: false }).files).toEqual(['commands (link)'])
   })
 
+  it('link em .claude/ pergunta sempre (conteúdo do alvo fica fora do hash)', () => {
+    const s = summarizeProjectConfig(null, null, { entries: [{ path: 'skills', kind: 'link', digest: '../tools' }], overflow: false })
+    expect(s.overflow).toBe(true)
+    expect(describeSummary(s)).toMatch(/tem links/)
+  })
+
   it('overflow é arriscado mesmo sem nada listado (falha fechada)', () => {
     const s = summarizeProjectConfig(null, null, { entries: [], overflow: true })
     expect(s.risky).toBe(true)

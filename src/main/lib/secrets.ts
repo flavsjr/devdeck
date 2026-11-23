@@ -61,9 +61,19 @@ export function mergeSecrets(
 }
 
 /** Resolve uma entrada do renderer contra o servidor guardado (se houver) e devolve a entrada completa, só no main. */
+/**
+ * Variáveis que mudam como o processo carrega código ou para onde a rede vai: com elas novas ou alteradas,
+ * um segredo mantido poderia ser desviado mesmo com o mesmo comando (security review da Sprint 04).
+ */
+const RISKY_ENV = /^(node_options|node_extra_ca_certs|node_tls_reject_unauthorized|node_path|ld_preload|ld_library_path|dyld_.*|.*_proxy|ssl_cert_file|requests_ca_bundle|python(path|startup)|electron_run_as_node)$/i
+
+export function changesRiskyEnv(input: Record<string, string | null> | undefined, stored: Record<string, string> | undefined): boolean {
+  return Object.entries(input ?? {}).some(([k, v]) => v !== null && RISKY_ENV.test(k) && stored?.[k] !== v)
+}
+
 export function resolveMcpInput(input: McpServerInput, stored: McpServerEntry | undefined): McpServerEntry {
   const { env, headers, ...rest } = input
-  const keep = Boolean(stored) && sameTarget(input, stored!)
+  const keep = Boolean(stored) && sameTarget(input, stored!) && !changesRiskyEnv(env, stored?.env)
   return {
     ...rest,
     env: input.type === 'stdio' ? mergeSecrets(env, stored?.env, keep, 'variável') : undefined,

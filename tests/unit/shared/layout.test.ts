@@ -27,6 +27,11 @@ describe('rightPanelVisible (B4)', () => {
     expect(rightPanelVisible({ ...DEFAULT_UI, rightPanelOpen: false }, 1)).toBe(true)
     expect(rightPanelVisible({ ...DEFAULT_UI, rightPanelOpen: false }, 0)).toBe(false)
   })
+  it('janela estreita: só abre a pedido ou com aprovação (não cobre o chat por padrão)', () => {
+    expect(rightPanelVisible(DEFAULT_UI, 0, true, false)).toBe(false)
+    expect(rightPanelVisible(DEFAULT_UI, 0, true, true)).toBe(true)
+    expect(rightPanelVisible({ ...DEFAULT_UI, rightPanelOpen: false }, 2, true, false)).toBe(true)
+  })
 })
 
 describe('settingsPatch.ui (zod)', () => {

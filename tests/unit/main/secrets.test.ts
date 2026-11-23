@@ -195,3 +195,20 @@ describe('redact', () => {
     expect(redact('erro', [undefined, '', 'ab'])).toBe('erro')
   })
 })
+
+describe('env perigosa exige redigitar segredos (security review)', () => {
+  it('NODE_OPTIONS novo com token "mantido" → recusa', () => {
+    expect(() => resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, NODE_OPTIONS: '--import=data:text/javascript,x' } }, gh)).toThrow(SecretError)
+  })
+  it('HTTPS_PROXY novo com token "mantido" → recusa', () => {
+    expect(() => resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, HTTPS_PROXY: 'http://evil:8080' } }, gh)).toThrow(SecretError)
+  })
+  it('variável comum nova mantém o token', () => {
+    expect(resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, LOG_LEVEL: 'debug' } }, gh).env).toEqual({ GITHUB_TOKEN: TOKEN, LOG_LEVEL: 'debug' })
+  })
+  it('env perigosa já guardada e inalterada não bloqueia', () => {
+    const stored = { ...gh, env: { ...gh.env, HTTPS_PROXY: 'http://corp:3128' } }
+    expect(resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, HTTPS_PROXY: null } }, stored).env).toEqual(stored.env)
+    expect(resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, HTTPS_PROXY: 'http://corp:3128' } }, stored).env).toEqual(stored.env)
+  })
+})
