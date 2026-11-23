@@ -11,6 +11,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - CI no GitHub Actions: typecheck, testes e build em Windows e Ubuntu, mais varredura de segredos com gitleaks. Dependabot para as actions.
 - Diálogo "Confiar neste workspace?" listando hooks, permissões, variáveis, helpers e servidores MCP do repositório antes de carregá-los.
 - Modal próprio para denunciar posts na Comunidade.
+- Licença MIT, `SECURITY.md` (reporte privado de vulnerabilidades), `CONTRIBUTING.md`, templates de issue e de PR.
 
 ### Corrigido
 - **Denunciar nunca enviava** (o Electron não implementa `window.prompt`).
@@ -49,7 +50,9 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - CSP liberando apenas `*.supabase.co` além do próprio app.
 - Link ICS tratado como segredo (campo mascarado).
 
-## [0.1.0] — 2026-11-23 · Sprint 01
+## 0.1.0 — 2026-11-23 · Sprint 01
+
+> Sem tag própria: a Sprint 01 foi entregue junto com a 0.2.0 no commit inicial.
 
 ### Adicionado
 - Chat por workspace com Claude Agent SDK (streaming, histórico, retomada, interrupção).
@@ -61,5 +64,4 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 [Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/flavsjr/devdeck/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/flavsjr/devdeck/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/flavsjr/devdeck/releases/tag/v0.1.0
+[0.2.0]: https://github.com/flavsjr/devdeck/releases/tag/v0.2.0

@@ -1,0 +1,21 @@
+name: Feature request / Sugestão
+description: Suggest an idea for a future sprint / Sugira uma ideia para uma sprint
+labels: [enhancement]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story / História
+      description: As a <persona>, I want <action> so that <value>. / Como <persona>, quero <ação> para <valor>.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria / Critérios de aceite
+      placeholder: |
+        - [ ] Given ... when ... then ...
+  - type: textarea
+    id: context
+    attributes:
+      label: Context, alternatives, risks / Contexto, alternativas, riscos

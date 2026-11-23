@@ -1,0 +1,49 @@
+name: Bug report / Relato de bug
+description: Something is not working / Algo não funciona
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems must go through **Security → Report a vulnerability**, not here.
+        Problemas de segurança vão por **Security → Report a vulnerability**, não por aqui.
+        Never paste tokens, API keys or private repository content. / Nunca cole tokens, chaves ou código privado.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit / Versão ou commit
+      placeholder: v0.3.0 / 2c51467
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / Área
+      options: [Chat / agente, Aprovações / diff, MCP, Perfil / provedores git, Conquistas, Agenda / ICS, Comunidade, Custos, Flow / Spotify, Instalação / build, Outro]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Passos para reproduzir
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual / Esperado vs. obtido
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / Sistema operacional
+      placeholder: Windows 11 23H2
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (remove secrets) / Logs (sem segredos)
+      render: text
