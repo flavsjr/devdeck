@@ -38,6 +38,31 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Nenhum it.todo pendente da Sprint 04
+        shell: bash
+        run: |
+          if grep -rn "it.todo('Sprint 04" tests; then echo "::error::it.todo da Sprint 04 ainda pendente"; exit 1; fi
+
+  package:
+    # Empacota (sem instalador) para pegar quebra de electron-builder, fuses ou hash do SDK antes da tag.
+    # Fora de PR: baixa ~700 MB e leva minutos.
+    name: package (windows)
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # pack:win = build + electron-builder --dir (afterPack confere o SDK) + verify-fuses
+      - run: npm run pack:win
 
   secrets:
     name: secrets (gitleaks)

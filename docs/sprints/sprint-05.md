@@ -146,7 +146,7 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 | Aba Alterações pausada, status bar, `.catch` e corrida | Front | ✅ `af29aa5` |
 | Spike do SDK no asar, `electron-builder.yml`, ícone, `pathToClaudeCodeExecutable`, UI por `app://` | DevOps/Back | ✅ |
 | `verify-fuses`, `verify-sdk`, recusa de switches de depuração | DevOps/Back | ✅ |
-| `release.yml`, `check-tag.mjs`, job `package` | DevOps | ⏳ |
+| `release.yml`, `check-tag.mts`, job `package` | DevOps | ✅ (dry run no GitHub pendente) |
 | ICS/edit/diff (`it.todo`) | Back/Front | ⏳ |
 | Confiança estrita e "sempre" por caminho | Back/Front | ⏳ |
 | Migration `0002` + teste SQL | Back | ⏳ |
