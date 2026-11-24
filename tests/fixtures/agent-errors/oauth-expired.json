@@ -1,0 +1,22 @@
+{
+  "scenario": "oauth_expired",
+  "sdk": "0.3.330",
+  "capturedAt": "2026-11-24",
+  "origem": "SINTÉTICA: não capturável (sessão do usuário válida). Texto observado no uso real da Sprint 05; formato copiado de missing-credentials.json. Regravar quando houver sessão expirada real (T26).",
+  "init": {
+    "apiKeySource": "none"
+  },
+  "assistant": {
+    "error": "authentication_failed",
+    "text": "OAuth session expired and could not be refreshed"
+  },
+  "result": {
+    "subtype": "success",
+    "is_error": true,
+    "result": "OAuth session expired and could not be refreshed",
+    "api_error_status": null
+  },
+  "thrown": {
+    "message": "Claude Code returned an error result: OAuth session expired and could not be refreshed"
+  }
+}

@@ -19,7 +19,7 @@ App desktop Electron + React + TypeScript. Leia `docs/squad.md` antes de trabalh
 - Renderer nunca acessa fs, rede privilegiada ou segredos: tudo via `window.deck` (`DeckApi` em `src/shared/types.ts`) e handlers em `src/main/index.ts` que validam a entrada.
 - Segredos só no main com `safeStorage`. Rede no main com `net.fetch`.
 - SQL do Supabase: nova migration numerada em `supabase/migrations/`, RLS em toda tabela, grants por coluna.
-- Regra de negócio nova vai para `src/main/lib/` ou `src/renderer/src/lib/` (sem `electron`, `fs`, `store`, `events`) **com teste** em `tests/unit/`.
+- Regra de negócio nova vai para `src/main/lib/` ou `src/renderer/src/lib/` (sem `electron`, `fs`, `store`, `events`) **com teste** em `tests/unit/`. Regra pura usada pelo main **e** pelo renderer vai para `src/shared/lib/` (também sem `window`/`document`), com teste em `tests/unit/shared/` (ADR-020).
 - Novo canal IPC: registrar com `handle()` de `src/main/ipc.ts` e esquema zod em `src/main/lib/validation.ts`. Ids que viram caminho de arquivo são UUID.
 - Antes de entregar: `npm run typecheck`, `npm test` e `npm run build` sem erros.
 

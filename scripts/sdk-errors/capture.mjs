@@ -25,7 +25,10 @@ const scenarios = {
   overloaded: { status: 529, body: errBody('overloaded_error', 'Overloaded') },
   billing: { status: 400, body: errBody('invalid_request_error', 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.') },
   no_network: { closedPort: true },
-  missing_credentials: { noKey: true }
+  missing_credentials: { noKey: true },
+  // Usa o login real do Claude Code (config padrão, sem chave). Só roda quando pedido pelo nome
+  // e com autorização do usuário: se a sessão estiver válida, gasta uma resposta mínima.
+  oauth_real: { noKey: true, realLogin: true, explicit: true }
 }
 
 async function run(name, sc) {
@@ -46,7 +49,9 @@ async function run(name, sc) {
   }
   const cfg = fs.mkdtempSync(path.join(os.tmpdir(), 'spike-cfg-'))
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'spike-cwd-'))
-  const env = { ...process.env, CLAUDE_CONFIG_DIR: cfg }
+  const env = { ...process.env }
+  if (!sc.realLogin) env.CLAUDE_CONFIG_DIR = cfg
+  delete env.ANTHROPIC_BASE_URL
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
   delete env.CLAUDE_CODE_OAUTH_TOKEN
@@ -79,6 +84,6 @@ async function run(name, sc) {
 
 fs.mkdirSync(outDir, { recursive: true })
 for (const [name, sc] of Object.entries(scenarios)) {
-  if (only && only !== name) continue
+  if (only ? only !== name : sc.explicit) continue
   await run(name, sc)
 }

@@ -203,7 +203,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 
 | Tarefa | Papel | Status |
 |---|---|---|
-| T01 · H06.3/H06.7 · **Spike, 1º dia:** capturar mensagens reais do SDK 0.3.330 para OAuth expirada real, chave falsa (401), sem credencial, 429, 529, `billing_error` e sem rede (`api_retry`). Confirmar `SDKAssistantMessage.error`, `api_error_status` e se "sem credencial" chega só por texto. Saída: `tests/fixtures/agent-errors/*.json`, redigidas e com a origem anotada. Decide se a H06.7 continua Should | Back | parcial: 6 de 7 (falta OAuth expirada real) |
+| T01 · H06.3/H06.7 · **Spike, 1º dia:** capturar mensagens reais do SDK 0.3.330 para OAuth expirada real, chave falsa (401), sem credencial, 429, 529, `billing_error` e sem rede (`api_retry`). Confirmar `SDKAssistantMessage.error`, `api_error_status` e se "sem credencial" chega só por texto. Saída: `tests/fixtures/agent-errors/*.json`, redigidas e com a origem anotada. Decide se a H06.7 continua Should | Back | feito (OAuth expirada: fixture sintética, prova real na T26) |
 | T02 · todas · ADR-020 e ADR-021 em `docs/decisions.md` | TL | feito |
 | T03 · H06.2 · `guard.test.ts` passa a vigiar `src/shared/lib`, proibindo também `window` e `document` | TL | a fazer |
 | T04 · H06.2 · `src/shared/lib/errorText.ts` (tira o prefixo do IPC, traduz `23505`, o limite da `0002`, `ENOENT`, `EACCES`, rede e o genérico) + `tests/unit/shared/errorText.test.ts`. Dep. T03 | Front | a fazer |
@@ -251,7 +251,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | a fazer |
 | T47 · H06.8 · "Alternar tema" na paleta (`commands.ts`), passando pelo mesmo `settings.set` | Front | a fazer |
 | T48 · H06.9 · Sino na `StatusBar.tsx` lendo o `historico` do reducer, com "Limpar (só desta sessão)" | Front + UX | a fazer |
-| T49 · processo · Corrigir o accent em `.claude/agents/ux-designer.md` (só com aprovação do usuário). Levar ao usuário a decisão sobre `src/shared/lib/` no `CLAUDE.md` | TL | a fazer |
+| T49 · processo · Corrigir o accent em `.claude/agents/ux-designer.md` e citar `src/shared/lib/` no `CLAUDE.md` (aprovados pelo usuário em 2026-11-24) | TL | feito |
 | T50 · entrega · `CHANGELOG.md` 0.6.0, versão no `package.json`, QA, security review e retro da sprint | TL + QA + Sec | a fazer |
 | T51 · entrega · `npm run typecheck`, `npm test`, `npm run build` e `npm run test:e2e` verdes | TL | a fazer |
 
@@ -266,9 +266,10 @@ Capturado com `CLAUDE_CONFIG_DIR` vazio e chave falsa contra servidor local (sem
 | sobrecarga (529) | `ANTHROPIC_API_KEY` | **`server_error`** | 529 | "API Error: 529 Overloaded. …" |
 | créditos | `ANTHROPIC_API_KEY` | `billing_error` | 400 | "Credit balance is too low" |
 | sem rede | `ANTHROPIC_API_KEY` | `server_error` | `null` | "API Error: Connection refused … (ECONNREFUSED)" |
-| OAuth expirada | — | — | — | falta capturar (sessão real do usuário) |
+| OAuth expirada | `none` (OAuth válido também vem `none`) | — | — | não capturável: sessão do usuário estava válida em 2026-11-24 (rodou com autorização; turno normal). Texto conhecido da Sprint 05: "OAuth session expired and could not be refreshed" |
 
 - O enum tipado existe e cobre os casos da H06.7 → **H06.7 continua Should**.
+- `apiKeySource: 'none'` vale tanto para "sem credencial" quanto para login OAuth. Logo `auth_missing` × `auth_expired` só se separam pelo texto ("Not logged in" × "OAuth … expired"); sem casar nenhum dos dois, `authentication_failed` sem chave vira `auth_expired` com o texto genérico "Sua sessão do Claude não é válida" (falha segura: as duas ações servem). A fixture `oauth-expired.json` é sintética, com o texto da Sprint 05, e anotada como tal; a prova real fica no roteiro manual (T26).
 - 529 chega como `server_error`, não `overloaded`: o classificador usa o status 529. Sem rede = `server_error` + status `null` + `ECONNREFUSED`/`ENOTFOUND` no texto.
 - Em todos os casos o `result` vem com `subtype: 'success'` + `is_error: true` **e** a iteração da query lança "Claude Code returned an error result: …". É a origem do erro triplicado (T18).
 - O corpo do 401 levava `sk-ant-…` e `Bearer …` falsos e eles não apareceram em nenhuma mensagem: o SDK reescreve o texto. O `redactPatterns` continua obrigatório (stderr, OAuth e rethrow).
