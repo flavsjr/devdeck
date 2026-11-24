@@ -149,7 +149,7 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 | `release.yml`, `check-tag.mts`, job `package` | DevOps | ✅ (dry run no GitHub pendente) |
 | ICS/edit/diff (`it.todo`) | Back/Front | ✅ |
 | Confiança estrita e "sempre" por caminho | Back/Front | ⏳ |
-| Migration `0002` + teste SQL | Back | ⏳ |
+| Migration `0002` + teste SQL | Back | ✅ código · ⏳ execução (sem Postgres local: rodar `supabase test db` ou SQL Editor) |
 | ADR-011, ADR-018, ADR-019, emendas 013/015 | TL | ⏳ |
 
 ## QA
