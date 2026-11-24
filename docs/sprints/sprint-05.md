@@ -1,6 +1,6 @@
 # Sprint 05 — Distribuição segura
 
-**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** em andamento
+**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** em fechamento (pendências manuais)
 
 ## Objetivo
 Distribuir o DevDeck como instalador Windows verificável, sem que abrir um repositório recebido pronto execute código pelo git.
@@ -152,28 +152,97 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 | Migration `0002` + teste SQL | Back | ✅ código · ⏳ execução (sem Postgres local: rodar `supabase test db` ou SQL Editor) |
 | H05.8 credencial na URL de MCP (Could) | Back | ✅ |
 | H05.9 varredura de camadas CSS (Could) | Front | ✅ |
-| ADR-011, ADR-018, ADR-019, emendas 013/015 | TL | ⏳ |
+| ADR-011, ADR-018, ADR-019, emendas 013/015 | TL | ✅ `eeb7a1a` |
+| Achados do QA e do security review | Back/Front/DevOps | ✅ `a75207f` |
 
 ## QA
+Execução do agente `qa` no HEAD `eeb7a1a`, depois revalidada em `a75207f`: typecheck, 936 testes (54 arquivos, dois fusos; integração com git real), build, `verify-fuses` (7 fuses), `verify-sdk` (controle negativo: 1 byte a mais → saída 1), `check-tag` (tag certa 0, errada 1).
+
 | Caso | Resultado | Evidência |
 |---|---|---|
+| H05.1 nenhum comando do repo executa + controle positivo | ✅ | `tests/integration/git-exec.test.ts` (fsmonitor, clean, smudge, textconv, `diff.external`, hooksPath, `post-index-change`, submódulo); git puro cria os marcadores, o DevDeck não |
+| Lista de permitidas, maiúsculas, include, worktree, `lfs.url` | ✅ | `tests/unit/main/gitconfig.test.ts` |
+| `.git` como gitdir/link/commondir/worktrees/config.worktree | ✅ (link/junction só simulado) | `gitconfig.test.ts`; `gitdir:` real na integração |
+| `git.exe` plantado não roda | ✅ DevDeck · ⏳ SDK | integração; SDK no roteiro manual |
+| Prefixo `-c`, env por lista, sem `GIT_*`, sem submódulo | ✅ | `tests/unit/main/gitproc.test.ts`; integração "não vazam" e "submódulo" |
+| Env restrito do SDK (inclusive subpasta de repo) | ✅ código · ⏳ marcador | `agentEnv` com teto sempre; roteiro manual passo 4 |
+| UI "Git pausado", status bar, `.catch`/corrida | ✅ · ⏳ NVDA | `sprint-05/evidencias/h05.1-git-pausado.png`, `h05.1-repo-limpo.png` |
+| H05.2 UI empacotada por `app://` com GrantFileProtocol off | ✅ | `evidencias/h05.2-app-empacotado.png` (sem erro de CSP; `DEVDECK_*` ignoradas) |
+| Fuses, hash do SDK, versões exatas, depuração recusada | ✅ | `verify-fuses`, `verify-sdk`, `cli.test.ts` (prefixos `--`, `-`, `/`); `--remote-debugging-port` → saída 1 no `.exe` |
+| Sem UAC, atualizar preserva dados, desinstalar mantém, chat no instalado | ⏳ | roteiro manual H05.7 |
+| Instalador 238 MB / instalado 757 MB | ✅ | `dist/DevDeck-Setup-*.exe`, ADR-011 |
+| H05.3 check-tag, jobs separados, SHAs, sem cache | ✅ | `tests/unit/scripts/check-tag.test.ts`, `release.yml` |
+| actionlint/zizmor e dry run | ⏳ | ferramentas fora desta máquina; dry run no GitHub |
+| H05.4 8 `it.todo` | ✅ | 0 restantes; CI falha se voltar |
+| Diff de 2 MB/20 mil linhas, "Aprovar todas" desabilitado | ✅ | `diffRows.test.ts` (< 500 ms); `decide()` recusa no main |
+| H05.5 chaves desconhecidas; "Sempre" por caminho e só com extrator | ✅ | `trust.test.ts`, `toolpath.test.ts` |
+| H05.6 migration 0002 | ✅ código · ⏳ execução | `supabase/tests/0002_rate_limit.sql` (com controle positivo); sem Postgres local |
+| H05.8 credencial na URL de MCP | ✅ | `secrets.test.ts` |
+| H05.9 camadas CSS | ✅ | `css-layers.test.ts` (já pegou o `.badge` reusado no card) |
+
+**Bugs do QA (todos corrigidos em `a75207f`):** subpasta de repo deixava o SDK achar o `.git` do pai (alta); descartar `[ab].txt` descartava `a.txt` e `b.txt` (glob → `--literal-pathspecs`); "Sempre" em Bash/MCP; prefixos `-`/`/`; aviso "git não encontrado" sem repo; `include.path` fora do hash (confiança só na execução); status bar desatualizada após confiar e respostas fora de ordem; `decide()` só bloqueava no renderer; job de release sem Node 24; chaves `x-api-key`/`private_token`; `skipIf` silencioso no CI; pgTAP sem controle positivo.
 
 ## Security review
+Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
+
+| Bloqueante | Fechamento | Evidência |
+|---|---|---|
+| Parser próprio diverge do git | ✅ | `git config --file … --no-includes` fora do workspace (`gitcore.ts`, `gitproc.ts`) |
+| Lista de permitidas por chave exata | ✅ (acréscimos `remote.*.prune/tagopt`, `branch.*.pushremote/description/vscode-merge-base` aceitos) | `lib/gitconfig.ts` |
+| Estrutura do `.git` | ✅ | `readGitShape` (lstat) |
+| Hooks, env e `-c` fixos | ✅ | `gitArgs`, `gitEnv`, integração |
+| Git do SDK sem confiança | ✅ | `agentEnv` |
+| `mcpServersDelivery` | ✅ | `agent.ts` |
+| GrantFileProtocolExtraPrivileges desligada | ✅ mitigação aceita | `app://` com `standard/secure/supportFetchAPI`, `resolveAppAsset`, `isAppUrl` exige `/index.html` |
+| **Submódulo executa filtro (achado na review)** | ✅ `a75207f` | `FORCED_GIT_CONFIG` por env no DevDeck e no agente, `--ignore-submodules=all`, teste com controle positivo |
+
 | Severidade | Onde | Achado | Mitigação |
 |---|---|---|---|
+| bloqueante | `gitcore.ts` | Config do pai limpa, mas o status entrava no submódulo e rodava o filtro dele | ✅ corrigido (`a75207f`) |
+| alta | `lib/toolpath.ts` | "Sempre" em Bash/WebFetch/MCP sem extrator (`cat ~/.ssh/id_*`) | ✅ `alwaysEligible` |
+| média | `lib/cli.ts` | Prefixos `-` e `/` do Chromium no Windows | ✅ regex + `app.commandLine.hasSwitch` |
+| média | `lib/gitproc.ts` | PATH cru no agente (`git.exe` plantado) | ✅ PATH filtrado, `NoDefaultCurrentDirectoryInExePath`, teto sempre · ⏳ conferir no instalado |
+| baixa | `agent.ts` | `alwaysForSession` aceito com prévia parcial | ✅ recusado no main |
+| baixa | `mcp.ts` | Import do `~/.claude.json` com token na URL | ✅ servidor não importado |
+| baixa | `gitTrust.ts` | Cache do gate por lstat | aceito (exige código local já rodando) |
+| baixa | `sdk-hashes.json` | Só `claude.exe` e `sdk.mjs` | aceito (`npm ci` confere o lockfile) |
+| baixa | `release.yml` | Quem tem push cria tag `v*` | aceito se o ruleset de tag `v*` for configurado antes da primeira tag |
+| baixa | `gitproc.ts` | Repositório embutido (gitlink sem `.git/modules`) sem teste próprio | backlog (mesmo caminho do submódulo) |
+
+- **Veredito:** ✅ Cybersecurity não bloqueia. H05.3 fecha após o dry run e H05.6 após o pgTAP rodado como `authenticated` (critérios de aceite, não riscos).
 
 ## Riscos aceitos
 - **Baixa:** filtros da config global/sistema do usuário (ex.: LFS) disparados pelo `.gitattributes` de um repo com `.git/config` limpo — config do próprio usuário (ADR-018).
 - **Baixa:** `app.asar.unpacked` fora da integridade do asar; hash do `claude.exe` só no build.
 - **Baixa:** instalador sem assinatura → SmartScreen. Mitigação: SHA-256, attestation, VirusTotal antes de publicar.
-- **Baixa:** sem confiança, o git do agente também fica indisponível (intencional, documentado na UI).
-- **Condicional:** GrantFileProtocolExtraPrivileges desligada quebrar o `loadFile` → só com mitigação e aval de Cybersecurity.
+- **Baixa:** sem confiança, o git do agente também fica indisponível (intencional, documentado na UI). Workspace aberto numa subpasta de repo: o agente não usa o git do pai.
+- **Baixa:** cache do gate por lstat; `sdk-hashes` de dois arquivos; tag `v*` sem ruleset até o usuário configurar.
 - **Baixa:** Linux `basic_text` sem verificação manual, se não houver máquina.
 
+## Pendências para fechar
+1. Roteiro manual da H05.7 no app instalado (lista abaixo), com prints em `docs/sprints/sprint-05/manual/`.
+2. `supabase test db` (ou SQL Editor) com `supabase/tests/0002_rate_limit.sql`.
+3. Dry run do `release.yml` (`workflow_dispatch`) depois do push; ruleset de tag `v*` no GitHub antes da tag `v0.5.0`.
+
+### Roteiro manual (H05.7)
+1. Hash dos dados antes: `Get-ChildItem $env:APPDATA\DevDeck -Recurse -File | Get-FileHash | Sort Path > antes.txt`.
+2. Instalar `dist\DevDeck-Setup-0.5.0.exe` numa conta sem admin: sem UAC, app em `%LOCALAPPDATA%\Programs\DevDeck`, ícone no Menu Iniciar, área de trabalho e barra (100/150/200%).
+3. Chat no instalado responde; `Get-CimInstance Win32_Process -Filter "name='claude.exe'"` mostra caminho em `app.asar.unpacked` e linha de comando sem token de MCP.
+4. Marcador do SDK: repo com `filter.evil.clean` que grava `%TEMP%\marcador-sdk.txt`, `.gitattributes` `* filter=evil` e arquivo com data no futuro. "Abrir sem git" + mensagem → sem marcador. Controle: "Confiar e usar git" + chat novo → marcador aparece. Repetir abrindo uma subpasta do repo e com `git.exe` falso na raiz.
+5. Atualizar por cima (nova build) e comparar `depois.txt` com `antes.txt`; chats, conquistas e segredos continuam.
+6. Desinstalar: `%APPDATA%\DevDeck` continua.
+7. Depuração: `DevDeck.exe --remote-debugging-port=9222`, `-remote-debugging-port=9222`, `/remote-debugging-port=9222` e `--inspect` saem; `curl http://127.0.0.1:9222/json/version` falha.
+8. ABNT2: `ç Ç á ã ê ~ ^` no chat e no comentário; AltGr+Q/W/E; Alt+A/Alt+R não disparam com AltGr.
+9. NVDA: "Git pausado neste workspace" e "Revisar configurações…", diálogo nativo, card de aprovação com selo, "Aprovar todas" indisponível com prévia parcial.
+10. Aprovação real com painel recolhido, a ~900 px e a 1280×720.
+11. MCP HTTP com header e ICS real: `findstr /s /i "<token>" "%APPDATA%\DevDeck\*"` não acha nada; URL com `?token=` é recusada.
+
 ## Entregas
-- …
+- v0.5.0: instalador NSIS per-user verificável (fuses, hash do SDK, `app://`), release em rascunho com SHA-256 e attestation, git sem executar código do repositório (B3 fechado), confiança e "Sempre" estritos, agenda/diff corrigidos, limite de curtidas e denúncias, varredura de camadas CSS.
+- ADRs 011, 018, 019 e emendas 013/015. `CHANGELOG.md` 0.5.0, READMEs EN/PT com instalação.
+- Processo: debate só com papéis convocados (matriz no planning, réplica nos conflitos).
 
 ## Retro
-- **Funcionou:**
-- **Melhorar:**
-- **Ações:**
+- **Funcionou:** a réplica resolveu 11 conflitos de uma vez e o PO decidiu com os argumentos lado a lado (parser próprio × `git config --file`, simple-git × wrapper). Controle positivo nos testes de segurança: todo teste de marcador prova que o fixture dispara com git puro, então "passou" significa algo. O smoke do app empacotado pegou o `file://` quebrado pela fuse no mesmo dia, como o debate tinha previsto. A varredura de camadas (H05.9) pegou um `.badge` reusado no primeiro run.
+- **Melhorar:** o security review achou um bypass (submódulo) que nenhum papel levantou no debate, e o QA achou a subpasta de repo: o modelo de ameaça do B3 olhou só para a raiz. Escapes em heredoc/Python voltaram a quebrar arquivos (terceira sprint seguida). PowerShell 5.1 grava BOM e quebrou um JSON de teste.
+- **Ações:** checklist de ameaça do git no template (raiz, pai, submódulo, worktree, binário no PATH); código com escape só por Edit/Write, nunca por heredoc; `[IO.File]::WriteAllText` ou node para arquivos lidos por outras ferramentas; rodar pgTAP no CI quando houver Supabase local.

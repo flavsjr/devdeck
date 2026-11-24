@@ -132,7 +132,7 @@ export function agentEnv(base: Env, platform: NodeJS.Platform, root: string, git
     out[k] = /^path$/i.test(k) ? safePathEntries(v, platform, root).join(platform === 'win32' ? ';' : ':') : v
   }
   Object.assign(out, forcedConfigEnv())
-  // Windows: CreateProcess/cmd não procuram executável na pasta atual.
+  // Windows: shells e runtimes que respeitam esta variável não procuram executável na pasta atual (conferir no roteiro manual).
   if (platform === 'win32') out.NoDefaultCurrentDirectoryInExePath = '1'
   // Sempre: o git do agente nunca sobe acima do workspace (subpasta de um repo não acha o .git do pai, que não foi inspecionado).
   out.GIT_CEILING_DIRECTORIES = pathOf(platform).dirname(root)

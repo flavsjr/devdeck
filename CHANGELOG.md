@@ -24,12 +24,14 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Links de reunião aceitavam domínios parecidos (ex.: `evilzoom.us`); agora só o host exato de Teams, Meet e Zoom.
 - Prévia de Edit em arquivo com quebra de linha CRLF saía vazia; o patch gravado no chat passa a vir do conteúdo real do disco (reverter continua funcionando).
 - Corrida ao trocar rápido de arquivo na aba Alterações e erro de diff que sumia em silêncio.
+- "Descartar arquivo" com colchetes ou asterisco no nome descartava outros arquivos (o caminho era lido como padrão).
 
 ### Segurança
 - **Abrir um repositório não executa mais código configurado nele (B3).** Antes de rodar o git, o DevDeck lê o `.git/config` sem executar nada; fsmonitor, filtros, textconv, `diff.external`, hooks, includes, worktrees ou `.git` apontando para fora pausam o git até você confiar. Mesmo confiado, o git roda por caminho absoluto (um `git.exe` plantado no repositório não é usado), sem variáveis `GIT_*` herdadas, com fsmonitor e hooks desligados. Sem confiança, o git que o agente rodar também não encontra o repositório.
 - Variáveis e headers de servidores MCP vão para o Claude Code pelo stdin, não mais pela linha de comando (que outros usuários da máquina conseguiam ler).
 - URL de servidor MCP com token na query ou usuário e senha é recusada; use um header.
-- `settings.json` do projeto com chave desconhecida pede confiança; "Sempre nesta sessão" só vale para caminhos dentro do workspace e o main recusa o resto; prévia parcial desabilita "Aprovar todas da sessão".
+- `settings.json` do projeto com chave desconhecida pede confiança; "Sempre nesta sessão" só vale para caminhos dentro do workspace e só para ferramentas que o DevDeck sabe onde agem: **Bash, WebFetch e ferramentas MCP passam a perguntar sempre** (o "Sempre" de MCP continua pela política "auto" de cada ferramenta). Prévia parcial desabilita "Aprovar todas da sessão", e o main recusa esses pedidos mesmo se chegarem.
+- O git do DevDeck e do agente nunca entram em submódulos (a config do submódulo não é conferida) e nunca sobem acima da pasta aberta: abrir uma subpasta de um repositório não usa o git do pai.
 - App instalado com fuses do Electron (sem `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect`; integridade do asar; só carrega do asar), SDK do Claude conferido por SHA-256 no build e switches de depuração remota recusados.
 - Denúncia de conta com menos de 72 h é registrada mas não oculta post.
 
