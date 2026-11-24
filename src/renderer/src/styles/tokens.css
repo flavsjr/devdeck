@@ -67,6 +67,19 @@
     --add-bg: color-mix(in srgb, var(--diff-green) 18%, transparent);
     --del-bg: color-mix(in srgb, var(--diff-red) 18%, transparent);
 
+    /* ---------- semânticos: notificações (H06.2) ---------- */
+    /* Cartão opaco; a cor do tipo vai no ícone e na faixa lateral (o tipo também é dito em texto oculto). */
+    --notify-surface: var(--slate-3);
+    --notify-line: var(--slate-5);
+    --notify-erro: var(--red-9);
+    --notify-aviso: var(--amber-9);
+    --notify-sucesso: var(--green-9);
+    --notify-info: var(--teal-9);
+    /* Conquista: índigo claro (o --indigo-9 daria 4,2:1 sobre o próprio fundo tingido). */
+    --notify-conquista: var(--indigo-10);
+    --notify-conquista-bg: color-mix(in srgb, var(--indigo-9) 14%, transparent);
+    --notify-conquista-line: color-mix(in srgb, var(--indigo-9) 45%, transparent);
+
     --scrim: color-mix(in srgb, var(--black) 55%, transparent);
     --shadow: 0 12px 32px color-mix(in srgb, var(--black) 45%, transparent);
 

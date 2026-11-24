@@ -224,21 +224,21 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T06 · H06.2 · Reducer `src/renderer/src/lib/notifications.ts` com `now` injetado: teto 3, erro conta e não sai sozinho, "+N erros", "Fechar todos" a partir de 2 erros, dedupe de 5 s com "×N" e campo `historico` (20). Teste em `tests/unit/renderer/notifications.test.ts` | Front | feito |
 | T07 · H06.2 · União `AcaoNotificacao` e lista nomeada `RetryOp` mapeada no store. Teste: nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando. Dep. T06 | Front | feito |
 | T08 · H06.2 · Inventário das 41 chamadas de `notify` com tipo e microcopy, na seção de tarefas da sprint | UX | feito (`sprint-06/ux-notificacoes.md`) |
-| T09 · H06.2 · `components/Notifications.tsx`: ícone lucide, tokens `--notify-*`, `role="alert"` e região `status` montada no boot, pausa com hover e foco, fechar com `aria-label` e 24 px, conquista com visual próprio, `prefers-reduced-motion`, posição fora do composer e do card. CSS no `shell.css`. Dep. T06 | Front | a fazer |
+| T09 · H06.2 · `components/Notifications.tsx`: ícone lucide, tokens `--notify-*`, `role="alert"` e região `status` montada no boot, pausa com hover e foco, fechar com `aria-label` e 24 px, conquista com visual próprio, `prefers-reduced-motion`, posição fora do composer e do card. CSS no `shell.css`. Dep. T06 | Front | feito |
 | T10 · H06.2 · `store.ts`: `notify({ tipo, texto, acao? })`, sai o `toast: string`, migram as 41 chamadas e saem `errorText` (McpView) e `errMsg` (CommunityView). Dep. T04, T08, T09 | Front | a fazer |
-| T11 · H06.2 · Main traduz `ENOENT`, `EACCES` e rede no handler com contexto (`agent.ts` `revertChange`, `agenda.ts`, provedores). Dep. T04 | Back | a fazer |
-| T12 · H06.2 · `deveNotificarNativo` em `achievements.ts:52` e `agenda.ts:157`. Evento novo de lembrete main→renderer com `{ id, titulo }` em `src/shared/types.ts`. Dep. T05 | Back | a fazer |
+| T11 · H06.2 · Main traduz `ENOENT`, `EACCES` e rede no handler com contexto (`agent.ts` `revertChange`, `agenda.ts`, provedores). Dep. T04 | Back | feito |
+| T12 · H06.2 · `deveNotificarNativo` em `achievements.ts:52` e `agenda.ts:157`. Evento novo de lembrete main→renderer com `{ id, titulo }` em `src/shared/types.ts`. Dep. T05 | Back | feito |
 | T13 · H06.2 · Renderer: aprovação passa a usar `!document.hasFocus()` (`store.ts:293`), `FlowCard.tsx` passa pela regra e o lembrete vira toast info "Abrir na agenda". Dep. T10, T12 | Front | a fazer |
 | T14 · H06.2/H06.3 · Helper `tests/e2e/helpers/fake-api.mjs`: servidor em `127.0.0.1` com 200, 401 (`sk-ant-…`/`Bearer …` falsos), 429, 529 e billing, ligado por `ANTHROPIC_BASE_URL` | QA | a fazer |
 | T15 · H06.3 · `redactPatterns` em `src/main/lib/secrets.ts` (padrões da ata + apiKey salva) + casos em `secrets.test.ts` | Back | feito |
 | T16 · H06.3 · Aplicar redact por padrão e por valor exato em `agent.ts:285`, `:303`, `:320` e `:469`. Dep. T15 | Back | feito |
-| T17 · H06.3/H06.7 · `src/main/lib/agentErrors.ts` (enum → `AgentErrorCode`, desempate por `hasApiKey`/`apiKeySource` + `api_error_status`, texto só como fallback, desconhecido → `unknown`). Teste em `tests/unit/main/agentErrors.test.ts` lendo as fixtures. Dep. T01 | Back | a fazer |
-| T18 · H06.3 · `ChatItem` de erro ganha `code?: AgentErrorCode` e `detail?` (redigido no main) em `shared/types.ts`. `handleMessage` não cria balão quando há `msg.error`. Um card por turno: `result.errors` e o catch do pump só preenchem o mesmo item. Dep. T16, T17 | Back | a fazer |
-| T19 · H06.3 · Canal `help:open` com `z.enum(['claude-login'])` → URL https fixa no main (`ipc.ts`, `validation.ts`) + teste em `validation.test.ts` | Back | a fazer |
+| T17 · H06.3/H06.7 · `src/main/lib/agentErrors.ts` (enum → `AgentErrorCode`, desempate por `hasApiKey`/`apiKeySource` + `api_error_status`, texto só como fallback, desconhecido → `unknown`). Teste em `tests/unit/main/agentErrors.test.ts` lendo as fixtures. Dep. T01 | Back | feito |
+| T18 · H06.3 · `ChatItem` de erro ganha `code?: AgentErrorCode` e `detail?` (redigido no main) em `shared/types.ts`. `handleMessage` não cria balão quando há `msg.error`. Um card por turno: `result.errors` e o catch do pump só preenchem o mesmo item. Dep. T16, T17 | Back | feito |
+| T19 · H06.3 · Canal `help:open` com `z.enum(['claude-login'])` → URL https fixa no main (`ipc.ts`, `validation.ts`) + teste em `validation.test.ts` | Back | feito |
 | T20 · H06.3 · Card no `ChatView.tsx`: texto fixo por `code`, as 3 ações por código, "Detalhes técnicos" recolhido com "Copiar detalhes", "Tentar de novo" desabilitado durante o turno e composer preservado. Dep. T18, T19 | Front | a fazer |
 | T21 · H06.3 · `src/renderer/src/lib/authStatus.ts` (deriva o estado dos itens da sessão) + teste. Chip no `StatusBar.tsx` com ação. Toast "Erro no chat" com "Ver no chat" só fora da aba do chat. Dep. T18, T10 | Front | a fazer |
 | T22 · H06.3 · Microcopy dos cards de autenticação e dos 4 da H06.7, com a URL de "Como entrar" | UX | feito (`sprint-06/ux-notificacoes.md`) |
-| T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | a fazer |
+| T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | feito |
 | T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | a fazer |
 | T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
 | T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |

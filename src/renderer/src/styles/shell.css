@@ -620,4 +620,219 @@
     color: var(--on-warn);
     background: var(--warn);
   }
+
+  /* ---------- notificações (H06.2, components/Notifications.tsx) ----------
+   * Posição: topo da coluna principal, encostada no painel direito. O composer fica no rodapé da
+   * coluna principal e o card de aprovação no painel direito (travado aberto com aprovação), então
+   * a pilha não cobre nenhum dos dois. 1280×720: coluna principal de 608 px, pilha de 360 px.
+   * A altura máxima deixa livre o composer no tamanho máximo (textarea de 240 px + chips + faixa
+   * de aprovação pendente + barra de status ≈ 360 px); passou disso, a pilha rola. */
+  .notify-stack {
+    position: fixed;
+    top: 8px;
+    right: var(--right-w, 40px);
+    z-index: 40;
+    width: min(384px, calc(100vw - 48px - var(--sidebar-w, 0px) - var(--right-w, 40px)));
+    max-height: calc(100vh - 400px);
+    padding: 0 12px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    /* Área vazia da pilha não bloqueia clique no que está embaixo; só os cartões recebem o mouse. */
+    pointer-events: none;
+  }
+  /* Janela estreita (< 1280 px CSS; ~900 px com zoom) com o painel direito em sobreposição: a pilha
+   * vai para a esquerda, sobre a barra lateral, e termina antes do painel (que tem o card de aprovação). */
+  .app:has(.right.overlay) .notify-stack {
+    right: auto;
+    left: 48px;
+    width: min(384px, max(204px, calc(100vw - 48px - min(var(--right-panel-w, 360px), 100vw - 96px))));
+  }
+  /* Lembrete da agenda no topo central: a pilha desce para não ficar embaixo dele. */
+  .app:has(.reminder) .notify-stack {
+    top: 64px;
+    max-height: calc(100vh - 456px);
+  }
+  .notify-card {
+    --notify-tipo: var(--notify-info);
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 9px 6px 9px 10px;
+    background: var(--notify-surface);
+    border: 1px solid var(--notify-line);
+    border-left: 3px solid var(--notify-tipo);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+    color: var(--fg);
+    font-size: 13px;
+    line-height: 18px;
+    animation: notify-entrada 160ms var(--ease);
+  }
+  .notify-erro {
+    --notify-tipo: var(--notify-erro);
+  }
+  .notify-aviso {
+    --notify-tipo: var(--notify-aviso);
+  }
+  .notify-sucesso {
+    --notify-tipo: var(--notify-sucesso);
+  }
+  .notify-info {
+    --notify-tipo: var(--notify-info);
+  }
+  .notify-conquista {
+    --notify-tipo: var(--notify-conquista);
+  }
+  .notify-icon {
+    flex: none;
+    display: inline-flex;
+    padding-top: 1px;
+    color: var(--notify-tipo);
+  }
+  .notify-body,
+  .notify-alert {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notify-alert .notify-body {
+    display: block;
+  }
+  .notify-count {
+    margin-left: 6px;
+    color: var(--fg-2);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .notify-card .notify-action {
+    flex: none;
+    align-self: center;
+  }
+  /* Fechar: alvo de 24 × 24 px (WCAG 2.5.8). */
+  .notify-close {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg-2);
+    cursor: pointer;
+  }
+  .notify-close:hover {
+    background: var(--hover-tint);
+    color: var(--fg);
+  }
+
+  /* Conquista: faixa própria, fora do teto de 3 e uma por vez, no pé da pilha (fundo tingido,
+   * troféu em destaque, título e XP). */
+  .notify-achievements {
+    margin-top: 6px;
+  }
+  .notify-card.notify-conquista {
+    padding: 10px 6px 10px 10px;
+    background: linear-gradient(var(--notify-conquista-bg), var(--notify-conquista-bg)), var(--notify-surface);
+    border-color: var(--notify-conquista-line);
+    border-left-color: var(--notify-conquista);
+  }
+  .notify-conquista .notify-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: var(--r-pill);
+    background: var(--notify-conquista-bg);
+  }
+  .notify-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--notify-conquista);
+  }
+  .notify-achievement-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    color: var(--fg);
+  }
+  .notify-xp {
+    padding: 0 6px;
+    border: 1px solid var(--notify-conquista-line);
+    border-radius: var(--r-pill);
+    color: var(--notify-conquista);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .notify-conquista .notify-text {
+    display: block;
+    color: var(--fg-2);
+  }
+
+  /* Resumo dos erros: "+N erros" (expande os recolhidos) e "Fechar todos". */
+  .notify-summary {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 2px 6px;
+    background: var(--notify-surface);
+    border: 1px solid var(--notify-line);
+    border-radius: var(--r-md);
+    font-size: 12px;
+  }
+  .notify-spacer {
+    flex: 1;
+  }
+  .notify-link {
+    min-height: 24px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .notify-more {
+    color: var(--notify-erro);
+  }
+  .notify-link:hover {
+    background: var(--hover-tint);
+  }
+  .notify-collapsed .notify-card {
+    margin-left: 12px;
+    box-shadow: none;
+  }
+
+  @keyframes notify-entrada {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* Sem animação de entrada com movimento reduzido (o base.css só encurta a duração). */
+  @media (prefers-reduced-motion: reduce) {
+    .notify-card {
+      animation: none;
+    }
+  }
 }

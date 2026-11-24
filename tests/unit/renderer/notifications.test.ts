@@ -4,10 +4,12 @@ import {
   ESTADO_INICIAL,
   LIMITE_HISTORICO,
   RETRY_OPS,
+  conquistaVisivel,
   errosRecolhidos,
   mostrarFecharTodos,
   notificacoesReducer as r,
   proximaExpiracao,
+  totalFecharTodos,
   type AcaoNotificacao,
   type EstadoNotificacoes,
   type NovaNotificacao,
@@ -52,23 +54,89 @@ describe('teto de 3', () => {
     expect(textos(s)).toEqual(['e1', 'e2', 'e3'])
     expect(errosRecolhidos(s)).toBe(2)
   })
-  it('com 3 erros, não-erro não derruba erro (fica só no histórico)', () => {
-    const s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['conquista', 'c']])
-    expect(textos(s)).toEqual(['e1', 'e2', 'e3'])
+  it('com 3 erros, não-erro entra e o erro mais antigo vai para o início dos recolhidos', () => {
+    const s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['erro', 'e4'], ['aviso', 'a']])
+    expect(textos(s)).toEqual(['e2', 'e3', 'a'])
+    expect(s.errosRecolhidos.map((n) => n.texto)).toEqual(['e1', 'e4'])
+  })
+  it('quando o não-erro expira, o erro deslocado volta sem ser anunciado de novo', () => {
+    let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['sucesso', 's']], 0) // s vence em 3000 + 4000
+    expect(s.visiveis.find((n) => n.texto === 'e2')?.alerta).toBe(true)
+    s = r(s, { type: 'expirar', now: 7000 })
+    expect(textos(s)).toEqual(['e2', 'e3', 'e1'])
     expect(errosRecolhidos(s)).toBe(0)
-    expect(s.historico.map((n) => n.texto)).toContain('c')
+    const e1 = s.visiveis.find((n) => n.texto === 'e1')
+    expect(e1?.alerta).toBe(false)
+    expect(e1?.anunciada).toBe(true)
+  })
+  it('quando o não-erro é fechado, o erro deslocado também volta', () => {
+    let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['info', 'i']])
+    s = r(s, { type: 'fechar', id: s.visiveis[2].id, now: 9000 })
+    expect(textos(s)).toEqual(['e2', 'e3', 'e1'])
+  })
+  it('erro que nunca esteve na tela é anunciado quando sobe', () => {
+    let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['erro', 'e4']])
+    expect(s.errosRecolhidos[0].anunciada).toBe(false)
+    s = r(s, { type: 'fechar', id: s.visiveis[0].id, now: 9000 })
+    const e4 = s.visiveis.find((n) => n.texto === 'e4')
+    expect(e4?.alerta).toBe(true)
+  })
+  it('não-erro nunca tem alerta', () => {
+    const s = seq([['aviso', 'a'], ['sucesso', 's'], ['info', 'i']])
+    expect(s.visiveis.every((n) => !n.alerta)).toBe(true)
   })
   it('fechar um erro sobe o recolhido mais antigo', () => {
     let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['erro', 'e4'], ['erro', 'e5']])
-    s = r(s, { type: 'fechar', id: s.visiveis[1].id })
+    s = r(s, { type: 'fechar', id: s.visiveis[1].id, now: 9000 })
     expect(textos(s)).toEqual(['e1', 'e3', 'e4'])
     expect(errosRecolhidos(s)).toBe(1)
   })
   it('fechar um recolhido funciona', () => {
     let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['erro', 'e4']])
-    s = r(s, { type: 'fechar', id: s.errosRecolhidos[0].id })
+    s = r(s, { type: 'fechar', id: s.errosRecolhidos[0].id, now: 9000 })
     expect(errosRecolhidos(s)).toBe(0)
     expect(textos(s)).toEqual(['e1', 'e2', 'e3'])
+  })
+})
+
+describe('conquista: faixa própria', () => {
+  const conquista = (s: EstadoNotificacoes, titulo: string, now: number): EstadoNotificacoes =>
+    r(s, { type: 'adicionar', notificacao: { tipo: 'conquista', texto: `${titulo} (+50 XP)`, conquista: { titulo, xp: 50 } }, now })
+
+  it('fica fora do teto de 3 e não derruba ninguém', () => {
+    let s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3']])
+    s = conquista(s, 'Primeiro turno', 5000)
+    expect(textos(s)).toEqual(['e1', 'e2', 'e3'])
+    expect(errosRecolhidos(s)).toBe(0)
+    expect(conquistaVisivel(s)?.conquista).toEqual({ titulo: 'Primeiro turno', xp: 50 })
+  })
+  it('uma por vez: a próxima espera sem prazo e começa a contar quando a primeira sai', () => {
+    let s = conquista(ESTADO_INICIAL, 'A', 0)
+    s = conquista(s, 'B', 1000)
+    expect(conquistaVisivel(s)?.conquista?.titulo).toBe('A')
+    expect(s.conquistas[1].expiraEm).toBeNull()
+    expect(proximaExpiracao(s)).toBe(6000)
+    s = r(s, { type: 'expirar', now: 6000 })
+    expect(conquistaVisivel(s)?.conquista?.titulo).toBe('B')
+    expect(conquistaVisivel(s)?.expiraEm).toBe(12_000)
+  })
+  it('fechar a da vez passa para a próxima, com prazo a partir do fechamento', () => {
+    let s = conquista(conquista(ESTADO_INICIAL, 'A', 0), 'B', 0)
+    s = r(s, { type: 'fechar', id: s.conquistas[0].id, now: 2000 })
+    expect(conquistaVisivel(s)?.conquista?.titulo).toBe('B')
+    expect(conquistaVisivel(s)?.expiraEm).toBe(8000)
+  })
+  it('pausa e retoma só a da vez', () => {
+    let s = conquista(conquista(ESTADO_INICIAL, 'A', 0), 'B', 0)
+    s = r(s, { type: 'pausar', id: s.conquistas[0].id, now: 1000 })
+    expect(proximaExpiracao(s)).toBeNull()
+    s = r(s, { type: 'retomar', id: s.conquistas[0].id, now: 10_000 })
+    expect(proximaExpiracao(s)).toBe(15_000)
+    expect(r(s, { type: 'pausar', id: s.conquistas[1].id, now: 0 }).conquistas[1]).toEqual(s.conquistas[1])
+  })
+  it('dado de conquista só fica em notificação do tipo conquista', () => {
+    const s = r(ESTADO_INICIAL, { type: 'adicionar', notificacao: { tipo: 'info', texto: 'x', conquista: { titulo: 'x' } }, now: 0 })
+    expect(s.visiveis[0]).not.toHaveProperty('conquista')
   })
 })
 
@@ -79,7 +147,7 @@ describe('erro nunca sai sozinho', () => {
   })
   it('só "fechar" ou "fecharTodos" removem erro', () => {
     const s = seq([['erro', 'e']])
-    expect(r(s, { type: 'fechar', id: s.visiveis[0].id }).visiveis).toEqual([])
+    expect(r(s, { type: 'fechar', id: s.visiveis[0].id, now: 1 }).visiveis).toEqual([])
     expect(r(s, { type: 'fecharTodos' }).visiveis).toEqual([])
   })
 })
@@ -127,17 +195,44 @@ describe('dedupe', () => {
     expect(s.historico).toHaveLength(1)
     expect(s.historico[0].repeticoes).toBe(2)
   })
-  it('a janela conta da última repetição', () => {
+  it('sem limite de tempo enquanto aberta; erro só soma (continua sem prazo)', () => {
     let s = add(ESTADO_INICIAL, 'erro', 'x', 0)
-    s = add(s, 'erro', 'x', 4000)
-    s = add(s, 'erro', 'x', 8000)
+    s = add(s, 'erro', 'x', 60_000)
+    s = add(s, 'erro', 'x', 600_000)
     expect(s.visiveis).toHaveLength(1)
     expect(s.visiveis[0].repeticoes).toBe(3)
+    expect(s.visiveis[0].expiraEm).toBeNull()
   })
-  it('5 s ou mais depois vira notificação nova', () => {
+  it('depois de fechada, uma ocorrência nova abre card novo', () => {
     let s = add(ESTADO_INICIAL, 'erro', 'x', 0)
-    s = add(s, 'erro', 'x', 5000)
-    expect(s.visiveis).toHaveLength(2)
+    const primeiro = s.visiveis[0].id
+    s = r(s, { type: 'fechar', id: primeiro, now: 1000 })
+    s = add(s, 'erro', 'x', 2000)
+    expect(s.visiveis).toHaveLength(1)
+    expect(s.visiveis[0].id).not.toBe(primeiro)
+    expect(s.visiveis[0].repeticoes).toBe(1)
+  })
+  it('depois de expirar, uma ocorrência nova abre card novo', () => {
+    let s = add(ESTADO_INICIAL, 'sucesso', 'ok', 0)
+    s = r(s, { type: 'expirar', now: 4000 })
+    s = add(s, 'sucesso', 'ok', 4001)
+    expect(s.visiveis[0].repeticoes).toBe(1)
+  })
+  it('pausada: soma e guarda a duração cheia para quando retomar', () => {
+    let s = add(ESTADO_INICIAL, 'info', 'i', 0)
+    s = r(s, { type: 'pausar', id: s.visiveis[0].id, now: 1000 })
+    s = add(s, 'info', 'i', 2000)
+    expect(s.visiveis[0].restanteMs).toBe(5000)
+    expect(s.visiveis[0].expiraEm).toBeNull()
+  })
+  it('conquista repetida na fila soma sem iniciar prazo', () => {
+    const c = { tipo: 'conquista' as const, texto: 'B (+10 XP)' }
+    let s = r(ESTADO_INICIAL, { type: 'adicionar', notificacao: { tipo: 'conquista', texto: 'A' }, now: 0 })
+    s = r(s, { type: 'adicionar', notificacao: c, now: 0 })
+    s = r(s, { type: 'adicionar', notificacao: c, now: 100 })
+    expect(s.conquistas).toHaveLength(2)
+    expect(s.conquistas[1].repeticoes).toBe(2)
+    expect(s.conquistas[1].expiraEm).toBeNull()
   })
   it('mesmo texto com tipo diferente não junta', () => {
     const s = seq([['info', 'x'], ['aviso', 'x']])
@@ -162,6 +257,14 @@ describe('"Fechar todos"', () => {
     expect(s.visiveis).toEqual([])
     expect(errosRecolhidos(s)).toBe(0)
     expect(s.historico).toHaveLength(4)
+  })
+  it('total de "Fechar todos (N)" = na tela + recolhidos, sem a conquista', () => {
+    const s = seq([['erro', 'e1'], ['erro', 'e2'], ['erro', 'e3'], ['erro', 'e4'], ['conquista', 'c']])
+    expect(totalFecharTodos(s)).toBe(4)
+  })
+  it('não afeta a faixa da conquista', () => {
+    const s = r(seq([['erro', 'e1'], ['erro', 'e2'], ['conquista', 'c']]), { type: 'fecharTodos' })
+    expect(conquistaVisivel(s)?.texto).toBe('c')
   })
 })
 

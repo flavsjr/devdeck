@@ -4,12 +4,15 @@ import {
   Bell,
   Calendar,
   ChevronRight,
+  CircleAlert,
+  CircleCheck,
   CircleDollarSign,
   Command,
   Cpu,
   File,
   Folder,
   GitCompareArrows,
+  Info,
   Keyboard,
   MessageSquareCode,
   Music2,
@@ -24,6 +27,8 @@ import {
   Square,
   Pause,
   Trash2,
+  TriangleAlert,
+  Trophy,
   User,
   Users,
   X,
@@ -68,3 +73,9 @@ export const IconPanelRight = wrap(PanelRight)
 export const IconBell = wrap(Bell)
 export const IconCpu = wrap(Cpu)
 export const IconPause = wrap(Pause)
+// Notificações (H06.2): um ícone por tipo.
+export const IconErro = wrap(CircleAlert)
+export const IconAviso = wrap(TriangleAlert)
+export const IconSucesso = wrap(CircleCheck)
+export const IconInfo = wrap(Info)
+export const IconConquista = wrap(Trophy)

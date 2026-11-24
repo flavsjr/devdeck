@@ -56,6 +56,22 @@ describe('tokens "Índigo Noturno" passam AA', () => {
     expect(tokenContrast('--line-strong', '--bg', tokens)).toBeGreaterThanOrEqual(3)
   })
 
+  // Notificações (H06.2): texto e ícone sobre o cartão opaco; conquista sobre o fundo tingido composto no cartão.
+  it.each(['--fg', '--fg-2', '--notify-erro', '--notify-aviso', '--notify-sucesso', '--notify-info', '--notify-conquista'])(
+    '%s sobre --notify-surface ≥ 4,5',
+    (fg) => {
+      expect(tokenContrast(fg, '--notify-surface', tokens)).toBeGreaterThanOrEqual(4.5)
+    }
+  )
+
+  it.each(['--fg', '--fg-2', '--notify-conquista'])('%s sobre --notify-conquista-bg (no cartão) ≥ 4,5', (fg) => {
+    expect(tokenContrast(fg, '--notify-conquista-bg', tokens, '--notify-surface')).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('anel de foco sobre --notify-surface ≥ 3', () => {
+    expect(tokenContrast('--focus', '--notify-surface', tokens)).toBeGreaterThanOrEqual(3)
+  })
+
   it('branco sobre accent reprovaria (por isso --on-accent é escuro)', () => {
     const t = { ...tokens, '--white': '#ffffff' }
     expect(tokenContrast('--white', '--accent', t)).toBeLessThan(4.5)
