@@ -4,6 +4,39 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-24 · Sprint 05
+
+### Adicionado
+- **Instalador para Windows** (`DevDeck-Setup-0.5.0.exe`): por usuário, sem pedir admin nem UAC, com o ícone novo, atalhos no Menu Iniciar e na área de trabalho. Atualizar por cima e desinstalar mantêm `%APPDATA%\DevDeck`. Sem atualização automática.
+- **Release em rascunho pelo CI** com `SHA256SUMS.txt` e attestation de build; o README ensina a conferir o hash e a procedência antes de instalar.
+- Aba Alterações e barra de status mostram **"Git pausado"** quando o repositório tem configuração do git que executa programas, com o botão "Revisar configurações…"; a branch atual aparece na barra de status.
+- Card de aprovação avisa quando o Edit vai falhar (`old_string` vazio, ausente ou repetido) e quando a prévia do diff é parcial; mostra o selo "fora do workspace" ou "pasta sensível".
+- Teste ponta a ponta com Playwright no app Electron (`npm run test:e2e`): "Git pausado" → "Revisar configurações…" → confiar, com o controle positivo do filtro; roda no job de empacotamento do CI.
+- Limite na comunidade: 120 curtidas por hora e 10 denúncias por dia por usuário (migration `0002`).
+
+### Alterado
+- O debate do squad só convoca quem trabalha na história ou tem veto sobre o risco dela (matriz de convocação no planning, réplica só nos conflitos).
+- Git do app agora roda por um wrapper próprio (o `simple-git` saiu); o conteúdo do HEAD vem por `cat-file`, sem textconv.
+- Diff grande não trava a tela: arquivos acima de 1 MB ou 20 mil linhas, ou que passem de 300 ms, aparecem como prévia parcial.
+- UI do app empacotado servida por `app://devdeck` em vez de `file://`.
+
+### Corrigido
+- Agenda: eventos com `STATUS:CANCELLED` sumiam só quando o título começava com "Cancelado"; dois eventos sem UID viravam um só; exceção sem a série mestre não aparecia; série diária ou semanal iniciada há mais de 13 anos parava de aparecer.
+- Links de reunião aceitavam domínios parecidos (ex.: `evilzoom.us`); agora só o host exato de Teams, Meet e Zoom.
+- Prévia de Edit em arquivo com quebra de linha CRLF saía vazia; o patch gravado no chat passa a vir do conteúdo real do disco (reverter continua funcionando).
+- Corrida ao trocar rápido de arquivo na aba Alterações e erro de diff que sumia em silêncio.
+- Turno do chat que falhou (ex.: sessão do Claude expirada) desbloqueava a conquista "Hello, Claude" e contava nas estatísticas; agora só turno concluído conta.
+- "Descartar arquivo" com colchetes ou asterisco no nome descartava outros arquivos (o caminho era lido como padrão).
+
+### Segurança
+- **Abrir um repositório não executa mais código configurado nele (B3).** Antes de rodar o git, o DevDeck lê o `.git/config` sem executar nada; fsmonitor, filtros, textconv, `diff.external`, hooks, includes, worktrees ou `.git` apontando para fora pausam o git até você confiar. Mesmo confiado, o git roda por caminho absoluto (um `git.exe` plantado no repositório não é usado), sem variáveis `GIT_*` herdadas, com fsmonitor e hooks desligados. Sem confiança, o git que o agente rodar também não encontra o repositório.
+- Variáveis e headers de servidores MCP vão para o Claude Code pelo stdin, não mais pela linha de comando (que outros usuários da máquina conseguiam ler).
+- URL de servidor MCP com token na query ou usuário e senha é recusada; use um header.
+- `settings.json` do projeto com chave desconhecida pede confiança; "Sempre nesta sessão" só vale para caminhos dentro do workspace e só para ferramentas que o DevDeck sabe onde agem: **Bash, WebFetch e ferramentas MCP passam a perguntar sempre** (o "Sempre" de MCP continua pela política "auto" de cada ferramenta). Prévia parcial desabilita "Aprovar todas da sessão", e o main recusa esses pedidos mesmo se chegarem.
+- O git do DevDeck e do agente nunca entram em submódulos (a config do submódulo não é conferida) e nunca sobem acima da pasta aberta: abrir uma subpasta de um repositório não usa o git do pai.
+- App instalado com fuses do Electron (sem `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect`; integridade do asar; só carrega do asar), SDK do Claude conferido por SHA-256 no build e switches de depuração remota recusados.
+- Denúncia de conta com menos de 72 h é registrada mas não oculta post.
+
 ## [0.4.0] — 2026-11-23 · Sprint 04
 
 ### Adicionado
@@ -91,7 +124,8 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Custos e métricas: por turno, sessão, dia, mês e modelo; teto diário e por sessão; uso de contexto.
 - Modo Flow: embed do Spotify e timer de foco 25/5.
 
-[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/flavsjr/devdeck/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/flavsjr/devdeck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/flavsjr/devdeck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/flavsjr/devdeck/releases/tag/v0.2.0

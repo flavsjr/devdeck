@@ -16,5 +16,5 @@
       "@renderer/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["tests/**/*", "src/main/lib/**/*", "src/renderer/src/lib/**/*", "src/shared/**/*", "vitest.config.mts"]
+  "include": ["tests/**/*", "scripts/check-tag.mts", "src/main/lib/**/*", "src/main/gitcore.ts", "src/renderer/src/lib/**/*", "src/shared/**/*", "vitest.config.mts"]
 }

@@ -1,20 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { applyEdit, makePatch, revertText } from '../../../src/main/lib/edit'
+import { applyEdit, makePatch, previewEdit, revertText } from '../../../src/main/lib/edit'
+
+const CR = String.fromCharCode(13)
+const LF = String.fromCharCode(10)
+const CRLF = CR + LF
 
 describe('applyEdit', () => {
-  it('troca só a primeira ocorrência', () => {
-    expect(applyEdit('a b a', { old_string: 'a', new_string: 'x' })).toBe('x b a')
+  it('ocorrência única é trocada', () => {
+    expect(applyEdit('a b c', { old_string: 'b', new_string: 'x' })).toBe('a x c')
+  })
+  it('repetida sem replace_all: o Edit real falha, a prévia não muda e avisa', () => {
+    expect(previewEdit('a b a', { old_string: 'a', new_string: 'x' })).toEqual({ after: 'a b a', error: expect.stringContaining('2 vezes') })
   })
   it('replace_all troca todas', () => {
     expect(applyEdit('a b a', { old_string: 'a', new_string: 'x', replace_all: true })).toBe('x b x')
   })
-  it('old_string ausente → texto igual', () => {
+  it('old_string ausente → texto igual, com aviso', () => {
     expect(applyEdit('abc', { old_string: 'zzz', new_string: 'x' })).toBe('abc')
+    expect(previewEdit('abc', { old_string: 'zzz', new_string: 'x' }).error).toContain('não encontrado')
   })
   it('new_string com padrões de replace é literal', () => {
     expect(applyEdit('foo', { old_string: 'foo', new_string: "$&-$1-$'" })).toBe("$&-$1-$'")
   })
-  it.todo('Sprint 04: old_string vazio gera prévia coerente com o Edit real')
+  it('old_string vazio gera prévia coerente com o Edit real', () => {
+    // Arquivo novo ou vazio: cria com new_string.
+    expect(previewEdit('', { old_string: '', new_string: 'oi' })).toEqual({ after: 'oi' })
+    // Com conteúdo: o Edit real falha; a prévia não finge mudança.
+    expect(previewEdit('já existe', { old_string: '', new_string: 'oi' })).toEqual({ after: 'já existe', error: expect.stringContaining('old_string vazio') })
+  })
+  it('arquivo CRLF com old_string em LF: troca e mantém CRLF', () => {
+    const before = ['a', 'b', 'c', ''].join(CRLF)
+    expect(previewEdit(before, { old_string: ['a', 'b'].join(LF), new_string: ['A', 'B'].join(LF) })).toEqual({ after: ['A', 'B', 'c', ''].join(CRLF) })
+  })
 })
 
 describe('makePatch + revertText', () => {
@@ -63,5 +80,11 @@ describe('makePatch + revertText', () => {
     expect(revertText(r2.text, p1)).toEqual({ ok: true, text: before })
   })
 
-  it.todo('Sprint 04: patch gravado a partir do conteúdo real do disco (CRLF) continua reversível')
+  it('patch gravado a partir do conteúdo real do disco (CRLF) continua reversível', () => {
+    const disk = Array.from({ length: 12 }, (_, i) => `linha ${i + 1}`).join(CRLF) + CRLF
+    const edited = previewEdit(disk, { old_string: ['linha 5', 'linha 6'].join(LF), new_string: ['linha CINCO', 'linha 6'].join(LF) }).after
+    expect(edited).toContain(`linha CINCO${CRLF}linha 6`)
+    const p = makePatch('a.ts', disk, edited)
+    expect(revertText(edited, p)).toEqual({ ok: true, text: disk })
+  })
 })

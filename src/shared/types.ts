@@ -92,6 +92,8 @@ export interface GitStatus {
   isRepo: boolean
   branch?: string
   files: GitFileChange[]
+  /** Repositório com configuração que executa programas e sem confiança: o git não rodou (H05.1). */
+  paused?: { reasons: string[] }
 }
 
 // ---------- Chat / agente ----------
@@ -129,6 +131,14 @@ export interface ApprovalRequest {
   before?: string
   after?: string
   isNewFile?: boolean
+  /** O Edit real vai falhar (old_string ausente, repetido ou vazio num arquivo com conteúdo). */
+  previewError?: string
+  /** before/after cortados no main (arquivo acima de 1 MB): a prévia é parcial. */
+  previewPartial?: boolean
+  /** Algum caminho da tool fica fora do workspace ou em pasta sensível (H05.5). */
+  scope?: 'outside' | 'sensitive'
+  /** false = "Sempre nesta sessão" não vale para este pedido (o main recusa mesmo se pedido). */
+  allowAlways?: boolean
   /** command */
   command?: string
   description?: string
@@ -396,6 +406,8 @@ export interface DeckApi {
     status(): Promise<GitStatus>
     diff(relPath: string): Promise<{ before: string; after: string }>
     restore(relPath: string): Promise<void>
+    /** Abre o diálogo nativo de confiança no git; true = liberado. */
+    trust(): Promise<boolean>
   }
   mcp: {
     list(): Promise<McpServerView[]>

@@ -19,6 +19,24 @@ describe('summarizeProjectConfig', () => {
     expect(summarizeProjectConfig(JSON.stringify({ model: 'opus' }), null).risky).toBe(false)
   })
 
+  it('chave desconhecida no topo pede confiança e aparece no diálogo (H05.5)', () => {
+    const s = summarizeProjectConfig(JSON.stringify({ model: 'opus', chaveNovaDoClaude: { cmd: 'x' } }), null)
+    expect(s.risky).toBe(true)
+    expect(s.unknown).toEqual(['chaveNovaDoClaude'])
+    expect(describeSummary(s)).toContain('Chaves não reconhecidas')
+  })
+
+  it('dentro de permissions só deny/ask passam sem diálogo', () => {
+    expect(summarizeProjectConfig(JSON.stringify({ permissions: { deny: ['Bash(rm:*)'], ask: ['WebFetch'] } }), null).risky).toBe(false)
+    const s = summarizeProjectConfig(JSON.stringify({ permissions: { deny: [], disableBypassPermissionsMode: 'x', novidade: true } }), null)
+    expect(s.risky).toBe(true)
+    expect(s.unknown).toEqual(['permissions.disableBypassPermissionsMode', 'permissions.novidade'])
+  })
+
+  it('preferências conhecidas continuam sem diálogo', () => {
+    expect(summarizeProjectConfig(JSON.stringify({ $schema: 'x', model: 'opus', cleanupPeriodDays: 10, includeCoAuthoredBy: false, outputStyle: 'x' }), null).risky).toBe(false)
+  })
+
   it('lista hooks, permissões, env, helpers e MCPs', () => {
     const s = summarizeProjectConfig(settings, mcp)
     expect(s.risky).toBe(true)

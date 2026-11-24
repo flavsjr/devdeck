@@ -9,6 +9,8 @@ export interface ProjectConfigSummary {
   env: string[]
   helpers: string[]
   mcpServers: string[]
+  /** Chaves de settings.json que o DevDeck não reconhece (H05.5): pedem confiança. */
+  unknown: string[]
   invalid: string[]
   /** Outros arquivos em .claude/ (skills, comandos, agentes…): carregam com as configurações do projeto. */
   claudeFiles: string[]
@@ -21,6 +23,36 @@ export interface ProjectConfigSummary {
 const HELPER_KEYS = ['apiKeyHelper', 'awsAuthRefresh', 'awsCredentialExport', 'gcpAuthRefresh', 'otelHeadersHelper', 'statusLine']
 /** Chaves que trazem código ou ampliam acesso sem passar pela aprovação do DevDeck. */
 const EXTENSION_KEYS = ['enabledPlugins', 'extraKnownMarketplaces', 'additionalMarketplaces', 'plugins']
+
+/**
+ * Chaves de topo de settings.json que o DevDeck conhece: as que só guardam preferência e as que já
+ * são resumidas acima. Qualquer outra pede confiança (lista de permitidas, H05.5).
+ */
+const KNOWN_KEYS = new Set([
+  '$schema',
+  'model',
+  'cleanupPeriodDays',
+  'includeCoAuthoredBy',
+  'includeGitInstructions',
+  'attribution',
+  'outputStyle',
+  'language',
+  'alwaysThinkingEnabled',
+  'spinnerTipsEnabled',
+  'respectGitignore',
+  'companyAnnouncements',
+  'hooks',
+  'permissions',
+  'env',
+  'enableAllProjectMcpServers',
+  'enabledMcpjsonServers',
+  'disabledMcpjsonServers',
+  ...HELPER_KEYS,
+  ...EXTENSION_KEYS
+])
+/** Dentro de `permissions`, só estas passam sem diálogo (as outras ampliam acesso ou são desconhecidas). */
+const KNOWN_PERMISSION_KEYS = new Set(['deny', 'ask'])
+const RESUMED_PERMISSION_KEYS = new Set(['allow', 'additionalDirectories', 'defaultMode'])
 
 /** Texto do repositório é não confiável: tira caracteres de controle/bidi e corta com reticências. */
 export function clip(text: string, max = 200): string {
@@ -95,6 +127,7 @@ export function summarizeProjectConfig(settingsText: string | null, mcpText: str
   const env: string[] = []
   const helpers: string[] = []
   const mcpServers: string[] = []
+  const unknown: string[] = []
 
   const settings = tryParse(settingsText, '.claude/settings.json', invalid)
   if (settings) {
@@ -116,7 +149,10 @@ export function summarizeProjectConfig(settingsText: string | null, mcpText: str
       if (Array.isArray(dirs)) allow.push(...dirs.map((d) => `additionalDirectories: ${clip(String(d))}`))
       const mode = (perms as Record<string, unknown>).defaultMode
       if (typeof mode === 'string' && mode !== 'default') allow.push(`defaultMode: ${clip(mode, 40)}`)
+      for (const k of Object.keys(perms as object))
+        if (!KNOWN_PERMISSION_KEYS.has(k) && !RESUMED_PERMISSION_KEYS.has(k)) unknown.push(`permissions.${clip(k, 60)}`)
     }
+    for (const k of Object.keys(settings)) if (!KNOWN_KEYS.has(k)) unknown.push(clip(k, 60))
     if (settings.env && typeof settings.env === 'object') env.push(...Object.keys(settings.env as object).map((k) => clip(k, 80)))
     for (const k of HELPER_KEYS) if (settings[k] !== undefined) helpers.push(`${k}: ${clip(JSON.stringify(settings[k]))}`)
     for (const k of EXTENSION_KEYS) if (settings[k] !== undefined) helpers.push(`${k}: ${clip(JSON.stringify(settings[k]))}`)
@@ -140,8 +176,8 @@ export function summarizeProjectConfig(settingsText: string | null, mcpText: str
   if (dir.files.length > claudeFiles.length) claudeFiles.push(`… e mais ${dir.files.length - claudeFiles.length} arquivo(s)`)
   // Sem arquivos extras o hash mantém o formato antigo: confiança dada antes da v0.4.0 continua valendo.
   const hash = `${sha(settingsText)}:${sha(mcpText)}${dir.files.length ? `:${dir.hash}` : ''}`
-  const risky = overflow || [hooks, allow, env, helpers, mcpServers, invalid, claudeFiles].some((l) => l.length > 0)
-  return { hooks, allow, env, helpers, mcpServers, invalid, claudeFiles, overflow, hash, risky }
+  const risky = overflow || [hooks, allow, env, helpers, mcpServers, unknown, invalid, claudeFiles].some((l) => l.length > 0)
+  return { hooks, allow, env, helpers, mcpServers, unknown, invalid, claudeFiles, overflow, hash, risky }
 }
 
 /** Texto do diálogo de confiança. */
@@ -153,6 +189,7 @@ export function describeSummary(s: ProjectConfigSummary): string {
     block('Variáveis de ambiente', s.env),
     block('Comandos auxiliares', s.helpers),
     block('Servidores MCP do projeto (.mcp.json)', s.mcpServers),
+    block('Chaves não reconhecidas (o DevDeck não sabe o que fazem)', s.unknown),
     block('Arquivos inválidos', s.invalid),
     block('Outros arquivos em .claude/ (skills, comandos e agentes podem pedir ferramentas e hooks)', s.claudeFiles),
     s.overflow ? `A pasta .claude/ tem links ou passa de ${CLAUDE_DIR_LIMITS.files} arquivos ou ${CLAUDE_DIR_LIMITS.bytes / 1024 / 1024} MB: o DevDeck não consegue conferir tudo e vai perguntar toda vez.` : '',

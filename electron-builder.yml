@@ -1,0 +1,45 @@
+# Instalador do DevDeck (Sprint 05, H05.2 / ADR-011). Cada escolha de segurança tem o porquê ao lado.
+appId: com.devdeck.app # igual ao setAppUserModelId do main (atalho e notificações)
+productName: DevDeck
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - "!**/*.map"
+npmRebuild: false # sem módulo nativo próprio
+publish: null # sem auto-update (H03.4): nada de latest.yml nem blockmap
+asar: true
+asarUnpack:
+  # O SDK sobe o Claude Code como executável nativo: binário não roda de dentro do asar.
+  - node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/**
+afterPack: scripts/verify-sdk.cjs # hash do SDK desempacotado; divergente → build falha
+electronFuses:
+  runAsNode: false # ELECTRON_RUN_AS_NODE não transforma o app num node qualquer
+  enableNodeOptionsEnvironmentVariable: false # NODE_OPTIONS não injeta código
+  enableNodeCliInspectArguments: false # --inspect não abre depurador
+  enableCookieEncryption: true
+  enableEmbeddedAsarIntegrityValidation: true # asar adulterado não carrega
+  onlyLoadAppFromAsar: true # não aceita pasta app/ ao lado do asar
+  grantFileProtocolExtraPrivileges: false # file:// sem privilégios extras (decisão do PO, debate da Sprint 05)
+  loadBrowserProcessSpecificV8Snapshot: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  signAndEditExecutable: true # sem certificado: só aplica ícone e versão no .exe (rcedit)
+nsis:
+  oneClick: false
+  perMachine: false # per-user, sem admin
+  allowElevation: false # o UAC nunca aparece
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false # %APPDATA%\DevDeck fica (chats, segredos cifrados, conquistas)
+  differentialPackage: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DevDeck
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  artifactName: DevDeck-Setup-${version}.exe

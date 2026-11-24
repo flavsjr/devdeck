@@ -4,7 +4,7 @@ App desktop Electron + React + TypeScript. Leia `docs/squad.md` antes de trabalh
 
 ## Processo (obrigatório)
 - Trabalho acontece em **sprints**: um arquivo por sprint em `docs/sprints/sprint-NN.md` (modelo em `_template.md`) com histórias, ata do debate, tarefas, QA, security review e retro.
-- Decisões passam pelo **debate do squad** (agentes em `.claude/agents/`: po, tech-lead, ux-designer, frontend, backend, qa, cybersecurity, devops). Decisão final é do PO; objeção bloqueante de Cybersecurity só cai com mitigação registrada.
+- Decisões passam pelo **debate do squad** (agentes em `.claude/agents/`: po, tech-lead, ux-designer, frontend, backend, qa, cybersecurity, devops). Só participam os papéis **convocados** na matriz do PO: quem trabalha na história ou tem veto sobre o risco dela (regras em `docs/squad.md`). Decisão final é do PO; objeção bloqueante de Cybersecurity só cai com mitigação registrada.
 - Decisão de arquitetura nova → ADR em `docs/decisions.md`.
 - Toda entrega atualiza `CHANGELOG.md` (Keep a Changelog, SemVer, uma versão por sprint).
 - README existe em inglês (`README.md`) e português (`README.pt-BR.md`): mudou um, atualize o outro.

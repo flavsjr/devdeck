@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
-import { basename } from 'node:path'
-import { applyEdit, makePatch, revertText } from './lib/edit'
+import { basename, join } from 'node:path'
+import { app } from 'electron'
+import { makePatch, previewEdit, revertText } from './lib/edit'
+import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
+import { countsAsTurn } from './lib/turns'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -18,7 +21,9 @@ import {
   type StoredSession
 } from './store'
 import { getRoot, toRel } from './workspace'
-import { classifyEditTarget, projectSettingSources } from './trust'
+import { classifyEditTarget, decideWorkspace } from './trust'
+import { agentEnv } from './lib/gitproc'
+import { noGitDir } from './gitTrust'
 import { toSdkMcpServers } from './mcp'
 import { emit } from './events'
 import { checkAchievements } from './achievements'
@@ -248,6 +253,12 @@ export async function interrupt(id: string): Promise<void> {
   await ls.q.interrupt().catch(() => undefined)
 }
 
+/** Caminho absoluto do Claude Code desempacotado (nunca resolvido pelo PATH). */
+function claudeExecutable(): string {
+  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  return join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@anthropic-ai', `claude-agent-sdk-${process.platform}-${process.arch}`, exe)
+}
+
 async function startLive(s: StoredSession): Promise<LiveSession> {
   const ls: LiveSession = {
     id: s.meta.id,
@@ -266,8 +277,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
   const settings = getSettings()
   const apiKey = getApiKey()
   let settingSources: SettingSource[] = []
+  let gitAllowed = false
   try {
-    settingSources = await projectSettingSources(s.meta.cwd, settings.loadProjectSettings)
+    ;({ settingSources, gitAllowed } = await decideWorkspace(s.meta.cwd, settings.loadProjectSettings))
   } catch (err) {
     live.delete(ls.id)
     throw err
@@ -284,9 +296,15 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
     resume: s.meta.claudeSessionId,
-    env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : { ...process.env },
+    // Sem GIT_* herdado; com o git pausado, o git que o Claude Code rodar não acha repositório (H05.1).
+    env: { ...agentEnv(process.env, process.platform, s.meta.cwd, gitAllowed, noGitDir()), ...(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {}) },
+    // env/headers de MCP pelo stdin, não pela linha de comando (legível por outros usuários da máquina).
+    mcpServersDelivery: 'initialize',
     stderr: (data: string) => console.error(`[agent ${ls.id.slice(0, 8)}]`, data.trimEnd())
   }
+
+  // App instalado: o Claude Code é binário nativo e fica fora do asar (asarUnpack, ADR-011).
+  if (app.isPackaged) options.pathToClaudeCodeExecutable = claudeExecutable()
 
   // SDK é ESM-only; import dinâmico funciona a partir do bundle CJS do main.
   const { query } = await import('@anthropic-ai/claude-agent-sdk')
@@ -373,7 +391,7 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
         const change = ls.pendingChanges.get(block.tool_use_id)
         if (change) {
           ls.pendingChanges.delete(block.tool_use_id)
-          if (!isError) recordChange(ls.id, change)
+          if (!isError) void recordChange(ls.id, change)
         }
       }
       return
@@ -387,9 +405,11 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
   }
 }
 
-function recordChange(sessionId: string, c: PendingChange): void {
+/** Patch a partir do que ficou no disco (não da prévia): CRLF e normalizações do Claude Code continuam reversíveis. */
+async function recordChange(sessionId: string, c: PendingChange): Promise<void> {
   const rel = toRel(c.filePath) ?? basename(c.filePath)
-  const patch = makePatch(rel, c.before, c.after)
+  const onDisk = existsSync(c.filePath) ? await readFile(c.filePath, 'utf8').catch(() => c.after) : ''
+  const patch = makePatch(rel, c.before, onDisk)
   pushItem(sessionId, { kind: 'change', id: randomUUID(), filePath: c.filePath, patch, created: c.created, ts: now() })
 }
 
@@ -433,8 +453,11 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
 
   const durationMs = msg.duration_ms ?? now() - ls.turnStartedAt
   const hour = new Date().getHours()
-  bumpStats({ turns: 1, totalTurnMs: durationMs, nightTurns: hour < 5 ? 1 : 0, earlyTurns: hour >= 5 && hour < 7 ? 1 : 0 })
-  checkAchievements()
+  // Turno que falhou (autenticação, rede, limite) não conta para estatísticas nem conquistas.
+  if (countsAsTurn(msg)) {
+    bumpStats({ turns: 1, totalTurnMs: durationMs, nightTurns: hour < 5 ? 1 : 0, earlyTurns: hour >= 5 && hour < 7 ? 1 : 0 })
+    checkAchievements()
+  }
 
   pushItem(ls.id, {
     kind: 'result',
@@ -453,6 +476,8 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
 
 // ---------- aprovações ----------
 
+const PREVIEW_MAX_CHARS = 1024 * 1024
+
 function makeCanUseTool(ls: LiveSession): CanUseTool {
   return async (toolName, input, opts) => {
     const isEdit = toolName === 'Edit' || toolName === 'Write'
@@ -461,7 +486,8 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
       const filePath = String(input.file_path ?? '')
       const exists = filePath !== '' && existsSync(filePath)
       const before = exists ? await readFile(filePath, 'utf8').catch(() => '') : ''
-      const after = toolName === 'Write' ? String(input.content ?? '') : applyEdit(before, input)
+      const preview = toolName === 'Write' ? { after: String(input.content ?? '') } : previewEdit(before, input)
+      const after = preview.after
       const change: PendingChange = { filePath, before, after, created: !exists }
       // "Aprovar todas da sessão" só vale dentro do workspace e fora de pastas sensíveis (resolve symlink/junction).
       const verdict = classifyEditTarget(ls.cwd, filePath)
@@ -471,19 +497,29 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
         return { behavior: 'allow', updatedInput: input }
       }
       const warn = verdict === 'outside' ? '⚠ Fora do workspace — ' : verdict === 'sensitive' ? '⚠ Pasta sensível — ' : ''
+      // Arquivo grande: o renderer recebe só o começo de cada lado e marca a prévia como parcial (H05.4).
+      const big = before.length > PREVIEW_MAX_CHARS || after.length > PREVIEW_MAX_CHARS
       return ask(ls, opts, input, {
         kind: toolName === 'Write' ? 'write' : 'edit',
         toolName,
         title: warn + (opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`),
         filePath,
         relPath: toRel(filePath) ?? filePath,
-        before,
-        after,
-        isNewFile: !exists
+        before: big ? before.slice(0, PREVIEW_MAX_CHARS) : before,
+        after: big ? after.slice(0, PREVIEW_MAX_CHARS) : after,
+        previewPartial: big || undefined,
+        isNewFile: !exists,
+        previewError: 'error' in preview ? preview.error : undefined,
+        scope: verdict === 'inside' ? undefined : verdict,
+        allowAlways: verdict === 'inside'
       }, change)
     }
 
-    if (ls.alwaysAllowed.has(toolName)) return { behavior: 'allow', updatedInput: input }
+    // "Sempre nesta sessão" só vale com todos os caminhos da tool dentro do workspace (realpath, H05.5).
+    const ts = toolScope(pathArgsOf(toolName, input), (p) => classifyEditTarget(ls.cwd, p))
+    const allowAlways = ts.allowAlways && alwaysEligible(toolName)
+    const where = { scope: ts.scope === 'inside' ? undefined : ts.scope, allowAlways }
+    if (allowAlways && ls.alwaysAllowed.has(toolName)) return { behavior: 'allow', updatedInput: input }
 
     // Política por tool MCP: mcp__<server>__<tool>
     if (toolName.startsWith('mcp__')) {
@@ -496,7 +532,8 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
         toolName,
         title: opts.title ?? `MCP ${server} → ${tool}`,
         input,
-        mcpServer: server
+        mcpServer: server,
+        ...where
       })
     }
 
@@ -506,11 +543,12 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
         toolName,
         title: opts.title ?? 'Executar comando',
         command: String(input.command ?? ''),
-        description: typeof input.description === 'string' ? input.description : undefined
+        description: typeof input.description === 'string' ? input.description : undefined,
+        ...where
       })
     }
 
-    return ask(ls, opts, input, { kind: 'tool', toolName, title: opts.title ?? toolName, input })
+    return ask(ls, opts, input, { kind: 'tool', toolName, title: opts.title ?? toolName, input, ...where })
   }
 }
 
@@ -541,7 +579,8 @@ export function decide(approvalId: string, decision: ApprovalDecision): void {
   const ls = live.get(p.req.sessionId)
 
   if (decision.approve) {
-    if (decision.alwaysForSession && ls) {
+    // "Sempre"/"Aprovar todas" recusado no main quando o caminho sai do workspace ou a prévia não é confiável.
+    if (decision.alwaysForSession && ls && p.req.allowAlways !== false && !p.req.previewPartial && !p.req.previewError) {
       if (p.req.kind === 'edit' || p.req.kind === 'write') ls.autoApproveEdits = true
       else ls.alwaysAllowed.add(p.req.toolName)
     }

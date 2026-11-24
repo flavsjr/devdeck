@@ -3,7 +3,7 @@ import type { Occurrence } from '@shared/types'
 import { useStore } from '../store'
 import { basename, tokens, usd } from '../format'
 import { keysFor } from '../lib/shortcuts'
-import { IconCalendar, IconCommand, IconCpu, IconFolder, IconPlug } from './Icons'
+import { IconCalendar, IconCommand, IconCpu, IconFolder, IconPause, IconPlug } from './Icons'
 
 function Meter({ pct, label }: { pct: number; label: string }) {
   const level = pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : ''
@@ -51,6 +51,14 @@ export function StatusBar() {
   const ctx = useStore((s) => (s.activeId ? s.context[s.activeId] : undefined))
   const costs = useStore((s) => s.costs)
   const setView = useStore((s) => s.setView)
+  const git = useStore((s) => s.git)
+  const treeVersion = useStore((s) => s.treeVersion)
+  const refreshGit = useStore((s) => s.refreshGit)
+
+  // Status do git acompanha o workspace e as mudanças na árvore (o gate do main decide se roda).
+  useEffect(() => {
+    void refreshGit()
+  }, [workspace, treeVersion, refreshGit])
 
   const budget = costs?.dailyBudgetUsd ?? 0
   const today = costs?.todayUsd ?? 0
@@ -71,6 +79,18 @@ export function StatusBar() {
         <IconCpu size={13} />
         {info?.model ?? settings?.model}
       </span>
+      {git?.paused ? (
+        <button className="sb-item warn-text" onClick={() => setView('changes')} title="O git deste repositório está pausado até você confiar nas configurações dele">
+          <IconPause size={13} />
+          git pausado
+        </button>
+      ) : (
+        git?.branch && (
+          <span className="sb-item mono" title="Branch atual">
+            {git.branch}
+          </span>
+        )
+      )}
       {mcp.length > 0 && (
         <span className={`sb-item ${mcpOk < mcp.length ? 'warn-text' : ''}`} title={mcp.map((m) => `${m.name}: ${m.status}`).join('\n')}>
           <IconPlug size={13} />

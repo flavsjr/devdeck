@@ -24,7 +24,23 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Teclado primeiro** | Paleta de comandos `Ctrl+K` (abas, chats e ações, com busca aproximada), `Ctrl+1–8` troca de aba, `Ctrl+N` novo chat, `Ctrl+L` foca a mensagem, `Ctrl+B` / `Ctrl+Alt+B` mostram e ocultam os painéis, `Ctrl+/` ou `F1` lista todos os atalhos. Aprove ou rejeite a alteração focada com `Alt+A` / `Alt+R`. |
 | **Layout** | Tema escuro "Índigo Noturno" com design tokens (contraste AA conferido por teste), barra lateral recolhível e painel direito redimensionável e recolhível, que fica aberto enquanto houver aprovação pendente. |
 
-## Como rodar
+## Instalar (Windows)
+
+Baixe `DevDeck-Setup-<versão>.exe` e `SHA256SUMS.txt` na página de [Releases](https://github.com/flavsjr/devdeck/releases). O instalador é por usuário: não pede admin nem mostra UAC. Seus dados ficam em `%APPDATA%\DevDeck` e são mantidos ao atualizar e ao desinstalar. Não há atualização automática, e esta versão tem só o tema escuro.
+
+**O Windows pode avisar "O Windows protegeu o computador".** O instalador ainda não é assinado. Antes de clicar em *Mais informações → Executar assim mesmo*, confira o hash:
+
+```powershell
+Get-FileHash .\DevDeck-Setup-0.5.0.exe -Algorithm SHA256
+```
+
+O valor tem que ser igual à linha do instalador em `SHA256SUMS.txt` da mesma release. Se for diferente, não instale e abra uma issue. Para conferir que o arquivo saiu do CI deste repositório (opcional):
+
+```powershell
+gh attestation verify .\DevDeck-Setup-0.5.0.exe --repo flavsjr/devdeck
+```
+
+## Rodar pelo código-fonte
 
 ```powershell
 npm install
@@ -34,10 +50,10 @@ npm run dev
 Se o Electron reclamar de binário ausente, rode `node node_modules/electron/install.js`.
 
 - **Claude:** em *Config → Autenticação*, cole uma chave da API Anthropic. Ela fica criptografada no cofre do sistema via `safeStorage`.
-- **Comunidade (opcional):** crie um projeto no Supabase e rode [`supabase/migrations/0001_community.sql`](supabase/migrations/0001_community.sql). Inclua `{{ .Token }}` no template de e-mail Magic Link e copie `.env.example` para `.env`. Use só a chave publishable/anon, nunca a `service_role`.
+- **Comunidade (opcional):** crie um projeto no Supabase e rode as migrations de [`supabase/migrations/`](supabase/migrations/) em ordem (`0001`, `0002`). Inclua `{{ .Token }}` no template de e-mail Magic Link e copie `.env.example` para `.env`. Use só a chave publishable/anon, nunca a `service_role`.
 - **Provedores git:** em *Perfil → Conexões*, cole um token de leitura para cada provedor que você usa.
 
-Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `npm run test:coverage`, `npm run build`, `npm start`. O CI roda typecheck, testes, build e varredura de segredos em todo push e PR.
+Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `npm run test:coverage`, `npm run build`, `npm start`, `npm run test:e2e` (ponta a ponta com Playwright no app Electron), `npm run pack:win` (app sem instalador em `dist/win-unpacked`) e `npm run dist:win` (instalador). O CI roda typecheck, testes, build e varredura de segredos em todo push e PR.
 
 ### Modelo de segurança
 
@@ -46,6 +62,10 @@ Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `n
 - "Aprovar todas da sessão" nunca vale fora do workspace nem em `.git`, `.claude`, `.vscode`, `.github` e pastas parecidas.
 - Variáveis e headers de MCP, links ICS, tokens git e a chave da API ficam cifrados no cofre do sistema. A interface só vê uma máscara, e um segredo guardado nunca é reaproveitado para outro destino.
 - Confiar num workspace cobre também os arquivos de `.claude/` (skills, comandos, agentes); se houver links ali, o DevDeck pergunta toda vez.
+- **O git nunca roda programas configurados pelo repositório antes de você confiar.** Se o `.git/config` tiver algo além de dados simples (fsmonitor, filtros, textconv, pasta de hooks, includes…) ou o `.git` apontar para outro lugar, o git fica pausado naquele workspace, inclusive o git do agente. Mesmo num repositório confiado, o DevDeck roda o git por caminho absoluto, com fsmonitor e hooks desligados.
+- "Sempre nesta sessão" só vale para caminhos dentro do workspace; ferramentas que tocam outros caminhos perguntam toda vez.
+- URL de servidor MCP com token na query é recusada: coloque a credencial num header.
+- O app instalado vem com fuses do Electron que bloqueiam `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect`, confere a integridade do asar e recusa os switches de depuração remota.
 
 ## Como trabalhamos
 

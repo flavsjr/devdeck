@@ -17,7 +17,8 @@ const api: DeckApi = {
   git: {
     status: () => invoke('git:status'),
     diff: (rel) => invoke('git:diff', rel),
-    restore: (rel) => invoke('git:restore', rel)
+    restore: (rel) => invoke('git:restore', rel),
+    trust: () => invoke('git:trust')
   },
   mcp: {
     list: () => invoke('mcp:list'),

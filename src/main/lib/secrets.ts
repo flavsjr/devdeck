@@ -71,7 +71,41 @@ export function changesRiskyEnv(input: Record<string, string | null> | undefined
   return Object.entries(input ?? {}).some(([k, v]) => v !== null && RISKY_ENV.test(k) && stored?.[k] !== v)
 }
 
+/** Parâmetros de query com cara de credencial (H05.8): ficariam em claro no disco e na tela. */
+const SECRET_QUERY_EXACT = new Set(['key', 'secret', 'password', 'pass', 'pwd', 'auth', 'authorization', 'sig', 'signature', 'bearer', 'jwt', 'session', 'code', 'credential', 'credentials'])
+/** Nome do parâmetro sem `-`/`_` e em minúsculas: `x-api-key`, `private_token`, `Access-Token`… */
+const isSecretQuery = (name: string): boolean => {
+  const n = name.toLowerCase().replace(/[-_.]/g, '')
+  return SECRET_QUERY_EXACT.has(n) || /(token|apikey|secret|password)$/.test(n)
+}
+
+/** URL de MCP com credencial na query ou no usuário/senha → recusa com orientação. */
+export function assertNoSecretInUrl(url: string | undefined): void {
+  if (!url) return
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return
+  }
+  if (u.username || u.password) throw new SecretError('A URL do servidor tem usuário/senha embutidos: use um header (ex.: Authorization) em vez disso.')
+  for (const k of u.searchParams.keys())
+    if (isSecretQuery(k)) throw new SecretError(`A URL do servidor tem o parâmetro "${k}", que parece uma credencial e ficaria visível: mova para um header (ex.: Authorization: Bearer …).`)
+}
+
+/** Só esquema + host + caminho: query e credenciais nunca vão para log ou mensagem de erro. */
+export function urlOrigin(url: string | undefined): string | undefined {
+  if (!url) return url
+  try {
+    const u = new URL(url)
+    return `${u.protocol}//${u.host}${u.pathname}`
+  } catch {
+    return MASK
+  }
+}
+
 export function resolveMcpInput(input: McpServerInput, stored: McpServerEntry | undefined): McpServerEntry {
+  if (input.type !== 'stdio') assertNoSecretInUrl(input.url)
   const { env, headers, ...rest } = input
   const keep = Boolean(stored) && sameTarget(input, stored!) && !changesRiskyEnv(env, stored?.env)
   return {
@@ -204,7 +238,16 @@ export function redact(message: string, secrets: (string | undefined)[]): string
   return out
 }
 
-/** Todos os valores secretos de uma entrada (para `redact`). */
+/** Todos os valores secretos de uma entrada (para `redact`), incluindo a query da URL. */
 export function secretValues(e: McpServerEntry): string[] {
-  return [...Object.values(e.env ?? {}), ...Object.values(e.headers ?? {})]
+  let query: string[] = []
+  if (e.url) {
+    try {
+      const u = new URL(e.url)
+      query = [u.search.slice(1), ...[...u.searchParams.values()]].filter(Boolean)
+    } catch {
+      query = []
+    }
+  }
+  return [...Object.values(e.env ?? {}), ...Object.values(e.headers ?? {}), ...query]
 }

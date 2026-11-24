@@ -453,3 +453,16 @@ export function trustWorkspace(rootReal: string, hash: string): void {
   all[trustKey(rootReal)] = { hash, trustedAt: Date.now() }
   writeJson(trustFile(), all)
 }
+
+// Confiança no git do workspace (H05.1): namespace próprio, decidido em momento e diálogo diferentes do .claude/.
+const gitTrustFile = (): string => join(root(), 'trusted-git.json')
+
+export function getGitTrustedHash(rootReal: string): string | null {
+  return readJson<TrustMap>(gitTrustFile(), {})[trustKey(rootReal)]?.hash ?? null
+}
+
+export function trustGit(rootReal: string, hash: string): void {
+  const all = readJson<TrustMap>(gitTrustFile(), {})
+  all[trustKey(rootReal)] = { hash, trustedAt: Date.now() }
+  writeJson(gitTrustFile(), all)
+}

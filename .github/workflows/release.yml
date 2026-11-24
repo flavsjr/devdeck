@@ -1,0 +1,101 @@
+name: Release
+
+# Instalador do DevDeck em release RASCUNHO (H05.3 / ADR-019). Publicar é manual, depois de revisar o draft.
+# Gatilho só por tag (nunca pull_request/workflow_run); workflow_dispatch faz um dry run sem release.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+# Nada por padrão: cada job pede só o que usa.
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    # Roda npm ci e scripts de terceiros: só leitura, sem token de escrita nem id-token.
+    permissions:
+      contents: read
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Sem cache: cache restaurado de outra ref é vetor de envenenamento no release.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Tag igual à versão do package.json
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/check-tag.mts "$TAG"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # dist:win = build + electron-builder (afterPack confere o SDK) + verify-fuses
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer
+          path: dist/DevDeck-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: release (draft)
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Único job com escrita. Não roda npm nem código do repositório além do check-tag.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .nvmrc
+            package.json
+            scripts/check-tag.mts
+          sparse-checkout-cone-mode: false
+      # Node 24 (roda o .mts direto); sem cache e sem npm neste job.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Tag igual à versão do package.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/check-tag.mts "$TAG"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: installer
+          path: out
+      - name: SHA256SUMS.txt
+        working-directory: out
+        run: |
+          sha256sum DevDeck-Setup-*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: out/DevDeck-Setup-*.exe
+      - name: Release em rascunho
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release create "$TAG" out/DevDeck-Setup-*.exe out/SHA256SUMS.txt \
+            --repo "$REPO" --draft --verify-tag --title "DevDeck $TAG" \
+            --notes "Rascunho gerado pelo CI. Antes de publicar: conferir SHA256SUMS.txt, a attestation (gh attestation verify) e o VirusTotal."

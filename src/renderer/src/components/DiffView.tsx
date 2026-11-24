@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { rowsFromPatch, rowsFromTexts, toSplit, type Row } from '../lib/diffRows'
+import { useEffect, useMemo, useState } from 'react'
+import { buildDiff, rowsFromPatch, toSplit, type DiffPartial, type Row } from '../lib/diffRows'
 
 function DiffStats({ rows }: { rows: Row[] }) {
   const add = rows.filter((r) => r.type === 'add').length
@@ -11,12 +11,21 @@ function DiffStats({ rows }: { rows: Row[] }) {
   )
 }
 
-export function DiffView(props: { before?: string; after?: string; patch?: string; compact?: boolean }) {
+const PARTIAL_TEXT: Record<Exclude<DiffPartial, false>, string> = {
+  size: 'Prévia parcial: arquivo grande demais para o diff linha a linha. O trecho alterado aparece como remoção + adição.',
+  timeout: 'Prévia parcial: o diff passou do tempo limite. O trecho alterado aparece como remoção + adição.',
+  render: 'Prévia parcial: só as primeiras linhas do diff aparecem aqui.'
+}
+
+export function DiffView(props: { before?: string; after?: string; patch?: string; compact?: boolean; truncated?: boolean; onPartial?: (partial: boolean) => void }) {
   const [mode, setMode] = useState<'unified' | 'split'>('unified')
-  const rows = useMemo(
-    () => (props.patch !== undefined ? rowsFromPatch(props.patch) : rowsFromTexts(props.before ?? '', props.after ?? '')),
+  const { rows, partial } = useMemo(
+    () => (props.patch !== undefined ? { rows: rowsFromPatch(props.patch), partial: false as const } : buildDiff(props.before ?? '', props.after ?? '')),
     [props.before, props.after, props.patch]
   )
+  const shownPartial: DiffPartial = props.truncated ? 'size' : partial
+  const { onPartial } = props
+  useEffect(() => onPartial?.(Boolean(shownPartial)), [shownPartial, onPartial])
 
   return (
     <div className={`diff ${props.compact ? 'compact' : ''}`}>
@@ -32,6 +41,11 @@ export function DiffView(props: { before?: string; after?: string; patch?: strin
             </button>
           </div>
         </div>
+      )}
+      {shownPartial && (
+        <p className="diff-partial" role="note">
+          {PARTIAL_TEXT[shownPartial]}
+        </p>
       )}
       <div className="diff-body">
         {mode === 'unified' || props.compact ? (

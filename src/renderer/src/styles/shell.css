@@ -551,4 +551,73 @@
   .view-pad:focus-visible {
     outline-offset: -2px;
   }
+
+  /* ---------- git pausado (H05.1) ---------- */
+  .git-paused {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 640px;
+    margin: 12vh auto 0;
+    padding: 0 16px;
+    text-align: center;
+    color: var(--warn);
+  }
+  .git-paused h2 {
+    margin: 4px 0 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .git-paused p {
+    margin: 0;
+  }
+  .git-paused-reasons {
+    list-style: none;
+    margin: 8px 0 12px;
+    padding: 10px 12px;
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    color: var(--fg-2);
+    background: var(--warn-bg);
+    border-radius: var(--r-md);
+    overflow-wrap: anywhere;
+  }
+  .git-paused-reasons li + li {
+    margin-top: 4px;
+  }
+
+  /* Prévia de Edit que vai falhar (H05.4) */
+  .approval-warn {
+    margin: 0 0 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border-radius: var(--r-md);
+  }
+  .diff-partial {
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+  }
+
+  /* Pedido com caminho fora do workspace ou em pasta sensível (H05.5) */
+  .approval-scope {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--fg-2);
+  }
+  .approval-scope .scope-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: var(--r-sm, 6px);
+    font-weight: 600;
+    color: var(--on-warn);
+    background: var(--warn);
+  }
 }
