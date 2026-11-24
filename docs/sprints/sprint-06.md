@@ -199,8 +199,63 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 - Decidir se o `CLAUDE.md` passa a citar `src/shared/lib/` como lugar de regra pura usada pelos dois lados (registrado no ADR-020).
 
 ## Tarefas (Tech Lead)
+Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `src/main/lib` e `src/renderer/src/lib` (T03); `agentEnv` repassa `ANTHROPIC_BASE_URL`, então o E2E aponta o SDK para o servidor falso sem mexer no pacote; `api_error_status` existe no resultado do SDK 0.3.330 (`sdk.d.ts:6443`).
+
 | Tarefa | Papel | Status |
 |---|---|---|
+| T01 · H06.3/H06.7 · **Spike, 1º dia:** capturar mensagens reais do SDK 0.3.330 para OAuth expirada real, chave falsa (401), sem credencial, 429, 529, `billing_error` e sem rede (`api_retry`). Confirmar `SDKAssistantMessage.error`, `api_error_status` e se "sem credencial" chega só por texto. Saída: `tests/fixtures/agent-errors/*.json`, redigidas e com a origem anotada. Decide se a H06.7 continua Should | Back | a fazer |
+| T02 · todas · ADR-020 e ADR-021 em `docs/decisions.md` | TL | feito |
+| T03 · H06.2 · `guard.test.ts` passa a vigiar `src/shared/lib`, proibindo também `window` e `document` | TL | a fazer |
+| T04 · H06.2 · `src/shared/lib/errorText.ts` (tira o prefixo do IPC, traduz `23505`, o limite da `0002`, `ENOENT`, `EACCES`, rede e o genérico) + `tests/unit/shared/errorText.test.ts`. Dep. T03 | Front | a fazer |
+| T05 · H06.2 · `src/shared/lib/nativeNotify.ts` (`deveNotificarNativo`) + teste. Dep. T03 | Front | a fazer |
+| T06 · H06.2 · Reducer `src/renderer/src/lib/notifications.ts` com `now` injetado: teto 3, erro conta e não sai sozinho, "+N erros", "Fechar todos" a partir de 2 erros, dedupe de 5 s com "×N" e campo `historico` (20). Teste em `tests/unit/renderer/notifications.test.ts` | Front | a fazer |
+| T07 · H06.2 · União `AcaoNotificacao` e lista nomeada `RetryOp` mapeada no store. Teste: nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando. Dep. T06 | Front | a fazer |
+| T08 · H06.2 · Inventário das 41 chamadas de `notify` com tipo e microcopy, na seção de tarefas da sprint | UX | a fazer |
+| T09 · H06.2 · `components/Notifications.tsx`: ícone lucide, tokens `--notify-*`, `role="alert"` e região `status` montada no boot, pausa com hover e foco, fechar com `aria-label` e 24 px, conquista com visual próprio, `prefers-reduced-motion`, posição fora do composer e do card. CSS no `shell.css`. Dep. T06 | Front | a fazer |
+| T10 · H06.2 · `store.ts`: `notify({ tipo, texto, acao? })`, sai o `toast: string`, migram as 41 chamadas e saem `errorText` (McpView) e `errMsg` (CommunityView). Dep. T04, T08, T09 | Front | a fazer |
+| T11 · H06.2 · Main traduz `ENOENT`, `EACCES` e rede no handler com contexto (`agent.ts` `revertChange`, `agenda.ts`, provedores). Dep. T04 | Back | a fazer |
+| T12 · H06.2 · `deveNotificarNativo` em `achievements.ts:52` e `agenda.ts:157`. Evento novo de lembrete main→renderer com `{ id, titulo }` em `src/shared/types.ts`. Dep. T05 | Back | a fazer |
+| T13 · H06.2 · Renderer: aprovação passa a usar `!document.hasFocus()` (`store.ts:293`), `FlowCard.tsx` passa pela regra e o lembrete vira toast info "Abrir na agenda". Dep. T10, T12 | Front | a fazer |
+| T14 · H06.2/H06.3 · Helper `tests/e2e/helpers/fake-api.mjs`: servidor em `127.0.0.1` com 200, 401 (`sk-ant-…`/`Bearer …` falsos), 429, 529 e billing, ligado por `ANTHROPIC_BASE_URL` | QA | a fazer |
+| T15 · H06.3 · `redactPatterns` em `src/main/lib/secrets.ts` (padrões da ata + apiKey salva) + casos em `secrets.test.ts` | Back | a fazer |
+| T16 · H06.3 · Aplicar redact por padrão e por valor exato em `agent.ts:285`, `:303`, `:320` e `:469`. Dep. T15 | Back | a fazer |
+| T17 · H06.3/H06.7 · `src/main/lib/agentErrors.ts` (enum → `AgentErrorCode`, desempate por `hasApiKey`/`apiKeySource` + `api_error_status`, texto só como fallback, desconhecido → `unknown`). Teste em `tests/unit/main/agentErrors.test.ts` lendo as fixtures. Dep. T01 | Back | a fazer |
+| T18 · H06.3 · `ChatItem` de erro ganha `code?: AgentErrorCode` e `detail?` (redigido no main) em `shared/types.ts`. `handleMessage` não cria balão quando há `msg.error`. Um card por turno: `result.errors` e o catch do pump só preenchem o mesmo item. Dep. T16, T17 | Back | a fazer |
+| T19 · H06.3 · Canal `help:open` com `z.enum(['claude-login'])` → URL https fixa no main (`ipc.ts`, `validation.ts`) + teste em `validation.test.ts` | Back | a fazer |
+| T20 · H06.3 · Card no `ChatView.tsx`: texto fixo por `code`, as 3 ações por código, "Detalhes técnicos" recolhido com "Copiar detalhes", "Tentar de novo" desabilitado durante o turno e composer preservado. Dep. T18, T19 | Front | a fazer |
+| T21 · H06.3 · `src/renderer/src/lib/authStatus.ts` (deriva o estado dos itens da sessão) + teste. Chip no `StatusBar.tsx` com ação. Toast "Erro no chat" com "Ver no chat" só fora da aba do chat. Dep. T18, T10 | Front | a fazer |
+| T22 · H06.3 · Microcopy dos cards de autenticação e dos 4 da H06.7, com a URL de "Como entrar" | UX | a fazer |
+| T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | a fazer |
+| T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | a fazer |
+| T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
+| T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |
+| T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | a fazer |
+| T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. Inclui teste que compara o `THEME_BG` com o `--bg` de cada tema no `tokens.css` | Back | a fazer |
+| T29 · H06.1 · `theme` em `AppSettings`, `z.enum` no `settingsPatch`, normalização em `store.ts` (inválido → `system`, padrão por instalação) + testes em `validation.test.ts`. Dep. T28 | Back | a fazer |
+| T30 · H06.1 · `index.ts`: `nativeTheme.themeSource` antes de criar a janela e a cada troca, `backgroundColor` pelo mapa e `setBackgroundColor` no `nativeTheme.on('updated')`. Dep. T29 | Back | a fazer |
+| T31 · H06.1 · `tokens.css` com `@media (prefers-color-scheme: light)`. `contrast.test.ts` parametrizado: todo semântico existe nos dois temas e o caso do accent é invertido. Dep. T27 | Front | a fazer |
+| T32 · H06.1 · Versões claras de `--hover-tint`, `--shadow`, `--scrim` e `--viz-heat-*`. Regras do legado afetadas saem do legado (catraca no `css-layers.test.ts`). Dep. T31 | Front | a fazer |
+| T33 · H06.1 · Aparência em `SettingsView.tsx`: `radiogroup` e "Sistema (agora: X)" por `matchMedia`. Embed do Spotify segue o tema. Dep. T29 | Front | a fazer |
+| T34 · H06.1 · `DiffView.tsx`: `+`/`-` no texto acessível e contraste AA no claro | Front | a fazer |
+| T35 · H06.1 · `tests/e2e/theme.e2e.mjs`: troca, persistência após reiniciar, `getBackgroundColor()`, axe nos dois temas (8 abas, paleta, ajuda, aprovação, Git pausado) e capturas 1280×720. Diálogo nativo no tema fica no roteiro manual. Dep. T30–T34 | QA | a fazer |
+| T36 · H06.1 · READMEs EN/PT sem "tema escuro apenas", com captura do claro. Emenda ao ADR-014. Dep. T35 | Front + TL | a fazer |
+| T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | a fazer |
+| T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | a fazer |
+| T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | a fazer |
+| T40 · H06.6 · Job `db` no `ci.yml`: `curl` + `sha256sum -c` (hash citado do arquivo oficial), `supabase db start`, `supabase test db`, `contents: read`, `persist-credentials: false`, sem secret. Duração registrada | DevOps | a fazer |
+| T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | a fazer |
+| T42 · H06.6 · Controle positivo num branch descartável com o link do run vermelho no PR. Emenda ao ADR-010. Dep. T40 | DevOps + TL | a fazer |
+| T43 · H06.6 · Usuário torna o `db` obrigatório no ruleset no 1º run verde, com a data registrada na ata. Dep. T40 | Usuário (admin) | a fazer |
+| T44 · H06.5 · Criar a camada `views` em `index.css` (`tokens, legacy, base, shell, views`) e a catraca de linhas do legado no `css-layers.test.ts` | Front | a fazer |
+| T45 · H06.5 · Migrar o `views.css` por área (uma tarefa e um commit por aba), com escopo e sem `!important`, capturas antes e depois nos dois temas e axe. Timebox M. Dep. T44, T35 | Front + QA | a fazer |
+| T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | a fazer |
+| T47 · H06.8 · "Alternar tema" na paleta (`commands.ts`), passando pelo mesmo `settings.set` | Front | a fazer |
+| T48 · H06.9 · Sino na `StatusBar.tsx` lendo o `historico` do reducer, com "Limpar (só desta sessão)" | Front + UX | a fazer |
+| T49 · processo · Corrigir o accent em `.claude/agents/ux-designer.md` (só com aprovação do usuário). Levar ao usuário a decisão sobre `src/shared/lib/` no `CLAUDE.md` | TL | a fazer |
+| T50 · entrega · `CHANGELOG.md` 0.6.0, versão no `package.json`, QA, security review e retro da sprint | TL + QA + Sec | a fazer |
+| T51 · entrega · `npm run typecheck`, `npm test`, `npm run build` e `npm run test:e2e` verdes | TL | a fazer |
+
+Emendas a anexar no fim da sprint (T36, T42, T16): ADR-014 (tema claro e camada `views`), ADR-015 (`redactPatterns`), ADR-010 (job `db`).
 
 ## QA
 | Caso | Resultado | Evidência |
