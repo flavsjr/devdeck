@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { deveNotificarNativo } from '@shared/lib/nativeNotify'
 import { useStore } from '../store'
 import { IconMusic } from './Icons'
 
@@ -38,13 +39,18 @@ function FocusTimer() {
     return () => clearInterval(t)
   }, [running])
 
+  const notify = useStore((s) => s.notify)
+
   // Fim do ciclo: efeito separado (updaters de estado não podem ter efeitos colaterais).
+  // Mesma regra da nativa (ADR-021): sem foco ou minimizada, nativa; com a janela à vista, toast info.
   useEffect(() => {
     if (!running || left > 0) return
     setRunning(false)
-    new Notification('DevDeck', { body: mode === 'foco' ? 'Hora da pausa! ☕' : 'Bora voltar pro foco 🎧' })
+    const janela = { focada: document.hasFocus(), visivel: !document.hidden }
+    if (deveNotificarNativo(janela, 'lembrete')) new Notification('DevDeck', { body: mode === 'foco' ? 'Hora da pausa! ☕' : 'Bora voltar pro foco 🎧' })
+    else notify({ tipo: 'info', texto: mode === 'foco' ? 'Fim do foco: hora da pausa.' : 'Fim da pausa: hora de voltar ao foco.' })
     if (mode === 'foco') void window.deck.achievements.focusCompleted()
-  }, [left, running, mode])
+  }, [left, running, mode, notify])
 
   const switchMode = (m: Mode): void => {
     setMode(m)

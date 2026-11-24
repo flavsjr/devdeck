@@ -14,6 +14,31 @@ export const TEXTOS_ERRO = {
   semConexao: 'Sem conexão. Confira a internet e tente de novo.'
 } as const
 
+/**
+ * Códigos do Supabase Auth (`AuthError.code`, minúsculos com `_`) que o login da comunidade pode
+ * devolver (auth-js 2.x, `lib/error-codes.ts`). O `message` deles vem em inglês e nunca vai para a tela.
+ */
+export const TEXTOS_AUTH_SUPABASE: Readonly<Record<string, string>> = {
+  otp_expired: 'Código inválido ou expirado. Confira os 6 dígitos ou peça um novo código.',
+  over_email_send_rate_limit: 'Muitos pedidos de código. Espere alguns minutos e tente de novo.',
+  over_request_rate_limit: 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.',
+  email_address_invalid: 'Esse e-mail não é aceito. Confira o endereço e tente de novo.',
+  email_address_not_authorized: 'Esse e-mail não pode receber o código neste servidor. Use outro endereço.',
+  signup_disabled: 'O cadastro de novas contas está desligado na comunidade.',
+  email_provider_disabled: 'O login por e-mail está desligado na comunidade.',
+  otp_disabled: 'O login por código está desligado na comunidade.',
+  user_banned: 'Esta conta está bloqueada na comunidade.',
+  captcha_failed: 'A verificação anti-robô falhou. Tente de novo.',
+  request_timeout: 'O servidor da comunidade demorou para responder. Tente de novo.',
+  session_expired: 'Sua sessão na comunidade expirou. Entre de novo.',
+  session_not_found: 'Sua sessão na comunidade expirou. Entre de novo.',
+  refresh_token_not_found: 'Sua sessão na comunidade expirou. Entre de novo.',
+  refresh_token_already_used: 'Sua sessão na comunidade expirou. Entre de novo.'
+}
+
+// Forma dos códigos do Supabase Auth (ex.: otp_expired). Não confunde com SQLSTATE nem errno.
+const CODIGO_AUTH = /^[a-z]+(?:_[a-z]+)+$/
+
 // Prefixo que o Electron põe na mensagem quando um handler do main lança:
 // "Error invoking remote method 'canal': Error: <mensagem>" (o nome pode ser TypeError etc.).
 const IPC_PREFIX = /^Error invoking remote method '[^']*':\s*(?:([A-Za-z]*Error):\s*)?/
@@ -108,6 +133,8 @@ export function motivoConhecido(err: unknown): string | null {
   if (codigos.includes('EACCES') || codigos.includes('EPERM')) return TEXTOS_ERRO.semPermissao
   if (codigos.some((c) => CODIGOS_REDE.has(c)) || mensagens.some((m) => MENSAGEM_REDE.test(m))) return TEXTOS_ERRO.semConexao
   if (codigos.includes('23505')) return TEXTOS_ERRO.duplicado
+  const auth = codigos.find((c) => Object.hasOwn(TEXTOS_AUTH_SUPABASE, c))
+  if (auth) return TEXTOS_AUTH_SUPABASE[auth]
   // Limite da migration 0002: raise com errcode P0001 e mensagem fixa, distinguida pela ação.
   if (codigos.includes('P0001')) {
     const msg = mensagens[0] ?? ''
@@ -129,7 +156,9 @@ export function errorText(err: unknown): string {
   const { mensagem, nome, codigos } = ler(err)
   if (!mensagem) return TEXTO_GENERICO
   if (ERROS_DO_MOTOR.has(nome)) return TEXTO_GENERICO
-  if (codigos.some((c) => codigoSupabase(c) || /^E[A-Z]{2,}/.test(c))) return TEXTO_GENERICO
+  // Erro do Supabase Auth (AuthApiError, AuthSessionMissingError…): mensagem em inglês.
+  if (/^Auth[A-Za-z]*Error$/.test(nome)) return TEXTO_GENERICO
+  if (codigos.some((c) => codigoSupabase(c) || CODIGO_AUTH.test(c) || /^E[A-Z]{2,}/.test(c))) return TEXTO_GENERICO
   return mensagem
 }
 

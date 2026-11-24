@@ -17,8 +17,8 @@ const LAYER_OF: Record<string, string> = { 'tokens.css': 'tokens', 'app.css': 'l
 const SHARED_EXCEPTIONS: string[] = [
   'ach', 'ach-icon', 'ach-title', 'active', 'app', 'approval', 'bad', 'btn', 'card', 'change-file', 'danger', 'empty',
   'ghost', 'hover-only', 'icon-btn', 'locked', 'logo', 'meter', 'modal', 'modal-backdrop', 'muted', 'on', 'pending-banner',
-  'primary', 'rail', 'rail-badge', 'rail-btn', 'reminder', 'right', 'sb-item', 'seg', 'session-row', 'session-title',
-  'side-title', 'sidebar', 'sm', 'small', 'statusbar', 'toast', 'tool-head', 'top', 'tree-ctx', 'tree-row', 'view-pad',
+  'primary', 'rail', 'rail-badge', 'rail-btn', 'right', 'sb-item', 'seg', 'session-row', 'session-title',
+  'side-title', 'sidebar', 'sm', 'small', 'statusbar', 'tool-head', 'top', 'tree-ctx', 'tree-row', 'view-pad',
   'warn', 'ws-header'
 ]
 

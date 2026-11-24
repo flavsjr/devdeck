@@ -1,11 +1,28 @@
 import { create } from 'zustand'
-import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, GitStatus, Occurrence, SessionInfo, SessionMeta } from '@shared/types'
+import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, GitStatus, SessionInfo, SessionMeta } from '@shared/types'
 import { DEFAULT_UI, sanitizeUi, type UiPrefs } from '@shared/layout'
 import { errorText } from '@shared/lib/errorText'
+import { deveNotificarNativo } from '@shared/lib/nativeNotify'
 import { VIEWS, type View } from './lib/views'
-import type { RetryOp } from './lib/notifications'
+import {
+  ESTADO_INICIAL,
+  notificacoesReducer,
+  type AcaoFila,
+  type AcaoNotificacao,
+  type EstadoNotificacoes,
+  type NovaNotificacao,
+  type RetryOp
+} from './lib/notifications'
+import { textoConquista } from './lib/notificationText'
+import { erroDoUltimoTurno, mensagemParaRepetir, textoErroNoChat } from './lib/agentErrorCard'
 
 export type { View }
+
+/** Campo que uma view deve focar ao abrir (ex.: "Usar chave da API" no card de erro do chat). */
+export type AlvoFoco = 'chaveApi'
+
+/** Estado da janela para a regra da notificação nativa (aprovação passa a olhar o foco, não só `hidden`). */
+const janela = (): { focada: boolean; visivel: boolean } => ({ focada: document.hasFocus(), visivel: !document.hidden })
 
 interface State {
   settings: AppSettings | null
@@ -23,11 +40,13 @@ interface State {
   previewPath: string | null
   costs: CostSummary | null
   treeVersion: number
-  toast: string | null
+  /** Fila de notificações (reducer puro em lib/notifications; renderizada por components/Notifications). */
+  notificacoes: EstadoNotificacoes
+  /** Campo a focar na próxima abertura da view (a view consome e limpa). */
+  focoAlvo: AlvoFoco | null
   /** Incrementa quando agenda/conquistas mudam, para as views recarregarem. */
   agendaVersion: number
   achievementsVersion: number
-  reminder: { occurrence: Occurrence; minutesLeft: number } | null
   /** Paleta de comandos (Ctrl+K) e ajuda de atalhos (Ctrl+/). */
   paletteOpen: boolean
   helpOpen: boolean
@@ -58,9 +77,22 @@ interface State {
   refreshGit(): Promise<void>
   /** "Revisar configurações…": diálogo nativo no main; recarrega o status se liberar. */
   reviewGitTrust(): Promise<void>
-  notify(msg: string): void
+  /** Mostra uma notificação (tipo, texto e no máximo uma ação de lista fechada). */
+  notify(n: NovaNotificacao): void
+  /** Aplica uma ação à fila de notificações (fechar, expirar, pausar…). */
+  despacharNotificacao(a: AcaoFila): void
+  /** Executa a ação do botão de uma notificação: navegar troca de aba; repetir chama `repetir`. */
+  executarAcaoNotificacao(acao: AcaoNotificacao): void
   /** Ação "repetir" de uma notificação: só leitura ou recarga (lista fechada em lib/notifications). */
   repetir(op: RetryOp): void
+  /** Abre Configurações com foco no campo da chave da API. */
+  abrirChaveApi(): void
+  limparFocoAlvo(): void
+  /**
+   * "Tentar de novo" do card de erro: reenvia a mensagem do usuário que originou o turno do erro.
+   * Só por clique; não faz nada com turno em andamento ou em card de turno antigo.
+   */
+  repetirMensagem(sessionId: string, erroId: string): Promise<void>
   handleEvent(e: AgentEvent): void
 }
 
@@ -68,6 +100,10 @@ const api = (): Window['deck'] => window.deck
 
 let uiTimer: ReturnType<typeof setTimeout> | undefined
 let gitSeq = 0
+/** Itens de erro já avisados fora do chat (o fim do turno pode chegar duas vezes: result e finally). */
+const errosAvisados = new Set<string>()
+
+const textoDe = (err: unknown): NovaNotificacao => ({ tipo: 'erro', texto: errorText(err) })
 
 /** Permite abrir direto numa aba via #view (útil para depuração e capturas). */
 function initialView(): View {
@@ -94,10 +130,10 @@ export const useStore = create<State>((set, get) => ({
   previewPath: null,
   costs: null,
   treeVersion: 0,
-  toast: null,
+  notificacoes: ESTADO_INICIAL,
+  focoAlvo: null,
   agendaVersion: 0,
   achievementsVersion: 0,
-  reminder: null,
   paletteOpen: hashFlag('palette'),
   helpOpen: hashFlag('help'),
   overlayOpen: false,
@@ -124,7 +160,7 @@ export const useStore = create<State>((set, get) => ({
       if (seq === gitSeq && get().workspace === ws) set({ git })
     } catch (err) {
       if (seq === gitSeq && get().workspace === ws) set({ git: null })
-      get().notify(err instanceof Error ? err.message : String(err))
+      get().notify({ ...textoDe(err), acao: { tipo: 'repetir', op: 'recarregarGit' } })
     }
   },
 
@@ -132,7 +168,8 @@ export const useStore = create<State>((set, get) => ({
     try {
       if (await api().git.trust()) await get().refreshGit()
     } catch (err) {
-      get().notify(err instanceof Error ? err.message : String(err))
+      // Confiança não entra em RetryOp: sem ação.
+      get().notify(textoDe(err))
     }
   },
 
@@ -202,7 +239,7 @@ export const useStore = create<State>((set, get) => ({
       set((s) => ({ sessions: [meta, ...s.sessions] }))
       await get().openSession(meta.id)
     } catch (err) {
-      get().notify(err instanceof Error ? err.message : String(err))
+      get().notify(textoDe(err))
     }
   },
 
@@ -227,7 +264,8 @@ export const useStore = create<State>((set, get) => ({
     try {
       await api().agent.send(id, text, ctx)
     } catch (err) {
-      get().notify(err instanceof Error ? err.message : String(err))
+      // Só o rethrow do diálogo de confiança: o erro do turno vira card no chat, não toast.
+      get().notify(textoDe(err))
     }
     // O primeiro envio pode ter passado pelo diálogo de confiança (git liberado ou pausado).
     void get().refreshGit()
@@ -251,15 +289,44 @@ export const useStore = create<State>((set, get) => ({
     set({ costs: await api().costs.summary() })
   },
 
-  notify(msg) {
-    set({ toast: msg })
-    setTimeout(() => {
-      if (get().toast === msg) set({ toast: null })
-    }, 5000)
+  notify(notificacao) {
+    // `now` lido fora do updater: o updater fica puro (StrictMode pode chamá-lo duas vezes).
+    get().despacharNotificacao({ type: 'adicionar', notificacao, now: Date.now() })
+  },
+
+  despacharNotificacao(a) {
+    set((s) => ({ notificacoes: notificacoesReducer(s.notificacoes, a) }))
+  },
+
+  executarAcaoNotificacao(acao) {
+    if (acao.tipo === 'navegar') get().setView(acao.destino)
+    else get().repetir(acao.op)
+  },
+
+  abrirChaveApi() {
+    get().setView('settings')
+    set({ focoAlvo: 'chaveApi' })
+  },
+
+  limparFocoAlvo() {
+    set({ focoAlvo: null })
+  },
+
+  async repetirMensagem(sessionId, erroId) {
+    if (get().busy[sessionId]) return
+    const msg = mensagemParaRepetir(get().items[sessionId] ?? [], erroId)
+    if (!msg) return
+    try {
+      // Reenvia com o contexto da mensagem original; os chips atuais do composer ficam como estão.
+      await api().agent.send(sessionId, msg.text, msg.context ?? [])
+    } catch (err) {
+      get().notify(textoDe(err))
+    }
   },
 
   repetir(op) {
-    const falhou = (err: unknown): void => get().notify(errorText(err))
+    // Sem ação na falha do próprio repetir, para não virar laço.
+    const falhou = (err: unknown): void => get().notify(textoDe(err))
     switch (op) {
       case 'recarregarGit':
         void get().refreshGit()
@@ -274,6 +341,8 @@ export const useStore = create<State>((set, get) => ({
         set((s) => ({ agendaVersion: s.agendaVersion + 1 }))
         break
       case 'recarregarPerfil':
+        // Só relê as conquistas. `profile.refresh()` existe, mas grava o cache dos provedores e roda
+        // checkAchievements no main (não é só leitura): por isso nenhum erro do perfil oferece "Tentar de novo".
         set((s) => ({ achievementsVersion: s.achievementsVersion + 1 }))
         break
       default: {
@@ -309,6 +378,8 @@ export const useStore = create<State>((set, get) => ({
           busy: { ...s.busy, [e.sessionId]: e.busy },
           streaming: e.busy ? s.streaming : { ...s.streaming, [e.sessionId]: '' }
         }))
+        // Fim do turno: a classificação do erro já é a final (o result pode reclassificar, ex.: 529).
+        if (!e.busy) avisarErroDoTurno(e.sessionId)
         break
       case 'info':
         set((s) => ({ info: { ...s.info, [e.sessionId]: e.info } }))
@@ -318,7 +389,8 @@ export const useStore = create<State>((set, get) => ({
         break
       case 'approval':
         set((s) => ({ approvals: [...s.approvals, e.approval] }))
-        if (document.hidden) new Notification('DevDeck', { body: `Aprovação pendente: ${e.approval.title}` })
+        // Nativa só sem foco (ou minimizada); em foco, o card no painel direito basta.
+        if (deveNotificarNativo(janela(), 'aprovacao')) new Notification('DevDeck', { body: `Aprovação pendente: ${e.approval.title}` })
         break
       case 'approval-resolved':
         set((s) => ({ approvals: s.approvals.filter((a) => a.id !== e.id) }))
@@ -335,11 +407,17 @@ export const useStore = create<State>((set, get) => ({
         set((s) => ({ treeVersion: s.treeVersion + 1 }))
         break
       case 'achievement':
-        get().notify(`Conquista desbloqueada: ${e.def.icon} ${e.def.title} (+${e.def.xp} XP)`)
+        get().notify({
+          tipo: 'conquista',
+          texto: textoConquista(e.def.title, e.def.xp),
+          conquista: { titulo: e.def.title, xp: e.def.xp },
+          acao: { tipo: 'navegar', destino: 'profile' }
+        })
         set((s) => ({ achievementsVersion: s.achievementsVersion + 1 }))
         break
-      case 'reminder':
-        set({ reminder: { occurrence: e.occurrence, minutesLeft: e.minutesLeft } })
+      case 'agenda-reminder':
+        // O main só manda este evento com a janela em foco (sem foco, vai a nativa). Título só como texto.
+        get().notify({ tipo: 'info', texto: `Lembrete da agenda: ${e.titulo}`, acao: { tipo: 'navegar', destino: 'agenda' } })
         break
       case 'agenda-changed':
         set((s) => ({ agendaVersion: s.agendaVersion + 1 }))
@@ -347,3 +425,21 @@ export const useStore = create<State>((set, get) => ({
     }
   }
 }))
+
+/**
+ * Erro do turno fora da vista (T21): o card no chat é a fonte; o toast só avisa quem está em outra
+ * aba (com "Ver no chat") ou o erro de uma sessão que não é a ativa (cita o título, sem ação).
+ * Nunca leva a mensagem original: só o título fixo do card.
+ */
+function avisarErroDoTurno(sessionId: string): void {
+  const st = useStore.getState()
+  const erro = erroDoUltimoTurno(st.items[sessionId] ?? [])
+  if (!erro || errosAvisados.has(erro.id)) return
+  errosAvisados.add(erro.id)
+  if (sessionId === st.activeId) {
+    if (st.view !== 'chat') st.notify({ tipo: 'erro', texto: textoErroNoChat(erro.code), acao: { tipo: 'navegar', destino: 'chat' } })
+    return
+  }
+  const titulo = st.sessions.find((s) => s.id === sessionId)?.title
+  st.notify({ tipo: 'erro', texto: textoErroNoChat(erro.code, titulo) })
+}

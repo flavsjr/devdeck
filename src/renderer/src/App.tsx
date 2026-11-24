@@ -14,7 +14,8 @@ import { StatusBar } from './components/StatusBar'
 import { CommandPalette } from './components/CommandPalette'
 import { ShortcutHelp } from './components/ShortcutHelp'
 import { Logo } from './components/Logo'
-import { IconBell, IconCalendar, IconChat, IconCoin, IconDiff, IconGear, IconPlug, IconUser, IconUsers } from './components/Icons'
+import { Notifications } from './components/Notifications'
+import { IconCalendar, IconChat, IconCoin, IconDiff, IconGear, IconPlug, IconUser, IconUsers } from './components/Icons'
 import { isEditableTarget, keysFor, matchShortcut, type ShortcutAction } from './lib/shortcuts'
 import { NARROW_WINDOW, rightPanelVisible } from '@shared/layout'
 import { runAction, VIEW_LABEL } from './commands'
@@ -31,35 +32,6 @@ const PERSONAL: { id: View; icon: ReactElement }[] = [
   { id: 'community', icon: <IconUsers /> },
   { id: 'costs', icon: <IconCoin /> }
 ]
-
-function ReminderBanner() {
-  const reminder = useStore((s) => s.reminder)
-  if (!reminder) return null
-  const { occurrence: o, minutesLeft } = reminder
-  const close = (): void => useStore.setState({ reminder: null })
-  return (
-    <div className="reminder" role="status">
-      <IconBell size={16} />
-      <span>
-        <b>{o.title}</b> em {minutesLeft} min
-      </span>
-      {o.link && (
-        <button
-          className="btn primary sm"
-          onClick={() => {
-            void window.deck.openExternal(o.link!)
-            close()
-          }}
-        >
-          Entrar
-        </button>
-      )}
-      <button className="btn ghost sm" onClick={close}>
-        Ok
-      </button>
-    </div>
-  )
-}
 
 function useWindowWidth(): number {
   const [w, setW] = useState(window.innerWidth)
@@ -113,7 +85,9 @@ function RailButton({ id, icon, active, badge, onClick }: { id: View; icon: Reac
 export function App() {
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
-  const toast = useStore((s) => s.toast)
+  const notificacoes = useStore((s) => s.notificacoes)
+  const despacharNotificacao = useStore((s) => s.despacharNotificacao)
+  const executarAcaoNotificacao = useStore((s) => s.executarAcaoNotificacao)
   const pending = useStore((s) => s.approvals.length)
   const pendingHere = useStore((s) => s.approvals.filter((a) => a.sessionId === s.activeId).length)
   const ui = useStore((s) => s.ui)
@@ -170,12 +144,10 @@ export function App() {
       </main>
       <RightPanel open={rightOpen} locked={pendingHere > 0} overlay={narrow && rightOpen} />
       <StatusBar />
-      <ReminderBanner />
       {paletteOpen && <CommandPalette />}
       {helpOpen && <ShortcutHelp />}
-      <div className="toast-region" role="status" aria-live="polite">
-        {toast && <div className="toast">{toast}</div>}
-      </div>
+      {/* Dentro de .app: a pilha se posiciona pelas variáveis de layout (--sidebar-w, --right-w). */}
+      <Notifications estado={notificacoes} despachar={despacharNotificacao} onAcao={(acao) => executarAcaoNotificacao(acao)} />
     </div>
   )
 }

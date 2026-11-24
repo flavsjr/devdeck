@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TEXTO_GENERICO, TEXTOS_ERRO, erroComContexto, errorText, motivoConhecido, semPrefixoIpc } from '@shared/lib/errorText'
+import { TEXTO_GENERICO, TEXTOS_AUTH_SUPABASE, TEXTOS_ERRO, erroComContexto, errorText, motivoConhecido, semPrefixoIpc } from '@shared/lib/errorText'
 
 /** Erro como o Node cria (code na propriedade e na mensagem). */
 function errno(code: string, msg: string): Error {
@@ -44,6 +44,35 @@ describe('Supabase', () => {
   })
   it('falha de fetch do supabase-js vira sem conexão', () => {
     expect(errorText({ code: '', message: 'TypeError: Failed to fetch', details: '', hint: '' })).toBe(TEXTOS_ERRO.semConexao)
+  })
+})
+
+/** Erro do Supabase Auth como o auth-js cria (AuthApiError: Error com name, status e code). */
+function authErr(code: string | undefined, message: string, name = 'AuthApiError'): Error {
+  return Object.assign(new Error(message), { name, status: 400, code, __isAuthError: true })
+}
+
+describe('Supabase Auth', () => {
+  it('otp_expired → código inválido ou expirado', () => {
+    expect(errorText(authErr('otp_expired', 'Token has expired or is invalid'))).toBe(
+      'Código inválido ou expirado. Confira os 6 dígitos ou peça um novo código.'
+    )
+  })
+  it('over_email_send_rate_limit → muitos pedidos de código', () => {
+    expect(motivoConhecido(authErr('over_email_send_rate_limit', 'email rate limit exceeded'))).toBe(
+      'Muitos pedidos de código. Espere alguns minutos e tente de novo.'
+    )
+  })
+  it.each(Object.keys(TEXTOS_AUTH_SUPABASE))('%s tem texto em português', (code) => {
+    expect(motivoConhecido(authErr(code, 'english message'))).toBe(TEXTOS_AUTH_SUPABASE[code])
+  })
+  it('código de Auth não mapeado e Auth sem código viram genérico (sem inglês na tela)', () => {
+    expect(errorText(authErr('mfa_factor_not_found', 'Factor not found'))).toBe(TEXTO_GENERICO)
+    expect(errorText(authErr(undefined, 'Auth session missing!', 'AuthSessionMissingError'))).toBe(TEXTO_GENERICO)
+    expect(motivoConhecido(authErr('mfa_factor_not_found', 'Factor not found'))).toBeNull()
+  })
+  it('falha de rede do auth-js continua "sem conexão"', () => {
+    expect(errorText(authErr(undefined, 'Failed to fetch', 'AuthRetryableFetchError'))).toBe(TEXTOS_ERRO.semConexao)
   })
 })
 

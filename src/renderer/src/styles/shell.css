@@ -226,10 +226,6 @@
   .card {
     border-radius: var(--r-md);
   }
-  .toast {
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow);
-  }
   .empty h2 {
     color: var(--fg);
     font-weight: 600;
@@ -251,14 +247,6 @@
   }
   .pending-banner .btn {
     margin-left: auto;
-  }
-
-  .reminder {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow);
   }
 
   /* ---------- painel direito ---------- */
@@ -648,11 +636,6 @@
     left: 48px;
     width: min(384px, max(204px, calc(100vw - 48px - min(var(--right-panel-w, 360px), 100vw - 96px))));
   }
-  /* Lembrete da agenda no topo central: a pilha desce para não ficar embaixo dele. */
-  .app:has(.reminder) .notify-stack {
-    top: 64px;
-    max-height: calc(100vh - 456px);
-  }
   .notify-card {
     --notify-tipo: var(--notify-info);
     pointer-events: auto;
@@ -834,5 +817,107 @@
     .notify-card {
       animation: none;
     }
+  }
+
+  /* ---------- card de erro do Claude no chat (H06.3, H06.7, components/AgentErrorCard.tsx) ----------
+   * Ícone + título, nunca só cor: --bad para conta, créditos e desconhecido; --warn para limite,
+   * sobrecarga e rede. Texto do corpo em --fg sobre --bg-1 (AA nos dois tons). */
+  .agent-error {
+    --agent-error-tom: var(--bad);
+    max-width: 92%;
+    padding: 12px 14px;
+    background: var(--bg-1);
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--agent-error-tom);
+    border-radius: var(--r-md);
+    color: var(--fg);
+  }
+  .agent-error-warn {
+    --agent-error-tom: var(--warn);
+  }
+  .agent-error-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .agent-error-icon {
+    flex: none;
+    display: inline-flex;
+    padding-top: 1px;
+    color: var(--agent-error-tom);
+  }
+  .agent-error-text {
+    min-width: 0;
+  }
+  .agent-error-title {
+    margin: 0 0 4px;
+    font-weight: 600;
+  }
+  .agent-error-body {
+    margin: 0;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .agent-error-body code {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--bg-3);
+    font-size: 12px;
+  }
+  .agent-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0 28px;
+  }
+  .agent-error-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  /* "Tentar de novo" com turno em andamento: aria-disabled mantém o foco e a dica; visual de desabilitado. */
+  .agent-error-actions .btn[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .agent-error-actions .btn.primary[aria-disabled='true']:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .agent-error-hint {
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+  .agent-error-details {
+    margin: 8px 0 0 28px;
+  }
+  .agent-error-toggle {
+    min-height: 24px;
+    padding: 0 4px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg-2);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .agent-error-toggle:hover {
+    color: var(--fg);
+  }
+  .agent-error-detail {
+    margin: 6px 0;
+    max-height: 200px;
+    overflow: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--bg);
+    color: var(--fg-2);
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }

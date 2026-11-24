@@ -158,9 +158,6 @@ function tickReminders(): void {
     const minutesLeft = Math.round((o.start - now) / 60_000)
     if (now < o.start - remindMin * 60_000 || now >= o.start) continue
     notified.add(o.key)
-    // TODO(T13): o banner atual ('reminder', com a ocorrência inteira) sai quando o renderer trocar
-    // pelo toast do 'agenda-reminder'. Mantido para o lembrete não sumir antes disso.
-    emit({ type: 'reminder', occurrence: o, minutesLeft })
     // Nativa só com o usuário fora do app (deveNotificarNativo, ADR-021); com a janela em foco,
     // evento para o toast "Abrir na agenda", só com id e título.
     if (!deveNotificarNativo(estadoJanelaPrincipal(), 'lembrete')) {

@@ -1167,17 +1167,4 @@
     background: var(--bad-bg);
     color: var(--bad);
   }
-
-  .toast {
-    position: fixed;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg-3);
-    border: 1px solid var(--line-2);
-    border-radius: 8px;
-    padding: 8px 16px;
-    box-shadow: var(--shadow);
-    z-index: 10;
-  }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { McpServerInput, McpServerView, McpTestResult, McpTransport, ToolPolicy } from '@shared/types'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { keepAll, textToSecrets } from '../lib/secretInput'
 import { IconPlus } from './Icons'
@@ -56,8 +57,6 @@ function fromDraft(d: Draft, base?: McpServerView): McpServerInput {
   }
 }
 
-const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
-
 export function McpView() {
   const notify = useStore((s) => s.notify)
   const settings = useStore((s) => s.settings)
@@ -72,14 +71,14 @@ export function McpView() {
   const save = async (): Promise<void> => {
     if (!editing) return
     const entry = fromDraft(editing.draft, editing.original)
-    if (!/^[A-Za-z0-9_-]+$/.test(entry.name)) return notify('Nome: use só letras, números, - e _.')
-    if (entry.type === 'stdio' && !entry.command) return notify('Informe o comando.')
-    if (entry.type !== 'stdio' && !entry.url) return notify('Informe a URL.')
+    if (!/^[A-Za-z0-9_-]+$/.test(entry.name)) return notify({ tipo: 'aviso', texto: 'Nome do servidor: use só letras, números, - e _.' })
+    if (entry.type === 'stdio' && !entry.command) return notify({ tipo: 'aviso', texto: 'Informe o comando do servidor.' })
+    if (entry.type !== 'stdio' && !entry.url) return notify({ tipo: 'aviso', texto: 'Informe a URL do servidor.' })
     try {
       setServers(await window.deck.mcp.save(entry, editing.original?.name))
       setEditing(null)
     } catch (e) {
-      notify(errorText(e))
+      notify({ tipo: 'erro', texto: errorText(e) })
     }
   }
 
@@ -87,7 +86,7 @@ export function McpView() {
     window.deck.mcp
       .save({ ...viewToInput(v), ...patch })
       .then(setServers)
-      .catch((e: unknown) => notify(errorText(e)))
+      .catch((e: unknown) => notify({ tipo: 'erro', texto: errorText(e) }))
   }
 
   const toggle = (e: McpServerView): void => saveView(e, { enabled: !e.enabled })
@@ -113,10 +112,13 @@ export function McpView() {
     try {
       r = await window.deck.mcp.importClaude()
     } catch (e) {
-      return notify(errorText(e))
+      return notify({ tipo: 'erro', texto: errorText(e) })
     }
     setServers(r.servers)
-    notify(r.imported.length ? `Importados (desligados): ${r.imported.join(', ')}` : 'Nada novo para importar.')
+    // "Nada novo para importar." é usado pelo E2E: não mudar o texto.
+    if (r.imported.length)
+      notify({ tipo: 'sucesso', texto: `Importados ${r.imported.length}, desligados: ${r.imported.join(', ')}. Ligue cada um quando quiser usar.` })
+    else notify({ tipo: 'info', texto: 'Nada novo para importar.' })
   }
 
   return (

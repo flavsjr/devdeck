@@ -201,7 +201,6 @@ export type AgentEvent =
   | { type: 'session-meta'; meta: SessionMeta }
   | { type: 'costs-changed' }
   | { type: 'achievement'; def: AchievementDef }
-  | { type: 'reminder'; occurrence: Occurrence; minutesLeft: number }
   /**
    * Lembrete com a janela em foco (H06.2): vira toast info "Abrir na agenda" no renderer (T13).
    * Leva só id da ocorrência e título, renderizados como texto.

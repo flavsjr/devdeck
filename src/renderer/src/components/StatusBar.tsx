@@ -1,9 +1,26 @@
-import { useEffect, useState } from 'react'
-import type { Occurrence } from '@shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { ChatItem, Occurrence } from '@shared/types'
 import { useStore } from '../store'
 import { basename, tokens, usd } from '../format'
 import { keysFor } from '../lib/shortcuts'
-import { IconCalendar, IconCommand, IconCpu, IconFolder, IconPause, IconPlug } from './Icons'
+import { chipAuth } from '../lib/authStatus'
+import { IconCalendar, IconCommand, IconCpu, IconErro, IconFolder, IconPause, IconPlug } from './Icons'
+
+const SEM_ITENS: ChatItem[] = []
+
+/** "Claude: sessão expirada" e afins (H06.3, H06.7): deriva dos itens da sessão ativa e leva ao chat. */
+function ClaudeAuthChip() {
+  const items = useStore((s) => (s.activeId ? s.items[s.activeId] ?? SEM_ITENS : SEM_ITENS))
+  const setView = useStore((s) => s.setView)
+  const chip = useMemo(() => chipAuth(items), [items])
+  if (!chip) return null
+  return (
+    <button className="sb-item alert-text" onClick={() => setView('chat')} aria-label={chip.rotulo} title={chip.rotulo}>
+      <IconErro size={13} />
+      {chip.texto}
+    </button>
+  )
+}
 
 function Meter({ pct, label }: { pct: number; label: string }) {
   const level = pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : ''
@@ -79,6 +96,7 @@ export function StatusBar() {
         <IconCpu size={13} />
         {info?.model ?? settings?.model}
       </span>
+      <ClaudeAuthChip />
       {git?.paused ? (
         <button className="sb-item warn-text" onClick={() => setView('changes')} title="O git deste repositório está pausado até você confiar nas configurações dele">
           <IconPause size={13} />

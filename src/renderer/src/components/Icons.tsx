@@ -7,8 +7,10 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDollarSign,
+  Copy,
   Command,
   Cpu,
+  ExternalLink,
   File,
   Folder,
   GitCompareArrows,
@@ -79,3 +81,6 @@ export const IconAviso = wrap(TriangleAlert)
 export const IconSucesso = wrap(CircleCheck)
 export const IconInfo = wrap(Info)
 export const IconConquista = wrap(Trophy)
+// Card de erro do chat (H06.3): link externo e copiar detalhes.
+export const IconExterno = wrap(ExternalLink)
+export const IconCopiar = wrap(Copy)

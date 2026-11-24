@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AppSettings, EffortLevel } from '@shared/types'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 
 const MODELS = [
@@ -14,7 +15,18 @@ export function SettingsView() {
   const settings = useStore((s) => s.settings)
   const setSettings = useStore((s) => s.setSettings)
   const notify = useStore((s) => s.notify)
+  const focoAlvo = useStore((s) => s.focoAlvo)
+  const limparFocoAlvo = useStore((s) => s.limparFocoAlvo)
   const [key, setKey] = useState('')
+  const keyRef = useRef<HTMLInputElement>(null)
+  const pronto = Boolean(settings)
+
+  // "Usar chave da API" / "Trocar chave" no card de erro do chat: foca o campo ao abrir a aba.
+  useEffect(() => {
+    if (focoAlvo !== 'chaveApi' || !pronto) return
+    keyRef.current?.focus()
+    limparFocoAlvo()
+  }, [focoAlvo, pronto, limparFocoAlvo])
 
   if (!settings) return null
 
@@ -22,13 +34,14 @@ export function SettingsView() {
     setSettings(await window.deck.settings.update(patch))
   }
 
-  const saveKey = async (): Promise<void> => {
+  /** Campo vazio remove a chave salva. */
+  const saveKey = async (valor: string | null): Promise<void> => {
     try {
-      setSettings(await window.deck.settings.setApiKey(key || null))
+      setSettings(await window.deck.settings.setApiKey(valor || null))
       setKey('')
-      notify('Chave salva (criptografada pelo sistema).')
+      notify({ tipo: 'sucesso', texto: valor ? 'Chave salva (criptografada pelo sistema).' : 'Chave removida.' })
     } catch (e) {
-      notify(e instanceof Error ? e.message : String(e))
+      notify({ tipo: 'erro', texto: errorText(e) })
     }
   }
 
@@ -45,12 +58,20 @@ export function SettingsView() {
           Sem chave, o SDK tenta as credenciais já existentes do Claude Code nesta máquina.
         </p>
         <div className="row-actions">
-          <input type="password" placeholder={settings.hasApiKey ? '•••••••• (salva)' : 'sk-ant-...'} value={key} onChange={(e) => setKey(e.target.value)} />
-          <button className="btn primary" onClick={() => void saveKey()} disabled={!key}>
+          <input
+            ref={keyRef}
+            id="api-key"
+            type="password"
+            aria-label="Chave da API Anthropic"
+            placeholder={settings.hasApiKey ? '•••••••• (salva)' : 'sk-ant-...'}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
+          <button className="btn primary" onClick={() => void saveKey(key)} disabled={!key}>
             Salvar chave
           </button>
           {settings.hasApiKey && (
-            <button className="btn ghost" onClick={() => void window.deck.settings.setApiKey(null).then(setSettings)}>
+            <button className="btn ghost" onClick={() => void saveKey(null)}>
               Remover
             </button>
           )}
