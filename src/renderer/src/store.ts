@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import type { AgentEvent, AppSettings, ApprovalRequest, ChatItem, CostSummary, GitStatus, Occurrence, SessionInfo, SessionMeta } from '@shared/types'
 import { DEFAULT_UI, sanitizeUi, type UiPrefs } from '@shared/layout'
+import { errorText } from '@shared/lib/errorText'
+import { VIEWS, type View } from './lib/views'
+import type { RetryOp } from './lib/notifications'
 
-export type View = 'chat' | 'changes' | 'mcp' | 'profile' | 'agenda' | 'community' | 'costs' | 'settings'
+export type { View }
 
 interface State {
   settings: AppSettings | null
@@ -56,6 +59,8 @@ interface State {
   /** "Revisar configurações…": diálogo nativo no main; recarrega o status se liberar. */
   reviewGitTrust(): Promise<void>
   notify(msg: string): void
+  /** Ação "repetir" de uma notificação: só leitura ou recarga (lista fechada em lib/notifications). */
+  repetir(op: RetryOp): void
   handleEvent(e: AgentEvent): void
 }
 
@@ -63,8 +68,6 @@ const api = (): Window['deck'] => window.deck
 
 let uiTimer: ReturnType<typeof setTimeout> | undefined
 let gitSeq = 0
-
-const VIEWS: View[] = ['chat', 'changes', 'mcp', 'profile', 'agenda', 'community', 'costs', 'settings']
 
 /** Permite abrir direto numa aba via #view (útil para depuração e capturas). */
 function initialView(): View {
@@ -253,6 +256,31 @@ export const useStore = create<State>((set, get) => ({
     setTimeout(() => {
       if (get().toast === msg) set({ toast: null })
     }, 5000)
+  },
+
+  repetir(op) {
+    const falhou = (err: unknown): void => get().notify(errorText(err))
+    switch (op) {
+      case 'recarregarGit':
+        void get().refreshGit()
+        break
+      case 'recarregarSessoes':
+        get().refreshSessions().catch(falhou)
+        break
+      case 'recarregarCustos':
+        get().refreshCosts().catch(falhou)
+        break
+      case 'recarregarAgenda':
+        set((s) => ({ agendaVersion: s.agendaVersion + 1 }))
+        break
+      case 'recarregarPerfil':
+        set((s) => ({ achievementsVersion: s.achievementsVersion + 1 }))
+        break
+      default: {
+        const nunca: never = op
+        return nunca
+      }
+    }
   },
 
   handleEvent(e) {
