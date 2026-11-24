@@ -12,6 +12,8 @@ import {
   migrateFeeds,
   migrateMcpList,
   redact,
+  redactAll,
+  redactPatterns,
   resolveFeedInput,
   resolveMcpInput,
   sameTarget,
@@ -232,5 +234,86 @@ describe('URL de MCP sem credencial (H05.8)', () => {
   it('urlOrigin tira query; secretValues inclui a query para o redact', () => {
     expect(urlOrigin('https://mcp.example.com/a?x=1#f')).toBe('https://mcp.example.com/a')
     expect(secretValues({ name: 'r', enabled: true, type: 'http', url: 'https://h/?v=segredo123' })).toContain('segredo123')
+  })
+})
+
+describe('redactPatterns / redactAll (H06.3)', () => {
+  // Valores falsos montados em tempo de execução (não parecem credencial para o gitleaks).
+  const ANT = ['sk', 'ant', 'api03', 'FAKE' + 'a'.repeat(20) + '_b-c'].join('-')
+  const OAT = ['sk', 'ant', 'oat01', 'FAKE' + 'z'.repeat(24)].join('-')
+  const BEARER = 'FAKEbearer' + 'q'.repeat(20) + '.~+/='
+  const JWT = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJGQUtFIn0', 'FAKEsig' + 'k'.repeat(12)].join('.')
+  const XKEY = 'FAKExkey' + 'm'.repeat(16)
+  const QTOK = 'FAKEqtok' + 'n'.repeat(16)
+  const SAVED = 'FAKEsaved-' + 'p'.repeat(20)
+
+  it('texto sem segredo volta inalterado', () => {
+    for (const t of [
+      '',
+      'Sessão não encontrada: 3f2b9c1e-0d4a-4b8e-9a77-1c2d3e4f5a6b',
+      'Invalid API key · Please run /login',
+      'apiKeySource: none; model: claude-sonnet',
+      'GET https://api.anthropic.com/v1/messages?beta=true&version=2 → 529 Overloaded',
+      'o token expirou (sem valor aqui)',
+      'eyJ sozinho não é JWT; a.b.c também não'
+    ])
+      expect(redactPatterns(t), t).toBe(t)
+    expect(redactAll('erro comum', [undefined, null, ''])).toBe('erro comum')
+  })
+
+  it('chaves sk-ant-… (API e OAuth)', () => {
+    const out = redactPatterns(`401 {"error":"invalid x"} chave=${ANT} oauth ${OAT}.`)
+    expect(out).not.toContain(ANT)
+    expect(out).not.toContain(OAT)
+    expect(out).toBe(`401 {"error":"invalid x"} chave=${MASK} oauth ${MASK}.`)
+  })
+
+  it('Bearer mantém o rótulo e para nas aspas', () => {
+    expect(redactPatterns(`Authorization: Bearer ${BEARER}`)).toBe(`Authorization: Bearer ${MASK}`)
+    expect(redactPatterns(`{"authorization":"bearer ${BEARER}","x":1}`)).toBe(`{"authorization":"bearer ${MASK}","x":1}`)
+  })
+
+  it('JWT solto', () => {
+    expect(redactPatterns(`id_token inválido: ${JWT} (exp)`)).toBe(`id_token inválido: ${MASK} (exp)`)
+  })
+
+  it('x-api-key em header, JSON e atribuição', () => {
+    expect(redactPatterns(`x-api-key: ${XKEY}`)).toBe(`x-api-key: ${MASK}`)
+    expect(redactPatterns(`{"X-Api-Key":"${XKEY}"}`)).toBe(`{"X-Api-Key":"${MASK}"}`)
+    expect(redactPatterns(`api_key=${XKEY}; outro=1`)).toBe(`api_key=${MASK}; outro=1`)
+  })
+
+  it('parâmetros de query token/key/code/access_token', () => {
+    const url = `https://h/cb?code=${QTOK}&state=ok&token=${QTOK}&key=${QTOK}#access_token=${QTOK}`
+    const out = redactPatterns(`falhou em ${url} agora`)
+    expect(out).not.toContain(QTOK)
+    expect(out).toBe(`falhou em https://h/cb?code=${MASK}&state=ok&token=${MASK}&key=${MASK}#access_token=${MASK} agora`)
+  })
+
+  it('apiKey salva (formato desconhecido) por valor exato', () => {
+    expect(redactPatterns(`chave ${SAVED} recusada`, SAVED)).toBe(`chave ${MASK} recusada`)
+    expect(redactPatterns(`chave ${SAVED} recusada`, null)).toBe(`chave ${SAVED} recusada`)
+  })
+
+  it('vários segredos no mesmo texto, incluindo valor exato de MCP', () => {
+    const text = [
+      `stderr: ANTHROPIC_API_KEY=${ANT}`,
+      `Authorization: Bearer ${BEARER}`,
+      `x-api-key: ${XKEY}`,
+      `jwt=${JWT}`,
+      `GET https://h/?access_token=${QTOK}`,
+      `GITHUB_TOKEN vazou: ${TOKEN}`,
+      `salva: ${SAVED}`
+    ].join('\n')
+    const out = redactAll(text, [SAVED, TOKEN, undefined])
+    for (const s of [ANT, BEARER, XKEY, JWT, QTOK, TOKEN, SAVED]) expect(out, s).not.toContain(s)
+    expect(out).toContain('Authorization: Bearer ')
+    expect(out).toContain('x-api-key: ')
+    expect(out.split('\n')).toHaveLength(7)
+  })
+
+  it('é idempotente', () => {
+    const once = redactAll(`Bearer ${BEARER} x-api-key: ${XKEY} ${ANT}`, [])
+    expect(redactAll(once, [])).toBe(once)
   })
 })
