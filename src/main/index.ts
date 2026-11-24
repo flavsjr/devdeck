@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Menu, dialog, session, shell } from 'electron'
-import { join } from 'node:path'
+import { app, BrowserWindow, Menu, dialog, protocol, session, shell } from 'electron'
+import { join, relative, isAbsolute } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { z } from 'zod'
 import type { AppSettings } from '@shared/types'
@@ -26,15 +27,39 @@ import { setEmitter } from './events'
 import { achievementsSummary, checkAchievements } from './achievements'
 import { getProfileSummary, refreshProfile, setToken, updateProfile } from './profile'
 import { handle } from './ipc'
-import { isAllowedSubframeUrl, isAppUrl, isPermissionAllowed } from './lib/origin'
+import { APP_INDEX, APP_SCHEME, isAllowedSubframeUrl, isAppUrl, isPermissionAllowed, resolveAppAsset } from './lib/origin'
 import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import { resolveMcpInput } from './lib/secrets'
+import { hasDebugSwitch } from './lib/cli'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
 let win: BrowserWindow | null = null
 const devUrl = (): string | undefined => appLocation().devUrl
+
+// App instalado: depurador remoto e inspetor não abrem (a fuse cobre --inspect do Node, não o switch do Chromium).
+if (app.isPackaged && hasDebugSwitch(process.argv)) app.exit(1)
+
+// UI empacotada por app://devdeck: com a fuse GrantFileProtocolExtraPrivileges desligada, file:// não lê o asar (H05.2).
+protocol.registerSchemesAsPrivileged([{ scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }])
+
+/** Serve só arquivos da pasta do renderer; qualquer outra coisa é 404. */
+function registerAppProtocol(): void {
+  const rendererDir = join(__dirname, '../renderer')
+  protocol.handle(APP_SCHEME, async (req) => {
+    const asset = resolveAppAsset(req.url)
+    if (!asset) return new Response('Não encontrado', { status: 404 })
+    const file = join(rendererDir, ...asset.rel.split('/'))
+    const rel = relative(rendererDir, file)
+    if (rel.startsWith('..') || isAbsolute(rel)) return new Response('Não encontrado', { status: 404 })
+    try {
+      return new Response(await readFile(file), { headers: { 'content-type': asset.mime, 'x-content-type-options': 'nosniff' } })
+    } catch {
+      return new Response('Não encontrado', { status: 404 })
+    }
+  })
+}
 
 // Só em dev (QA e capturas): dados isolados numa pasta descartável, sem tocar nos dados reais do usuário.
 if (devUrl() && process.env.DEVDECK_USER_DATA) app.setPath('userData', process.env.DEVDECK_USER_DATA)
@@ -110,7 +135,7 @@ function createWindow(): void {
     win.webContents.on('console-message', (e) => console.log(`[renderer:${e.level}]`, e.message))
     void win.loadURL(devUrl()! + (process.env.DEVDECK_VIEW ? `#${process.env.DEVDECK_VIEW}` : ''))
   } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
+    void win.loadURL(APP_INDEX)
   }
 
   // Captura de tela para depuração (DEVDECK_SNAPSHOT=caminho.png) — só fora do app empacotado.
@@ -251,6 +276,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  if (!devUrl()) registerAppProtocol()
   // safeStorage só funciona depois do ready: cifra segredos antigos em texto puro (v0.4.0).
   migrateSecrets()
   const last = getSettings().lastWorkspace

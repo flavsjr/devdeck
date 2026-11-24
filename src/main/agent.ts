@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { basename, join } from 'node:path'
+import { app } from 'electron'
 import { applyEdit, makePatch, revertText } from './lib/edit'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
@@ -250,6 +251,12 @@ export async function interrupt(id: string): Promise<void> {
   await ls.q.interrupt().catch(() => undefined)
 }
 
+/** Caminho absoluto do Claude Code desempacotado (nunca resolvido pelo PATH). */
+function claudeExecutable(): string {
+  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  return join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@anthropic-ai', `claude-agent-sdk-${process.platform}-${process.arch}`, exe)
+}
+
 async function startLive(s: StoredSession): Promise<LiveSession> {
   const ls: LiveSession = {
     id: s.meta.id,
@@ -293,6 +300,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     mcpServersDelivery: 'initialize',
     stderr: (data: string) => console.error(`[agent ${ls.id.slice(0, 8)}]`, data.trimEnd())
   }
+
+  // App instalado: o Claude Code é binário nativo e fica fora do asar (asarUnpack, ADR-011).
+  if (app.isPackaged) options.pathToClaudeCodeExecutable = claudeExecutable()
 
   // SDK é ESM-only; import dinâmico funciona a partir do bundle CJS do main.
   const { query } = await import('@anthropic-ai/claude-agent-sdk')

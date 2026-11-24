@@ -136,16 +136,16 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 ## Tarefas (Tech Lead)
 | Tarefa | Papel | Status |
 |---|---|---|
-| `lib/gitconfig.ts`: interpretar `--list -z`, lista de permitidas, estrutura do `.git` | Back | ⏳ |
-| `lib/gitstatus.ts`: parser de `status --porcelain=v1 -z --branch` | Back | ⏳ |
-| `gitrun.ts`: git absoluto, env por lista, prefixo `-c` fixo | Back | ⏳ |
-| Gate de confiança do git + IPC `git:trust` + `GitStatus.paused` | Back | ⏳ |
-| `git.ts` reescrito, simple-git removido | Back | ⏳ |
-| Gate e env restrito no `agent.ts`; `mcpServersDelivery` | Back | ⏳ |
-| Teste de integração com git real (marcador + controle positivo) | Back/QA | ⏳ |
-| Aba Alterações pausada, status bar, `.catch` e corrida | Front | ⏳ |
-| Spike do SDK no asar, `electron-builder.yml`, ícone, `pathToClaudeCodeExecutable` | DevOps/Back | ⏳ |
-| `verify-fuses`, `verify-sdk`, recusa de switches de depuração | DevOps/Back | ⏳ |
+| `lib/gitconfig.ts`: interpretar `--list -z`, lista de permitidas, estrutura do `.git` | Back | ✅ `af29aa5` |
+| `lib/gitproc.ts` (`parseStatusZ`): parser de `status --porcelain=v1 -z --branch` | Back | ✅ `af29aa5` |
+| `gitcore.ts` + `lib/gitproc.ts`: git absoluto, env por lista, prefixo `-c` fixo | Back | ✅ `af29aa5` |
+| Gate de confiança do git + IPC `git:trust` + `GitStatus.paused` | Back | ✅ `af29aa5` |
+| `git.ts` reescrito, simple-git removido | Back | ✅ `af29aa5` |
+| Gate e env restrito no `agent.ts`; `mcpServersDelivery` | Back | ✅ `af29aa5` |
+| Teste de integração com git real (marcador + controle positivo) | Back/QA | ✅ `af29aa5` |
+| Aba Alterações pausada, status bar, `.catch` e corrida | Front | ✅ `af29aa5` |
+| Spike do SDK no asar, `electron-builder.yml`, ícone, `pathToClaudeCodeExecutable`, UI por `app://` | DevOps/Back | ✅ |
+| `verify-fuses`, `verify-sdk`, recusa de switches de depuração | DevOps/Back | ✅ |
 | `release.yml`, `check-tag.mjs`, job `package` | DevOps | ⏳ |
 | ICS/edit/diff (`it.todo`) | Back/Front | ⏳ |
 | Confiança estrita e "sempre" por caminho | Back/Front | ⏳ |

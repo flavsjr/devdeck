@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedSubframeUrl, isAppUrl, isPermissionAllowed, type AppLocation } from '../../../src/main/lib/origin'
+import { APP_INDEX, isAllowedSubframeUrl, isAppUrl, isPermissionAllowed, resolveAppAsset, type AppLocation } from '../../../src/main/lib/origin'
 
 const DEV: AppLocation = { devUrl: 'http://localhost:5173' }
 const APP_FILE = 'file:///C:/Users/dev/AppData/Local/Programs/DevDeck/resources/app.asar/out/renderer/index.html'
@@ -65,5 +65,42 @@ describe('isPermissionAllowed', () => {
   })
   it('qualquer outra origem: nega', () => {
     expect(isPermissionAllowed('notifications', 'https://evil.example/', PROD)).toBe(false)
+  })
+})
+
+describe('esquema app:// (H05.2)', () => {
+  const APP: AppLocation = { appScheme: true }
+  it('só o index.html do host do app conta como UI', () => {
+    expect(isAppUrl(APP_INDEX, APP)).toBe(true)
+    expect(isAppUrl(`${APP_INDEX}#agenda`, APP)).toBe(true)
+    expect(isAppUrl('app://devdeck/assets/x.js', APP)).toBe(false)
+    expect(isAppUrl('app://outro/index.html', APP)).toBe(false)
+    expect(isAppUrl('app://devdeck/index.html?x=1', APP)).toBe(false)
+    expect(isAppUrl('app://user@devdeck/index.html', APP)).toBe(false)
+    expect(isAppUrl('file:///C:/x/index.html', APP)).toBe(false)
+    expect(isPermissionAllowed('notifications', APP_INDEX, APP)).toBe(true)
+  })
+  it('resolveAppAsset: assets do build com tipo certo', () => {
+    expect(resolveAppAsset('app://devdeck/')).toEqual({ rel: 'index.html', mime: 'text/html; charset=utf-8' })
+    expect(resolveAppAsset('app://devdeck/assets/index-AB12.js')?.mime).toBe('text/javascript; charset=utf-8')
+    expect(resolveAppAsset('app://devdeck/assets/inter-latin.woff2')?.rel).toBe('assets/inter-latin.woff2')
+  })
+  it('resolveAppAsset: recusa fuga, host errado, query, tipo desconhecido', () => {
+    // `..` literal é colapsado pela própria URL na raiz: continua dentro da pasta do renderer.
+    expect(resolveAppAsset('app://devdeck/../main/index.js')?.rel).toBe('main/index.js')
+    expect(resolveAppAsset('app://devdeck/assets/%2e%2e/%2e%2e/main/index.js')?.rel).toBe('main/index.js')
+    for (const u of [
+      'app://devdeck/assets/..%2F..%2Fmain%2Findex.js',
+      'app://devdeck/assets/..%5C..%5Cmain%5Cindex.js',
+      'app://devdeck/C:/Windows/win.ini',
+      'app://devdeck//etc/passwd',
+      'app://devdeck/assets/x.js?v=1',
+      'app://outro/index.html',
+      'app://devdeck/%ZZ.js',
+      'app://devdeck/assets/a%00.js',
+      'app://devdeck/main/index.exe',
+      'file:///C:/x/index.html'
+    ])
+      expect(resolveAppAsset(u), u).toBeNull()
   })
 })

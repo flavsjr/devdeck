@@ -1,0 +1,7 @@
+{
+  "version": "0.3.330",
+  "files": {
+    "node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe": "fa797c1bc7d4a3511da42622bae53a2b7f1276ae328c668f2bfef44635301caa",
+    "node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs": "bd73eccc325886831bfb367ccfa4bf06c16407f545dae88112edf089fce5d815"
+  }
+}

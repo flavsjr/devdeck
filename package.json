@@ -21,7 +21,9 @@
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "dist:win": "electron-vite build && electron-builder --win --x64 --publish never && node scripts/verify-fuses.mjs",
+    "pack:win": "electron-vite build && electron-builder --win --x64 --dir --publish never && node scripts/verify-fuses.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.330",
