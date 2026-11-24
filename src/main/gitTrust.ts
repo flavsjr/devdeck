@@ -1,9 +1,9 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { describeGitRisk, type GitRiskSummary } from './lib/gitconfig'
+import { describeGitRisk, summarizeGitConfig, type GitRiskSummary } from './lib/gitconfig'
 import { pickGitBinary } from './lib/gitproc'
-import { gitSignature, inspectRepo, type GitContext } from './gitcore'
+import { gitSignature, inspectRepo, readGitShape, type GitContext } from './gitcore'
 import { getGitTrustedHash, trustGit } from './store'
 import { resolveReal } from './realpath'
 
@@ -65,6 +65,10 @@ export interface GitGate {
 }
 
 export async function gitGate(root: string): Promise<GitGate> {
+  // Sem .git na raiz: nada a decidir e nenhum processo (nem a busca do binário: quem não tem git não recebe aviso).
+  if (readGitShape(root).dotGit === 'missing') {
+    return { summary: summarizeGitConfig({ shape: { dotGit: 'missing' }, configList: null, configText: null, attributesText: null }), allowed: true, declined: false }
+  }
   const sig = gitSignature(root)
   let hit = cache.get(root)
   if (!hit || hit.sig !== sig) {

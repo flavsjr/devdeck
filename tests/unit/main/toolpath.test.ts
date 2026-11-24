@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pathArgsOf, toolScope } from '../../../src/main/lib/toolpath'
+import { alwaysEligible, pathArgsOf, toolScope } from '../../../src/main/lib/toolpath'
 import type { EditVerdict } from '../../../src/main/lib/paths'
 
 // Classificador falso: só /w/** fica dentro; /w/.git é sensível.
@@ -28,5 +28,14 @@ describe('toolScope', () => {
     expect(toolScope(['/w/a', '/w/.git/config'], classify)).toEqual({ scope: 'sensitive', allowAlways: false })
     expect(toolScope(['/w/.git/x', '/home/u/.ssh/id'], classify)).toEqual({ scope: 'outside', allowAlways: false })
     expect(toolScope([''], classify)).toEqual({ scope: 'outside', allowAlways: false })
+  })
+})
+
+describe('alwaysEligible (critério da H05.5)', () => {
+  it('tools de arquivo conhecidas e tools sem caminho podem ganhar "Sempre"', () => {
+    for (const t of ['Read', 'NotebookEdit', 'Glob', 'Grep', 'TodoWrite', 'WebSearch']) expect(alwaysEligible(t), t).toBe(true)
+  })
+  it('Bash, WebFetch, MCP e desconhecidas nunca', () => {
+    for (const t of ['Bash', 'WebFetch', 'mcp__github__create_issue', 'FerramentaNova', 'constructor', 'toString']) expect(alwaysEligible(t), t).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentEnv, gitArgs, gitEnv, inspectArgs, inspectEnv, parseStatusZ, pickGitBinary, safePathEntries } from '../../../src/main/lib/gitproc'
+import { agentEnv, forcedConfigEnv, gitArgs, gitEnv, inspectArgs, inspectEnv, parseStatusZ, pickGitBinary, safePathEntries } from '../../../src/main/lib/gitproc'
 
 describe('pickGitBinary / safePathEntries (git plantado no workspace)', () => {
   const root = 'C:\\repo'
@@ -43,8 +43,10 @@ describe('gitEnv / inspectEnv / agentEnv', () => {
       GIT_CEILING_DIRECTORIES: 'C:\\',
       GIT_TERMINAL_PROMPT: '0',
       GIT_NO_LAZY_FETCH: '1',
-      GIT_OPTIONAL_LOCKS: '0'
+      GIT_OPTIONAL_LOCKS: '0',
+      ...forcedConfigEnv()
     })
+    expect(env.GIT_CONFIG_KEY_0).toBe('diff.ignoreSubmodules')
   })
   it('inspeção ignora config global e de sistema', () => {
     const env = inspectEnv(base, 'linux', '/dev/null')
@@ -54,7 +56,14 @@ describe('gitEnv / inspectEnv / agentEnv', () => {
   })
   it('agente: sem GIT_* herdado; git pausado → GIT_DIR inexistente e teto no pai', () => {
     const ok = agentEnv(base, 'win32', 'C:\\w\\repo', true, 'C:\\app\\no-git')
-    expect(Object.keys(ok).filter((k) => /^GIT_/i.test(k))).toEqual([])
+    // Nada herdado: só a config forçada (não entrar em submódulo).
+    expect(Object.keys(ok).filter((k) => /^GIT_/i.test(k) && !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/.test(k))).toEqual(['GIT_CEILING_DIRECTORIES'])
+    // Subpasta de um repo: o git do agente não sobe até o .git do pai.
+    expect(ok.GIT_CEILING_DIRECTORIES).toBe('C:\\w')
+    expect(ok.GIT_DIR).toBeUndefined()
+    expect(ok).toMatchObject(forcedConfigEnv())
+    expect(ok.NoDefaultCurrentDirectoryInExePath).toBe('1')
+    expect(agentEnv({ Path: 'C:\\Windows;.;C:\\w\\repo\\bin' }, 'win32', 'C:\\w\\repo', true, 'x').Path).toBe('C:\\Windows')
     expect(ok.ANTHROPIC_API_KEY).toBe('k')
     const paused = agentEnv(base, 'win32', 'C:\\w\\repo', false, 'C:\\app\\no-git')
     expect(paused).toMatchObject({ GIT_DIR: 'C:\\app\\no-git', GIT_CEILING_DIRECTORIES: 'C:\\w' })
@@ -64,7 +73,7 @@ describe('gitEnv / inspectEnv / agentEnv', () => {
 
 describe('gitArgs', () => {
   it('prefixo fixo vem antes do subcomando', () => {
-    expect(gitArgs('/app/empty-hooks', ['status'])).toEqual(['--no-pager', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/app/empty-hooks', '-c', 'protocol.allow=never', 'status'])
+    expect(gitArgs('/app/empty-hooks', ['status'])).toEqual(['--no-pager', '--no-optional-locks', '--literal-pathspecs', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/app/empty-hooks', '-c', 'protocol.allow=never', 'status'])
   })
 })
 

@@ -72,7 +72,12 @@ export function changesRiskyEnv(input: Record<string, string | null> | undefined
 }
 
 /** Parâmetros de query com cara de credencial (H05.8): ficariam em claro no disco e na tela. */
-const SECRET_QUERY = /^(token|access_?token|api_?key|apikey|key|secret|client_?secret|password|pass|pwd|auth|authorization|sig|signature|bearer|jwt|session|code)$/i
+const SECRET_QUERY_EXACT = new Set(['key', 'secret', 'password', 'pass', 'pwd', 'auth', 'authorization', 'sig', 'signature', 'bearer', 'jwt', 'session', 'code', 'credential', 'credentials'])
+/** Nome do parâmetro sem `-`/`_` e em minúsculas: `x-api-key`, `private_token`, `Access-Token`… */
+const isSecretQuery = (name: string): boolean => {
+  const n = name.toLowerCase().replace(/[-_.]/g, '')
+  return SECRET_QUERY_EXACT.has(n) || /(token|apikey|secret|password)$/.test(n)
+}
 
 /** URL de MCP com credencial na query ou no usuário/senha → recusa com orientação. */
 export function assertNoSecretInUrl(url: string | undefined): void {
@@ -85,7 +90,7 @@ export function assertNoSecretInUrl(url: string | undefined): void {
   }
   if (u.username || u.password) throw new SecretError('A URL do servidor tem usuário/senha embutidos: use um header (ex.: Authorization) em vez disso.')
   for (const k of u.searchParams.keys())
-    if (SECRET_QUERY.test(k)) throw new SecretError(`A URL do servidor tem o parâmetro "${k}", que parece uma credencial e ficaria visível: mova para um header (ex.: Authorization: Bearer …).`)
+    if (isSecretQuery(k)) throw new SecretError(`A URL do servidor tem o parâmetro "${k}", que parece uma credencial e ficaria visível: mova para um header (ex.: Authorization: Bearer …).`)
 }
 
 /** Só esquema + host + caminho: query e credenciais nunca vão para log ou mensagem de erro. */

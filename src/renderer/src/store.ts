@@ -62,6 +62,7 @@ interface State {
 const api = (): Window['deck'] => window.deck
 
 let uiTimer: ReturnType<typeof setTimeout> | undefined
+let gitSeq = 0
 
 const VIEWS: View[] = ['chat', 'changes', 'mcp', 'profile', 'agenda', 'community', 'costs', 'settings']
 
@@ -113,11 +114,13 @@ export const useStore = create<State>((set, get) => ({
   async refreshGit() {
     const ws = get().workspace
     if (!ws) return set({ git: null })
+    // Só a resposta do pedido mais recente entra (status fora de ordem não sobrescreve um mais novo).
+    const seq = ++gitSeq
     try {
       const git = await api().git.status()
-      if (get().workspace === ws) set({ git })
+      if (seq === gitSeq && get().workspace === ws) set({ git })
     } catch (err) {
-      if (get().workspace === ws) set({ git: null })
+      if (seq === gitSeq && get().workspace === ws) set({ git: null })
       get().notify(err instanceof Error ? err.message : String(err))
     }
   },
@@ -223,6 +226,8 @@ export const useStore = create<State>((set, get) => ({
     } catch (err) {
       get().notify(err instanceof Error ? err.message : String(err))
     }
+    // O primeiro envio pode ter passado pelo diálogo de confiança (git liberado ou pausado).
+    void get().refreshGit()
   },
 
   toggleContextFile(path) {

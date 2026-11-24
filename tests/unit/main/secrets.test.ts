@@ -219,7 +219,7 @@ describe('env perigosa exige redigitar segredos (security review)', () => {
 describe('URL de MCP sem credencial (H05.8)', () => {
   const http = (url: string): McpServerInput => ({ name: 'remoto', enabled: true, type: 'http', url })
   it('token na query é recusado com orientação de header', () => {
-    for (const u of ['https://mcp.example.com/sse?token=abc', 'https://mcp.example.com/?api_key=x', 'https://mcp.example.com/?Access_Token=x'])
+    for (const u of ['https://mcp.example.com/sse?token=abc', 'https://mcp.example.com/?api_key=x', 'https://mcp.example.com/?Access_Token=x', 'https://h/?x-api-key=1', 'https://h/?private_token=1', 'https://h/?auth_token=1', 'https://h/?api-key=1'])
       expect(() => resolveMcpInput(http(u), undefined), u).toThrow(/header/)
   })
   it('usuário e senha na URL são recusados', () => {

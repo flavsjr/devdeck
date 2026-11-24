@@ -71,11 +71,32 @@ function pickEnv(base: Env, platform: NodeJS.Platform, root: string | null): Rec
   return out
 }
 
+/**
+ * Config forçada por ambiente em todo git do DevDeck e do agente: nunca entrar em submódulo. O `.git/config`
+ * do submódulo (`.git/modules/*` ou repositório embutido) não passa pela inspeção (security review da Sprint 05).
+ */
+export const FORCED_GIT_CONFIG: [string, string][] = [
+  ['diff.ignoreSubmodules', 'all'],
+  ['submodule.recurse', 'false'],
+  ['status.submoduleSummary', 'false'],
+  ['core.fsmonitor', 'false']
+]
+
+export function forcedConfigEnv(): Record<string, string> {
+  const out: Record<string, string> = { GIT_CONFIG_COUNT: String(FORCED_GIT_CONFIG.length) }
+  FORCED_GIT_CONFIG.forEach(([k, v], i) => {
+    out[`GIT_CONFIG_KEY_${i}`] = k
+    out[`GIT_CONFIG_VALUE_${i}`] = v
+  })
+  return out
+}
+
 /** Ambiente de toda chamada git do DevDeck num workspace. */
 export function gitEnv(base: Env, platform: NodeJS.Platform, root: string): Record<string, string> {
   const P = pathOf(platform)
   return {
     ...pickEnv(base, platform, root),
+    ...forcedConfigEnv(),
     GIT_DIR: P.join(root, '.git'),
     GIT_WORK_TREE: root,
     GIT_CEILING_DIRECTORIES: P.dirname(root),
@@ -96,20 +117,26 @@ export function inspectArgs(configFile: string): string[] {
 
 /** Prefixo fixo: sem pager, sem locks opcionais, sem fsmonitor, hooks numa pasta vazia do app, sem protocolos remotos. */
 export function gitArgs(emptyHooksDir: string, args: string[]): string[] {
-  return ['--no-pager', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${emptyHooksDir}`, '-c', 'protocol.allow=never', ...args]
+  return ['--no-pager', '--no-optional-locks', '--literal-pathspecs', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${emptyHooksDir}`, '-c', 'protocol.allow=never', ...args]
 }
 
 /**
- * Ambiente do processo do Claude Code (SDK). Sem `GIT_*` herdado; com o git do workspace pausado,
- * o git que o agente rodar não encontra repositório (GIT_DIR inexistente e teto no pai do workspace).
+ * Ambiente do processo do Claude Code (SDK). Sem `GIT_*` herdado, sem entrar em submódulo e com PATH só de
+ * pastas absolutas fora do workspace (um `git.exe` plantado na raiz não é achado). Com o git do workspace
+ * pausado, o git que o agente rodar não encontra repositório (GIT_DIR inexistente e teto no pai do workspace).
  */
 export function agentEnv(base: Env, platform: NodeJS.Platform, root: string, gitAllowed: boolean, noGitDir: string): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {}
-  for (const [k, v] of Object.entries(base)) if (!/^GIT_/i.test(k)) out[k] = v
-  if (!gitAllowed) {
-    out.GIT_DIR = noGitDir
-    out.GIT_CEILING_DIRECTORIES = pathOf(platform).dirname(root)
+  for (const [k, v] of Object.entries(base)) {
+    if (/^GIT_/i.test(k)) continue
+    out[k] = /^path$/i.test(k) ? safePathEntries(v, platform, root).join(platform === 'win32' ? ';' : ':') : v
   }
+  Object.assign(out, forcedConfigEnv())
+  // Windows: CreateProcess/cmd não procuram executável na pasta atual.
+  if (platform === 'win32') out.NoDefaultCurrentDirectoryInExePath = '1'
+  // Sempre: o git do agente nunca sobe acima do workspace (subpasta de um repo não acha o .git do pai, que não foi inspecionado).
+  out.GIT_CEILING_DIRECTORIES = pathOf(platform).dirname(root)
+  if (!gitAllowed) out.GIT_DIR = noGitDir
   return out
 }
 

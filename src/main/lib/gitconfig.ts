@@ -166,6 +166,8 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
       if (entries === null) reasons.push('O .git/config não pôde ser lido pelo git: o DevDeck não consegue conferir o conteúdo.')
       else {
         const risky = entries.filter((e) => !isAllowedGitKey(e.key))
+        // include/includeIf trazem outro arquivo, fora do hash: confiar vale só nesta execução.
+        if (risky.some((e) => /^include(if)?$/.test(splitKey(e.key).section))) sessionOnly = true
         for (const e of risky.slice(0, 30)) reasons.push(describeEntry(e))
         if (risky.length > 30) reasons.push(`… e mais ${risky.length - 30} configuração(ões)`)
       }

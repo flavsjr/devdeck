@@ -11,7 +11,9 @@ export function checkTag(tag: string, version: string): string | null {
   return null
 }
 
-if (import.meta.main) {
+// Node sem import.meta.main (anterior ao 24) cai no nome do arquivo: nunca vira no-op silencioso.
+const isMain = import.meta.main ?? (process.argv[1] ?? '').replace(/\\/g, '/').endsWith('scripts/check-tag.mts')
+if (isMain) {
   const tag = process.argv[2] ?? ''
   const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }
   const err = checkTag(tag, version)

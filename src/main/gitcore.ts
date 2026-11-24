@@ -104,7 +104,7 @@ export async function inspectRepo(root: string, binary: string, outsideDir: stri
 }
 
 export async function statusOf(ctx: GitContext): Promise<ParsedStatus> {
-  return parseStatusZ((await runGit(ctx, ['status', '--porcelain=v1', '-z', '--branch'])).toString('utf8'))
+  return parseStatusZ((await runGit(ctx, ['status', '--porcelain=v1', '-z', '--branch', '--ignore-submodules=all'])).toString('utf8'))
 }
 
 /** Conteúdo no HEAD por plumbing (`cat-file blob`): sem textconv nem filtro. Arquivo novo → ''. */

@@ -12,6 +12,17 @@ const KNOWN: Record<string, string[]> = {
   LS: ['path']
 }
 
+/** Tools sem caminho nem rede livre: podem ganhar "Sempre" sem extrator. */
+const NO_PATH = new Set(['TodoWrite', 'Task', 'ExitPlanMode', 'WebSearch'])
+
+/**
+ * "Sempre nesta sessão" só para tool que o DevDeck sabe onde age (critério da H05.5): Bash, WebFetch, MCP e
+ * tools desconhecidas perguntam sempre (ex.: `cat ~/.ssh/id_*` no Bash não tem caminho para conferir).
+ */
+export function alwaysEligible(toolName: string): boolean {
+  return Object.hasOwn(KNOWN, toolName) || NO_PATH.has(toolName)
+}
+
 const looksLikePathKey = (k: string): boolean => k === 'path' || k === 'paths' || /_path$/i.test(k) || /_paths$/i.test(k)
 
 /**
@@ -19,7 +30,7 @@ const looksLikePathKey = (k: string): boolean => k === 'path' || k === 'paths' |
  * (`path`, `*_path`, `*_paths`). Valor que não é texto vira '' (classificado como fora, falha fechada).
  */
 export function pathArgsOf(toolName: string, input: Record<string, unknown>): string[] {
-  const keys = KNOWN[toolName] ?? Object.keys(input).filter(looksLikePathKey)
+  const keys = Object.hasOwn(KNOWN, toolName) ? KNOWN[toolName] : Object.keys(input).filter(looksLikePathKey)
   const out: string[] = []
   for (const k of keys) {
     const v = input[k]

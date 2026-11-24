@@ -1,19 +1,21 @@
 -- pgTAP da migration 0002 (H05.6). Rodar com `supabase test db` ou colar no SQL Editor (tudo em rollback).
 begin;
 create extension if not exists pgtap;
-select plan(9);
+select plan(10);
 
 -- Usuários de teste: um com conta antiga, um recém-criado.
 insert into auth.users (id, email, created_at) values
   ('00000000-0000-0000-0000-0000000000a1', 'antigo@example.test', now() - interval '30 days'),
   ('00000000-0000-0000-0000-0000000000b2', 'novo@example.test', now() - interval '1 hour'),
   ('00000000-0000-0000-0000-0000000000c3', 'antigo2@example.test', now() - interval '30 days'),
-  ('00000000-0000-0000-0000-0000000000d4', 'antigo3@example.test', now() - interval '30 days');
+  ('00000000-0000-0000-0000-0000000000d4', 'antigo3@example.test', now() - interval '30 days'),
+  ('00000000-0000-0000-0000-0000000000e5', 'antigo4@example.test', now() - interval '30 days');
 insert into public.profiles (id, username) values
   ('00000000-0000-0000-0000-0000000000a1', 'qa_antigo'),
   ('00000000-0000-0000-0000-0000000000b2', 'qa_novo'),
   ('00000000-0000-0000-0000-0000000000c3', 'qa_antigo2'),
-  ('00000000-0000-0000-0000-0000000000d4', 'qa_antigo3');
+  ('00000000-0000-0000-0000-0000000000d4', 'qa_antigo3'),
+  ('00000000-0000-0000-0000-0000000000e5', 'qa_antigo4');
 
 -- 130 posts de outro autor (só para ter o que curtir), com created_at no passado e distinto:
 -- fica fora da janela do limite de posts da 0001 e a ordenação é determinística.
@@ -69,6 +71,17 @@ select is(
   (select hidden from public.posts order by created_at desc limit 1),
   false,
   'denúncia de conta com menos de 72 h não oculta o post'
+);
+
+-- Controle positivo: 3 contas antigas ocultam (prova que o teste acima não passa por acaso).
+with alvo as (select id from public.posts order by created_at desc offset 1 limit 1)
+insert into public.reports (post_id, reporter_id, reason)
+select alvo.id, r.uid::uuid, 'conteúdo ruim'
+  from alvo, (values ('00000000-0000-0000-0000-0000000000c3'), ('00000000-0000-0000-0000-0000000000d4'), ('00000000-0000-0000-0000-0000000000e5')) r(uid);
+select is(
+  (select hidden from public.posts order by created_at desc offset 1 limit 1),
+  true,
+  '3 denúncias de contas antigas ocultam o post'
 );
 
 select * from finish();

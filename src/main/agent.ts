@@ -4,7 +4,7 @@ import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
-import { pathArgsOf, toolScope } from './lib/toolpath'
+import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -513,8 +513,9 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
 
     // "Sempre nesta sessão" só vale com todos os caminhos da tool dentro do workspace (realpath, H05.5).
     const ts = toolScope(pathArgsOf(toolName, input), (p) => classifyEditTarget(ls.cwd, p))
-    const where = { scope: ts.scope === 'inside' ? undefined : ts.scope, allowAlways: ts.allowAlways }
-    if (ts.allowAlways && ls.alwaysAllowed.has(toolName)) return { behavior: 'allow', updatedInput: input }
+    const allowAlways = ts.allowAlways && alwaysEligible(toolName)
+    const where = { scope: ts.scope === 'inside' ? undefined : ts.scope, allowAlways }
+    if (allowAlways && ls.alwaysAllowed.has(toolName)) return { behavior: 'allow', updatedInput: input }
 
     // Política por tool MCP: mcp__<server>__<tool>
     if (toolName.startsWith('mcp__')) {
@@ -574,7 +575,8 @@ export function decide(approvalId: string, decision: ApprovalDecision): void {
   const ls = live.get(p.req.sessionId)
 
   if (decision.approve) {
-    if (decision.alwaysForSession && ls && p.req.allowAlways !== false) {
+    // "Sempre"/"Aprovar todas" recusado no main quando o caminho sai do workspace ou a prévia não é confiável.
+    if (decision.alwaysForSession && ls && p.req.allowAlways !== false && !p.req.previewPartial && !p.req.previewError) {
       if (p.req.kind === 'edit' || p.req.kind === 'write') ls.autoApproveEdits = true
       else ls.alwaysAllowed.add(p.req.toolName)
     }

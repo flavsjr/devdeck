@@ -66,9 +66,14 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
+            .nvmrc
             package.json
             scripts/check-tag.mts
           sparse-checkout-cone-mode: false
+      # Node 24 (roda o .mts direto); sem cache e sem npm neste job.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
       - name: Tag igual à versão do package.json
         env:
           TAG: ${{ github.ref_name }}

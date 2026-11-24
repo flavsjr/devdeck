@@ -31,7 +31,7 @@ import { APP_INDEX, APP_SCHEME, isAllowedSubframeUrl, isAppUrl, isPermissionAllo
 import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import { resolveMcpInput } from './lib/secrets'
-import { hasDebugSwitch } from './lib/cli'
+import { DEBUG_SWITCHES, hasDebugSwitch } from './lib/cli'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
@@ -39,7 +39,7 @@ let win: BrowserWindow | null = null
 const devUrl = (): string | undefined => appLocation().devUrl
 
 // App instalado: depurador remoto e inspetor não abrem (a fuse cobre --inspect do Node, não o switch do Chromium).
-if (app.isPackaged && hasDebugSwitch(process.argv)) app.exit(1)
+if (app.isPackaged && (hasDebugSwitch(process.argv) || DEBUG_SWITCHES.some((s) => app.commandLine.hasSwitch(s)))) app.exit(1)
 
 // UI empacotada por app://devdeck: com a fuse GrantFileProtocolExtraPrivileges desligada, file:// não lê o asar (H05.2).
 protocol.registerSchemesAsPrivileged([{ scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }])

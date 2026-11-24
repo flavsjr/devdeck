@@ -9,7 +9,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 import type { McpServerEntry, McpServerView, McpTestResult } from '@shared/types'
 import { getMcpServers, saveMcpServers } from './store'
-import { redact, secretValues } from './lib/secrets'
+import { assertNoSecretInUrl, redact, secretValues } from './lib/secrets'
 
 const TEST_TIMEOUT_MS = 20_000
 
@@ -111,6 +111,14 @@ function rawToEntry(name: string, raw: RawServer): McpServerEntry | null {
   const type = raw.type === 'http' || raw.type === 'sse' ? raw.type : raw.url && !raw.command ? 'http' : 'stdio'
   if (type === 'stdio' && !raw.command) return null
   if (type !== 'stdio' && !raw.url) return null
+  // Credencial na URL (query ou usuário:senha) não é importada: ficaria em claro (H05.8).
+  if (type !== 'stdio') {
+    try {
+      assertNoSecretInUrl(raw.url)
+    } catch {
+      return null
+    }
+  }
   return { name, enabled: false, type, command: raw.command, args: raw.args, env: raw.env, url: raw.url, headers: raw.headers }
 }
 

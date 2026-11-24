@@ -73,6 +73,9 @@ afterEach(() => {
   rmSync(base, { recursive: true, force: true })
 })
 
+// No CI o git é obrigatório: pular em silêncio esconderia a regressão do B3.
+if (process.env.CI && !GIT) throw new Error('git não encontrado no PATH do CI: o teste de integração do B3 não pode ser pulado.')
+
 describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
   it('repositório com fsmonitor, filtros, textconv, diff.external e hooksPath: inspeção não executa nada e marca arriscado', async () => {
     const evilHooks = join(base, 'evil-hooks')
@@ -142,6 +145,32 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     writeFileSync(join(repo, 'a.txt'), 'mudou de novo\n')
     raw(['restore', 'a.txt'])
     expect(marks()).toContain('hook')
+  })
+
+  it('submódulo com filtro próprio: config do pai limpa, DevDeck não entra no submódulo; git puro entra', async () => {
+    // Repositório filho com um arquivo, usado como submódulo do repo principal.
+    const child = join(base, 'child')
+    raw(['init', '-q', '-b', 'main', child], base)
+    writeFileSync(join(child, 'b.txt'), 'filho\n')
+    raw(['add', 'b.txt'], child)
+    raw(['commit', '-q', '-m', 'filho'], child)
+    makeRepo({}, '')
+    raw(['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', fwd(child), 'lib'])
+    raw(['commit', '-q', '-m', 'submodulo'])
+    // O filtro mora só na config do submódulo (.git/modules/lib/config), fora da inspeção do pai.
+    raw(['config', 'filter.evil.clean', hookCmd('clean')], join(repo, 'lib'))
+    writeFileSync(join(repo, 'lib', '.gitattributes'), '* filter=evil\n')
+    const future = new Date(Date.now() + 3_600_000)
+    utimesSync(join(repo, 'lib', 'b.txt'), future, future)
+
+    expect((await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).risky).toBe(false)
+    const st = await statusOf(ctx())
+    expect(st.branch).toBe('main')
+    expect(marks()).toEqual([])
+
+    // Controle positivo: git puro no repo principal entra no submódulo e roda o filtro.
+    raw(['status'])
+    expect(marks()).toContain('clean')
   })
 
   it('GIT_DIR e GIT_CONFIG_PARAMETERS herdados não vazam para o git do DevDeck', async () => {
