@@ -24,6 +24,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Links de reunião aceitavam domínios parecidos (ex.: `evilzoom.us`); agora só o host exato de Teams, Meet e Zoom.
 - Prévia de Edit em arquivo com quebra de linha CRLF saía vazia; o patch gravado no chat passa a vir do conteúdo real do disco (reverter continua funcionando).
 - Corrida ao trocar rápido de arquivo na aba Alterações e erro de diff que sumia em silêncio.
+- Turno do chat que falhou (ex.: sessão do Claude expirada) desbloqueava a conquista "Hello, Claude" e contava nas estatísticas; agora só turno concluído conta.
 - "Descartar arquivo" com colchetes ou asterisco no nome descartava outros arquivos (o caminho era lido como padrão).
 
 ### Segurança

@@ -5,6 +5,7 @@ import { basename, join } from 'node:path'
 import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
 import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
+import { countsAsTurn } from './lib/turns'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -452,8 +453,11 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
 
   const durationMs = msg.duration_ms ?? now() - ls.turnStartedAt
   const hour = new Date().getHours()
-  bumpStats({ turns: 1, totalTurnMs: durationMs, nightTurns: hour < 5 ? 1 : 0, earlyTurns: hour >= 5 && hour < 7 ? 1 : 0 })
-  checkAchievements()
+  // Turno que falhou (autenticação, rede, limite) não conta para estatísticas nem conquistas.
+  if (countsAsTurn(msg)) {
+    bumpStats({ turns: 1, totalTurnMs: durationMs, nightTurns: hour < 5 ? 1 : 0, earlyTurns: hour >= 5 && hour < 7 ? 1 : 0 })
+    checkAchievements()
+  }
 
   pushItem(ls.id, {
     kind: 'result',

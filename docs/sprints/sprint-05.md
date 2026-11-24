@@ -237,6 +237,19 @@ Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
 10. Aprovação real com painel recolhido, a ~900 px e a 1280×720.
 11. MCP HTTP com header e ICS real: `findstr /s /i "<token>" "%APPDATA%\DevDeck\*"` não acha nada; URL com `?token=` é recusada.
 
+### Resultados do roteiro manual
+| Passo | Resultado | Evidência / observação |
+|---|---|---|
+| 2. Instalar sem admin | ✅ (usuário, 2026-11-24) | Instalou sem UAC; app abriu com o ícone novo e o workspace AlugueFacil (branch na status bar) |
+| 3. Chat no instalado | ✅ parcial | O `claude.exe` desempacotado subiu e respondeu ("Failed to authenticate: OAuth session expired…"); resposta real fica para quando houver credencial válida |
+| 7. Depuração bloqueada | ✅ (agente, `dist/win-unpacked`) | `--`, `-`, `/remote-debugging-port` e `--inspect` → saída 1 |
+| **Bug** | ✅ corrigido | Turno que falhou na autenticação desbloqueou "Hello, Claude": estatísticas e conquistas agora só contam turno concluído (`lib/turns.ts`, teste) |
+| Demais passos | ⏳ | 1, 4, 5, 6, 8–11 |
+
+## Backlog para a Sprint 06 (observado no roteiro)
+- **Notificações fora do padrão (usuário):** hoje é um toast único de texto para tudo — erro, aviso, conquista, informação —, sem tipo nem severidade, sem fila (um substitui o outro), sem ação e com mensagem crua do SDK/git. Levar ao debate com UX: tipos (erro/aviso/sucesso/conquista) com ícone e cor por token, fila, duração por tipo, ação ("Tentar de novo", "Abrir configurações"), região `aria-live` adequada e conquista com visual próprio, separado de erro.
+- **Erro de autenticação do Claude legível:** "OAuth session expired and could not be refreshed" aparece cru, em inglês. Traduzir para uma ação: "Sua sessão do Claude expirou: entre de novo no Claude Code ou cole uma chave da API em Configurações", com botão.
+
 ## Entregas
 - v0.5.0: instalador NSIS per-user verificável (fuses, hash do SDK, `app://`), release em rascunho com SHA-256 e attestation, git sem executar código do repositório (B3 fechado), confiança e "Sempre" estritos, agenda/diff corrigidos, limite de curtidas e denúncias, varredura de camadas CSS.
 - ADRs 011, 018, 019 e emendas 013/015. `CHANGELOG.md` 0.5.0, READMEs EN/PT com instalação.
