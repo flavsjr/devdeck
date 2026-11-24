@@ -242,9 +242,10 @@ Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
 |---|---|---|
 | 2. Instalar sem admin | ✅ (usuário, 2026-11-24) | Instalou sem UAC; app abriu com o ícone novo e o workspace AlugueFacil (branch na status bar) |
 | 3. Chat no instalado | ✅ parcial | O `claude.exe` desempacotado subiu e respondeu ("Failed to authenticate: OAuth session expired…"); resposta real fica para quando houver credencial válida |
+| 5. Atualizar por cima | ✅ (usuário, 2026-11-24) | Build com a correção do turno instalada por cima: abriu com o mesmo workspace, o chat anterior e o histórico, e o teto diário de $10. Comparação por hash (passo 1) não foi feita |
 | 7. Depuração bloqueada | ✅ (agente, `dist/win-unpacked`) | `--`, `-`, `/remote-debugging-port` e `--inspect` → saída 1 |
 | **Bug** | ✅ corrigido | Turno que falhou na autenticação desbloqueou "Hello, Claude": estatísticas e conquistas agora só contam turno concluído (`lib/turns.ts`, teste) |
-| Demais passos | ⏳ | 1, 4, 5, 6, 8–11 |
+| Demais passos | ⏳ | 4, 6, 8–11 (1 dispensado: atualização conferida pelo conteúdo) |
 
 ## Backlog para a Sprint 06 (observado no roteiro)
 - **Notificações fora do padrão (usuário):** hoje é um toast único de texto para tudo — erro, aviso, conquista, informação —, sem tipo nem severidade, sem fila (um substitui o outro), sem ação e com mensagem crua do SDK/git. Levar ao debate com UX: tipos (erro/aviso/sucesso/conquista) com ícone e cor por token, fila, duração por tipo, ação ("Tentar de novo", "Abrir configurações"), região `aria-live` adequada e conquista com visual próprio, separado de erro.
