@@ -19,9 +19,29 @@ export function stderrLogArgs(sessionId: string, data: string, known: KnownSecre
   return [`[agent ${sessionId.slice(0, 8)}]`, redactAll(data.trimEnd(), known)]
 }
 
+/**
+ * Texto do item de erro do turno. Neutro de propósito: o renderer mostra texto fixo por `code`
+ * e a mensagem original (já redigida) só aparece em "Detalhes técnicos" (`detail`).
+ */
+export const ROTULO_ERRO_AGENTE = 'Erro no turno do Claude.'
+
+/** Peças da mensagem original de um erro de turno, para montar "Detalhes técnicos". */
+export interface AgentErrorParts {
+  error?: string
+  status?: number | null
+  text?: string
+}
+
+/** "Detalhes técnicos" redigidos: enum do SDK, status HTTP e a mensagem original. */
+export function agentErrorDetail(parts: AgentErrorParts, known: KnownSecrets): string {
+  const head = [parts.error, typeof parts.status === 'number' ? `HTTP ${parts.status}` : null].filter(Boolean).join(' · ')
+  const body = parts.text?.trim() ?? ''
+  return redactAll([head, body].filter(Boolean).join('\n'), known)
+}
+
 /** Item de chat para a falha do pump (gravado no arquivo da sessão e emitido ao renderer). */
 export function pumpErrorItem(err: unknown, known: KnownSecrets, id: string, ts: number): ChatItem {
-  return { kind: 'error', id, text: redactAll(messageOf(err), known), ts }
+  return { kind: 'error', id, text: ROTULO_ERRO_AGENTE, code: 'unknown', detail: redactAll(messageOf(err), known), ts }
 }
 
 /** `result.errors` do SDK, redigido antes de ir para o item `result`. */

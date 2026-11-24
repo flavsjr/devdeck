@@ -10,6 +10,7 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 import type { McpServerEntry, McpServerView, McpTestResult } from '@shared/types'
 import { getMcpServers, saveMcpServers } from './store'
 import { assertNoSecretInUrl, redact, secretValues } from './lib/secrets'
+import { erroComContexto, motivoConhecido } from '@shared/lib/errorText'
 
 const TEST_TIMEOUT_MS = 20_000
 
@@ -73,8 +74,13 @@ export async function testMcpServer(e: McpServerEntry): Promise<McpTestResult> {
       ms: Date.now() - started
     }
   } catch (err) {
+    // ENOENT/EACCES/EPERM/rede viram PT-BR com contexto (H06.2, T11); o resto (erro do protocolo MCP,
+    // saída do servidor) segue como veio, porque é o que ajuda a corrigir a configuração.
+    const known = motivoConhecido(err)
+    const contexto = e.type === 'stdio' ? 'Não foi possível iniciar o servidor MCP' : 'Não foi possível conectar ao servidor MCP'
+    const msg = known ? erroComContexto(contexto, err) : err instanceof Error ? err.message : String(err)
     // A mensagem vai para o renderer: tira valores de env/headers que o servidor ou o transporte ecoem.
-    return { ok: false, error: redact(err instanceof Error ? err.message : String(err), secretValues(e)), ...empty, ms: Date.now() - started }
+    return { ok: false, error: redact(msg, secretValues(e)), ...empty, ms: Date.now() - started }
   } finally {
     client.close().catch(() => undefined)
   }

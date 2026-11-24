@@ -115,7 +115,31 @@ export type ChatItem =
   | { kind: 'tool'; id: string; toolUseId: string; name: string; summary: string; input: unknown; ts: number; result?: string; isError?: boolean }
   | { kind: 'change'; id: string; filePath: string; patch: string; created: boolean; reverted?: boolean; ts: number }
   | { kind: 'result'; id: string; costUsd: number; durationMs: number; turns: number; isError: boolean; errors?: string[]; ts: number }
-  | { kind: 'error'; id: string; text: string; ts: number }
+  | {
+      kind: 'error'
+      id: string
+      /** Rótulo curto e neutro em PT-BR; nunca a mensagem original do SDK (o renderer mostra texto fixo por `code`). */
+      text: string
+      /** Classificação do erro do turno (H06.3, ADR-021). Item antigo, sem código, conta como 'unknown'. */
+      code?: AgentErrorCode
+      /** "Detalhes técnicos": mensagem original já redigida no main (redactAll). */
+      detail?: string
+      ts: number
+    }
+
+/** Erro de um turno do agente, classificado no main por `src/main/lib/agentErrors.ts` (H06.3/H06.7). */
+export type AgentErrorCode =
+  | 'auth_expired'
+  | 'auth_invalid_key'
+  | 'auth_missing'
+  | 'rate_limit'
+  | 'overloaded'
+  | 'billing'
+  | 'network'
+  | 'unknown'
+
+/** Tópicos de ajuda abertos por `help:open`: chave de lista fechada, a URL fica num mapa fixo no main. */
+export type HelpTopic = 'claude-login'
 
 export type ApprovalKind = 'edit' | 'write' | 'command' | 'tool'
 
@@ -173,6 +197,11 @@ export type AgentEvent =
   | { type: 'costs-changed' }
   | { type: 'achievement'; def: AchievementDef }
   | { type: 'reminder'; occurrence: Occurrence; minutesLeft: number }
+  /**
+   * Lembrete com a janela em foco (H06.2): vira toast info "Abrir na agenda" no renderer (T13).
+   * Leva só id da ocorrência e título, renderizados como texto.
+   */
+  | { type: 'agenda-reminder'; id: string; titulo: string }
   | { type: 'agenda-changed' }
 
 // ---------- Custos ----------
@@ -452,6 +481,10 @@ export interface DeckApi {
     saveFeed(feed: IcsFeedInput): Promise<IcsFeedView[]>
     removeFeed(id: string): Promise<IcsFeedView[]>
     syncFeeds(): Promise<IcsFeedView[]>
+  }
+  help: {
+    /** Abre a página de ajuda do tópico no navegador (URL https fixa no main). */
+    open(topic: HelpTopic): Promise<void>
   }
   openExternal(url: string): Promise<void>
 }

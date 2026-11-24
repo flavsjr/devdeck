@@ -2,6 +2,9 @@ import { net } from 'electron'
 import type { ProviderId, ProviderStats } from '@shared/types'
 import { dayKey, startOfDayAgo } from './lib/dates'
 import { WINDOW_DAYS, countLanguages } from './lib/streak'
+import { HttpStatusError, MensagemUsuario, falhaComContexto } from './lib/userError'
+
+const PROVIDER_NAMES: Record<ProviderId, string> = { github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' }
 
 // Métricas de GitHub, GitLab e Bitbucket Cloud via token pessoal (somente leitura).
 // net.fetch usa a pilha de rede do Chromium: respeita proxy corporativo do sistema.
@@ -17,10 +20,8 @@ async function getJson<T>(url: string, headers: Record<string, string>, init: { 
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   try {
     const res = await net.fetch(url, { method: init.method ?? 'GET', body: init.body, headers: { Accept: 'application/json', ...headers }, signal: ctrl.signal })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`${res.status} ${res.statusText} em ${new URL(url).pathname}${text ? `: ${text.slice(0, 160)}` : ''}`)
-    }
+    // Status vira texto em PT-BR em fetchProvider (corpo da resposta não vai para a interface).
+    if (!res.ok) throw new HttpStatusError(res.status)
     return { data: (await res.json()) as T, res }
   } finally {
     clearTimeout(t)
@@ -76,7 +77,9 @@ async function fetchGitHub(token: string): Promise<ProviderStats> {
     { Authorization: `bearer ${token}`, 'Content-Type': 'application/json' },
     { method: 'POST', body: JSON.stringify({ query: GH_QUERY, variables: { from: sinceDate().toISOString(), to: new Date().toISOString() } }) }
   )
-  if (data.errors?.length || !data.data) throw new Error(data.errors?.map((e) => e.message).join('; ') ?? 'Resposta vazia do GitHub')
+  if (data.errors?.length || !data.data) {
+    throw new MensagemUsuario(data.errors?.length ? `O GitHub recusou a consulta: ${data.errors.map((e) => e.message).join('; ').slice(0, 300)}` : 'Resposta vazia do GitHub.')
+  }
   const v = data.data.viewer
   const cc = v.contributionsCollection
   const s = base('github')
@@ -260,6 +263,8 @@ export async function fetchProvider(id: ProviderId, token: string, opts: { gitla
     if (id === 'gitlab') return await fetchGitLab(token, opts.gitlabBaseUrl || 'https://gitlab.com')
     return await fetchBitbucket(token)
   } catch (err) {
-    return { ...base(id), error: err instanceof Error ? err.message : String(err) }
+    // HTTP, timeout, rede e falhas desconhecidas viram PT-BR com contexto (H06.2, T11).
+    const nome = PROVIDER_NAMES[id]
+    return { ...base(id), error: falhaComContexto(`Não foi possível consultar o ${nome}`, err, `O ${nome}`) }
   }
 }

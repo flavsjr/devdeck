@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { RIGHT_PANEL_MAX, RIGHT_PANEL_MIN } from '@shared/layout'
+import { HELP_TOPICS } from './help'
 
 // Esquemas de entrada do IPC. Tudo que vem do renderer passa por aqui antes de tocar disco, rede ou processo.
 
@@ -104,6 +105,8 @@ export const chatText = shortText(200_000)
 export const chatContext = z.array(relPath).max(50)
 export const sessionTitle = shortText(200)
 export const externalUrl = z.string().max(4000).regex(/^https?:\/\//i)
+/** Tópico de ajuda: chave de lista fechada, nunca URL (a URL fica no mapa fixo de lib/help). */
+export const helpTopic = z.enum(HELP_TOPICS)
 
 /** Mensagem curta e legível a partir de um erro do zod. */
 export function describeZodError(err: z.ZodError): string {

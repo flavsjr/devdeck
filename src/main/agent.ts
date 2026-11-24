@@ -6,8 +6,10 @@ import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
 import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
 import { countsAsTurn } from './lib/turns'
-import { pumpErrorItem, redactResultErrors, redactedError, stderrLogArgs } from './lib/agentRedact'
+import { ROTULO_ERRO_AGENTE, agentErrorDetail, pumpErrorItem, redactResultErrors, redactedError, stderrLogArgs, type AgentErrorParts } from './lib/agentRedact'
+import { classifyAgentError } from './lib/agentErrors'
 import { secretValues } from './lib/secrets'
+import { erroComContexto } from '@shared/lib/errorText'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -84,6 +86,17 @@ interface LiveSession {
   cwd: string
   /** Valores exatos para redação de erros (apiKey salva, env/headers de MCP). Nunca sai do main. */
   secrets: string[]
+  /** Há chave da API salva no DevDeck (desempate de authentication_failed). */
+  hasApiKey: boolean
+  /** `apiKeySource` do init do SDK. */
+  apiKeySource?: string
+  /** Erro do turno em andamento: um item de erro só por turno (H06.3). Zerado a cada envio. */
+  turnError: TurnError | null
+}
+
+/** Peças do erro do turno, acumuladas entre a mensagem do assistente, o result e o throw final. */
+interface TurnError extends AgentErrorParts {
+  itemId: string
 }
 
 interface PendingApproval {
@@ -155,6 +168,36 @@ function summarizeTool(name: string, input: Record<string, unknown>): string {
       return JSON.stringify(input).slice(0, 140)
   }
 }
+
+/**
+ * Cria ou atualiza o único item de erro do turno (H06.3, ADR-021). A mensagem do assistente com
+ * `error`, o result com `is_error` e o throw final da query descrevem o mesmo erro: o primeiro cria
+ * o item, os outros só completam (status HTTP, texto que faltava) e reclassificam.
+ * O texto original vai só para `detail`, redigido; `text` é o rótulo neutro.
+ */
+function upsertTurnError(ls: LiveSession, parts: AgentErrorParts): void {
+  const prev = ls.turnError
+  const next: TurnError = {
+    itemId: prev?.itemId ?? randomUUID(),
+    error: prev?.error ?? parts.error,
+    status: parts.status !== undefined ? parts.status : prev?.status,
+    text: prev?.text?.trim() ? prev.text : parts.text
+  }
+  ls.turnError = next
+  const code = classifyAgentError({
+    error: next.error,
+    apiErrorStatus: next.status,
+    apiKeySource: ls.apiKeySource,
+    hasApiKey: ls.hasApiKey,
+    text: next.text
+  })
+  const detail = agentErrorDetail(next, ls.secrets)
+  if (!prev) pushItem(ls.id, { kind: 'error', id: next.itemId, text: ROTULO_ERRO_AGENTE, code, detail, ts: now() })
+  else updateItem(ls.id, next.itemId, (it) => (it.kind === 'error' ? { ...it, code, detail } : it))
+}
+
+/** Prefixo que a query põe no throw final quando o result veio com is_error. */
+const RESULT_THROW_PREFIX = /^Claude Code returned an error result:\s*/
 
 function stringifyToolResult(content: unknown): string {
   if (typeof content === 'string') return content
@@ -246,6 +289,7 @@ export async function sendMessage(id: string, text: string, context: string[]): 
 
   const ls = live.get(id) ?? (await startLive(s))
   ls.turnStartedAt = now()
+  ls.turnError = null
   setBusy(ls, true)
   ls.queue.push({ type: 'user', message: { role: 'user', content: prompt }, parent_tool_use_id: null })
 }
@@ -278,7 +322,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     contextWindow: 0,
     turnStartedAt: now(),
     cwd: s.meta.cwd,
-    secrets: [apiKey ?? '', ...mcpServers.flatMap(secretValues)].filter(Boolean)
+    secrets: [apiKey ?? '', ...mcpServers.flatMap(secretValues)].filter(Boolean),
+    hasApiKey: Boolean(apiKey),
+    turnError: null
   }
   live.set(ls.id, ls)
 
@@ -325,8 +371,18 @@ async function pump(ls: LiveSession): Promise<void> {
   try {
     for await (const msg of ls.q as Query) handleMessage(ls, msg)
   } catch (err) {
-    // Vai para o arquivo da sessão e para o renderer: redigido (H06.3).
-    pushItem(ls.id, pumpErrorItem(err, ls.secrets, randomUUID(), now()))
+    if (ls.turnError) {
+      // Throw final da query ("Claude Code returned an error result: …") repetindo o erro do turno:
+      // não cria outro item, só completa o texto se ainda não houver (H06.3, um card por turno).
+      if (!ls.turnError.text?.trim()) {
+        const msg = err instanceof Error ? err.message : String(err)
+        upsertTurnError(ls, { text: msg.replace(RESULT_THROW_PREFIX, '') })
+      }
+    } else {
+      // Falha sem erro classificado (ex.: processo do agente caiu): item 'unknown', detalhe redigido.
+      // Vai para o arquivo da sessão e para o renderer: redigido (H06.3).
+      pushItem(ls.id, pumpErrorItem(err, ls.secrets, randomUUID(), now()))
+    }
   } finally {
     if (live.get(ls.id) === ls) live.delete(ls.id)
     rejectPendingFor(ls.id, 'Processo do agente encerrado.')
@@ -341,6 +397,7 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
       const s = mustLoad(ls.id)
       s.meta.claudeSessionId = msg.session_id
       saveSession(s)
+      ls.apiKeySource = msg.apiKeySource
       emit({
         type: 'info',
         sessionId: ls.id,
@@ -368,6 +425,12 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
       if (usage) {
         const used = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0)
         if (used > 0) emit({ type: 'context', sessionId: ls.id, used, window: ls.contextWindow || 1_000_000 })
+      }
+      if (msg.error) {
+        // Mensagem sintética do SDK com o erro em inglês: não vira balão, vira o item de erro do turno.
+        const text = msg.message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
+        upsertTurnError(ls, { error: msg.error, text })
+        return
       }
       for (const block of msg.message.content) {
         if (block.type === 'text' && block.text.trim()) {
@@ -466,6 +529,13 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
   if (countsAsTurn(msg)) {
     bumpStats({ turns: 1, totalTurnMs: durationMs, nightTurns: hour < 5 ? 1 : 0, earlyTurns: hour >= 5 && hour < 7 ? 1 : 0 })
     checkAchievements()
+  }
+
+  // Turno com erro: completa o item do turno (status HTTP reclassifica, ex.: 529 → sobrecarga).
+  // Só cria item aqui quando o erro não veio antes na mensagem do assistente; error_* sem item
+  // continua só no `result.errors` (redigido), como antes.
+  if (msg.is_error && (ls.turnError || msg.subtype === 'success')) {
+    upsertTurnError(ls, msg.subtype === 'success' ? { status: msg.api_error_status ?? null, text: msg.result } : {})
   }
 
   pushItem(ls.id, {
@@ -629,7 +699,8 @@ export async function revertChange(sessionId: string, itemId: string): Promise<{
   try {
     current = existsSync(item.filePath) ? await readFile(item.filePath, 'utf8') : ''
   } catch (err) {
-    return { ok: false, error: `Não foi possível ler o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+    // ENOENT/EACCES/EPERM viram texto em PT-BR com contexto; motivo desconhecido não repassa o texto cru.
+    return { ok: false, error: erroComContexto(`Não foi possível ler ${basename(item.filePath)}`, err) }
   }
   const result = revertText(current, item.patch)
   if (!result.ok) return { ok: false, error: result.error }
@@ -638,7 +709,7 @@ export async function revertChange(sessionId: string, itemId: string): Promise<{
     if (item.created && result.text === '') await unlink(item.filePath).catch(() => undefined)
     else await writeFile(item.filePath, result.text, 'utf8')
   } catch (err) {
-    return { ok: false, error: `Não foi possível gravar o arquivo: ${err instanceof Error ? err.message : String(err)}` }
+    return { ok: false, error: erroComContexto(`Não foi possível gravar ${basename(item.filePath)}`, err) }
   }
 
   updateItem(sessionId, itemId, (it) => (it.kind === 'change' ? { ...it, reverted: true } : it))

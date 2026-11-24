@@ -4,6 +4,7 @@ import { join, relative, resolve, sep, isAbsolute } from 'node:path'
 import ignore, { type Ignore } from 'ignore'
 import { isInsideRoot } from './lib/paths'
 import type { FileContent, TreeNode } from '@shared/types'
+import { erroComContexto } from '@shared/lib/errorText'
 
 // Estado do workspace ativo + leitura segura (sempre confinada à raiz).
 
@@ -60,7 +61,10 @@ export function toRel(absPath: string): string | null {
 
 export async function listDir(relDir: string): Promise<TreeNode[]> {
   const abs = safeResolve(relDir || '.')
-  const entries = await readdir(abs, { withFileTypes: true })
+  // ENOENT/EACCES/EPERM viram PT-BR com contexto antes de chegar ao IPC (H06.2, T11).
+  const entries = await readdir(abs, { withFileTypes: true }).catch((err: unknown) => {
+    throw new Error(erroComContexto(`Não foi possível listar ${relDir || 'o workspace'}`, err))
+  })
   const nodes: TreeNode[] = []
   for (const e of entries) {
     const rel = (relDir ? `${relDir}/${e.name}` : e.name).replace(/\\/g, '/')
@@ -87,16 +91,22 @@ function looksBinary(buf: Buffer): boolean {
 
 export async function readWorkspaceFile(relPath: string): Promise<FileContent> {
   const abs = safeResolve(relPath)
-  const st = await stat(abs)
-  // Lê no máximo o tamanho da prévia + 1 byte (detecta truncamento sem carregar arquivos enormes).
-  const fh = await open(abs, 'r')
-  const chunk = Buffer.alloc(Math.min(st.size, MAX_PREVIEW_BYTES + 1))
+  let st: Awaited<ReturnType<typeof stat>>
   let buf: Buffer
   try {
-    const { bytesRead } = await fh.read(chunk, 0, chunk.length, 0)
-    buf = chunk.subarray(0, bytesRead)
-  } finally {
-    await fh.close()
+    st = await stat(abs)
+    // Lê no máximo o tamanho da prévia + 1 byte (detecta truncamento sem carregar arquivos enormes).
+    const fh = await open(abs, 'r')
+    const chunk = Buffer.alloc(Math.min(st.size, MAX_PREVIEW_BYTES + 1))
+    try {
+      const { bytesRead } = await fh.read(chunk, 0, chunk.length, 0)
+      buf = chunk.subarray(0, bytesRead)
+    } finally {
+      await fh.close()
+    }
+  } catch (err) {
+    // ENOENT/EACCES/EPERM viram PT-BR com contexto antes de chegar ao IPC (H06.2, T11).
+    throw new Error(erroComContexto(`Não foi possível ler ${relPath}`, err))
   }
   if (looksBinary(buf)) return { path: relPath, content: null, truncated: false, binary: true, size: st.size }
   const truncated = st.size > MAX_PREVIEW_BYTES

@@ -4,6 +4,8 @@ import type { AchievementsSummary, MetricKey, ProviderId } from '@shared/types'
 import { getAchievementStates, getIcsFeeds, getMcpServers, getProfile, getProviderCache, getProviderToken, getStats, saveAchievementStates } from './store'
 import { countLanguages, mergeDays } from './lib/streak'
 import { emit } from './events'
+import { deveNotificarNativo } from '@shared/lib/nativeNotify'
+import { estadoJanelaPrincipal } from './mainWindow'
 
 // Avalia conquistas a partir de métricas locais + cache dos provedores + comunidade.
 
@@ -49,7 +51,8 @@ export function checkAchievements(): void {
     const def = ACHIEVEMENTS.find((a) => a.id === id)
     if (def) emit({ type: 'achievement', def })
   }
-  if (unlocked.length && Notification.isSupported()) {
+  // O toast de conquista sai sempre pelo evento acima; a nativa só com o usuário fora do app (ADR-021).
+  if (unlocked.length && Notification.isSupported() && deveNotificarNativo(estadoJanelaPrincipal(), 'conquista')) {
     const first = ACHIEVEMENTS.find((a) => a.id === unlocked[0])
     const body = unlocked.length === 1 && first ? `${first.icon} ${first.title} — ${first.description}` : `${unlocked.length} conquistas desbloqueadas!`
     new Notification({ title: 'DevDeck · Conquista!', body }).show()

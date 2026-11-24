@@ -31,6 +31,8 @@ import { APP_INDEX, APP_SCHEME, isAllowedSubframeUrl, isAppUrl, isPermissionAllo
 import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import { resolveMcpInput } from './lib/secrets'
+import { helpUrl } from './lib/help'
+import { setMainWindow } from './mainWindow'
 import { DEBUG_SWITCHES, hasDebugSwitch } from './lib/cli'
 import * as agenda from './agenda'
 import * as agent from './agent'
@@ -125,6 +127,12 @@ function createWindow(): void {
       sandbox: true,
       webviewTag: false
     }
+  })
+
+  setMainWindow(win)
+  win.on('closed', () => {
+    setMainWindow(null)
+    win = null
   })
 
   win.webContents.on('preload-error', (_e, path, err) => console.error('[preload-error]', path, err))
@@ -273,6 +281,10 @@ function registerIpc(): void {
   handle('agenda:syncFeeds', [], () => agenda.syncAllFeeds())
 
   handle('shell:openExternal', [v.externalUrl], (url) => openExternalSafe(url))
+  // Ajuda (H06.3): o renderer manda só o tópico; a URL https sai do mapa fixo do main.
+  handle('help:open', [v.helpTopic], async (topic) => {
+    await shell.openExternal(helpUrl(topic))
+  })
 }
 
 app.whenReady().then(() => {
