@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -181,7 +181,7 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     const st = await statusOf(leaky)
     expect(st.branch).toBe('main')
     expect(marks()).toEqual([])
-    expect((await runGit(leaky, ['rev-parse', '--show-toplevel'])).toString('utf8').trim().toLowerCase()).toBe(fwd(repo).toLowerCase())
+    expect((await runGit(leaky, ['rev-parse', '--show-toplevel'])).toString('utf8').trim().toLowerCase()).toBe(fwd(realpathSync.native(repo)).toLowerCase()) // caminho longo (o tmp do CI vem em 8.3)
   })
 
   it('git.exe plantado na raiz do workspace nunca é o escolhido', () => {
