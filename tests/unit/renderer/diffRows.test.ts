@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collapse, gapLabel, rowsFromPatch, rowsFromTexts, toSplit, type Row } from '../../../src/renderer/src/lib/diffRows'
+import { buildDiff, collapse, DIFF_LIMITS, gapLabel, rowsFromPatch, rowsFromTexts, toSplit, type Row } from '../../../src/renderer/src/lib/diffRows'
 import { makePatch } from '../../../src/main/lib/edit'
 
 describe('rowsFromTexts', () => {
@@ -57,5 +57,42 @@ describe('rowsFromPatch', () => {
     const rows = rowsFromPatch(makePatch('a.ts', 'x\ny\n', 'x\nz\n'))
     expect(rows.map((r) => r.type)).toEqual(['ctx', 'del', 'add'])
   })
-  it.todo('Sprint 04: diff de arquivo grande não congela a tela (limite de edição)')
+})
+
+describe('buildDiff: arquivo grande não congela a tela (H05.4)', () => {
+  const lines = (n: number, tag: string): string => Array.from({ length: n }, (_, i) => `${tag} ${i}`).join(String.fromCharCode(10)) + String.fromCharCode(10)
+
+  it('edição pequena num arquivo de 20 mil linhas: diff completo e rápido (prefixo/sufixo cortados)', () => {
+    const before = lines(20_000, 'linha')
+    const after = before.replace('linha 10000\n', 'linha DEZ MIL\n')
+    const t = performance.now()
+    const r = buildDiff(before, after)
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(r.partial).toBe(false)
+    expect(r.rows.filter((x) => x.type === 'del').map((x) => [x.oldNo, x.text])).toEqual([[10001, 'linha 10000']])
+    expect(r.rows.filter((x) => x.type === 'add').map((x) => [x.newNo, x.text])).toEqual([[10001, 'linha DEZ MIL']])
+  })
+
+  it('dois arquivos de 50 mil linhas totalmente diferentes: prévia parcial, numeração correta, < 500 ms', () => {
+    const t = performance.now()
+    const r = buildDiff(lines(50_000, 'a'), lines(50_000, 'b'))
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(r.partial).toBe('size')
+    expect(r.rows[0]).toEqual({ type: 'del', oldNo: 1, text: 'a 0' })
+    expect(r.rows).toHaveLength(DIFF_LIMITS.renderRows + 1)
+    expect(r.rows.at(-1)?.text).toMatch(/linhas não exibidas/)
+  })
+
+  it('linha gigante (minificado) é cortada', () => {
+    const r = buildDiff('x\n', `${'y'.repeat(20_000)}\n`)
+    const add = r.rows.find((x) => x.type === 'add')
+    expect(add?.text.length).toBeLessThan(DIFF_LIMITS.lineChars + 30)
+    expect(add?.text).toMatch(/linha cortada/)
+  })
+
+  it('mesmo resultado do diff antigo em arquivos pequenos', () => {
+    expect(buildDiff('a\nb\nc\n', 'a\nx\nc\n')).toEqual({ rows: rowsFromTexts('a\nb\nc\n', 'a\nx\nc\n'), partial: false })
+    expect(buildDiff('', 'novo\n').rows).toEqual([{ type: 'add', newNo: 1, text: 'novo' }])
+    expect(buildDiff('igual\n', 'igual\n').rows).toEqual([{ type: 'gap', text: 'Sem diferenças' }])
+  })
 })

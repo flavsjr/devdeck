@@ -28,18 +28,74 @@ export function gapLabel(n: number): string {
   return `… ${n} ${n === 1 ? 'linha' : 'linhas'} sem alteração`
 }
 
-export function rowsFromTexts(before: string, after: string): Row[] {
+/** Limites da prévia (H05.4): acima disso o diff vira linear (correto, não mínimo) ou é cortado na tela. */
+export const DIFF_LIMITS = { lines: 20_000, chars: 2 * 1024 * 1024, timeoutMs: 300, renderRows: 3_000, lineChars: 5_000 }
+
+/** false = diff completo; 'timeout'/'size' = bloco do meio mostrado como remoção + adição; 'render' = linhas cortadas na tela. */
+export type DiffPartial = false | 'timeout' | 'size' | 'render'
+
+export interface DiffResult {
+  rows: Row[]
+  partial: DiffPartial
+}
+
+const NL = String.fromCharCode(10)
+const joinLines = (lines: string[]): string => (lines.length ? lines.join(NL) + NL : '')
+
+const cut = (line: string): string => (line.length > DIFF_LIMITS.lineChars ? `${line.slice(0, DIFF_LIMITS.lineChars)} … (linha cortada)` : line)
+
+/**
+ * Diff de texto que não congela a tela: corta prefixo/sufixo comuns em O(n), só chama o diff mínimo
+ * dentro dos limites e com timeout; senão mostra o bloco do meio como remoção + adição.
+ */
+export function buildDiff(before: string, after: string): DiffResult {
+  const a = splitLines(before)
+  const b = splitLines(after)
+  let pre = 0
+  while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++
+  let suf = 0
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++
+  const midA = a.slice(pre, a.length - suf)
+  const midB = b.slice(pre, b.length - suf)
+
   const rows: Row[] = []
   let o = 1
   let n = 1
-  for (const part of diffLines(before, after)) {
-    for (const line of splitLines(part.value)) {
-      if (part.added) rows.push({ type: 'add', newNo: n++, text: line })
-      else if (part.removed) rows.push({ type: 'del', oldNo: o++, text: line })
-      else rows.push({ type: 'ctx', oldNo: o++, newNo: n++, text: line })
+  for (let i = 0; i < pre; i++) rows.push({ type: 'ctx', oldNo: o++, newNo: n++, text: cut(a[i]) })
+
+  let partial: DiffPartial = false
+  const size = midA.length + midB.length
+  const chars = midA.reduce((s, l) => s + l.length, 0) + midB.reduce((s, l) => s + l.length, 0)
+  const parts =
+    size > DIFF_LIMITS.lines || chars > DIFF_LIMITS.chars
+      ? undefined
+      : diffLines(joinLines(midA), joinLines(midB), { timeout: DIFF_LIMITS.timeoutMs })
+  if (parts) {
+    for (const part of parts) {
+      for (const line of splitLines(part.value)) {
+        if (part.added) rows.push({ type: 'add', newNo: n++, text: cut(line) })
+        else if (part.removed) rows.push({ type: 'del', oldNo: o++, text: cut(line) })
+        else rows.push({ type: 'ctx', oldNo: o++, newNo: n++, text: cut(line) })
+      }
     }
+  } else {
+    partial = size > DIFF_LIMITS.lines || chars > DIFF_LIMITS.chars ? 'size' : 'timeout'
+    for (const line of midA) rows.push({ type: 'del', oldNo: o++, text: cut(line) })
+    for (const line of midB) rows.push({ type: 'add', newNo: n++, text: cut(line) })
   }
-  return collapse(rows)
+  for (let i = a.length - suf; i < a.length; i++) rows.push({ type: 'ctx', oldNo: o++, newNo: n++, text: cut(a[i]) })
+
+  let out = collapse(rows)
+  if (out.length > DIFF_LIMITS.renderRows) {
+    const hidden = out.length - DIFF_LIMITS.renderRows
+    out = [...out.slice(0, DIFF_LIMITS.renderRows), { type: 'gap', text: `… ${hidden} linhas não exibidas na prévia` }]
+    partial = partial || 'render'
+  }
+  return { rows: out, partial }
+}
+
+export function rowsFromTexts(before: string, after: string): Row[] {
+  return buildDiff(before, after).rows
 }
 
 export function rowsFromPatch(patch: string): Row[] {

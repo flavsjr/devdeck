@@ -131,6 +131,10 @@ export interface ApprovalRequest {
   before?: string
   after?: string
   isNewFile?: boolean
+  /** O Edit real vai falhar (old_string ausente, repetido ou vazio num arquivo com conteúdo). */
+  previewError?: string
+  /** before/after cortados no main (arquivo acima de 1 MB): a prévia é parcial. */
+  previewPartial?: boolean
   /** command */
   command?: string
   description?: string

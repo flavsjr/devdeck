@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { app } from 'electron'
-import { applyEdit, makePatch, revertText } from './lib/edit'
+import { makePatch, previewEdit, revertText } from './lib/edit'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -389,7 +389,7 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
         const change = ls.pendingChanges.get(block.tool_use_id)
         if (change) {
           ls.pendingChanges.delete(block.tool_use_id)
-          if (!isError) recordChange(ls.id, change)
+          if (!isError) void recordChange(ls.id, change)
         }
       }
       return
@@ -403,9 +403,11 @@ function handleMessage(ls: LiveSession, msg: SDKMessage): void {
   }
 }
 
-function recordChange(sessionId: string, c: PendingChange): void {
+/** Patch a partir do que ficou no disco (não da prévia): CRLF e normalizações do Claude Code continuam reversíveis. */
+async function recordChange(sessionId: string, c: PendingChange): Promise<void> {
   const rel = toRel(c.filePath) ?? basename(c.filePath)
-  const patch = makePatch(rel, c.before, c.after)
+  const onDisk = existsSync(c.filePath) ? await readFile(c.filePath, 'utf8').catch(() => c.after) : ''
+  const patch = makePatch(rel, c.before, onDisk)
   pushItem(sessionId, { kind: 'change', id: randomUUID(), filePath: c.filePath, patch, created: c.created, ts: now() })
 }
 
@@ -469,6 +471,8 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
 
 // ---------- aprovações ----------
 
+const PREVIEW_MAX_CHARS = 1024 * 1024
+
 function makeCanUseTool(ls: LiveSession): CanUseTool {
   return async (toolName, input, opts) => {
     const isEdit = toolName === 'Edit' || toolName === 'Write'
@@ -477,7 +481,8 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
       const filePath = String(input.file_path ?? '')
       const exists = filePath !== '' && existsSync(filePath)
       const before = exists ? await readFile(filePath, 'utf8').catch(() => '') : ''
-      const after = toolName === 'Write' ? String(input.content ?? '') : applyEdit(before, input)
+      const preview = toolName === 'Write' ? { after: String(input.content ?? '') } : previewEdit(before, input)
+      const after = preview.after
       const change: PendingChange = { filePath, before, after, created: !exists }
       // "Aprovar todas da sessão" só vale dentro do workspace e fora de pastas sensíveis (resolve symlink/junction).
       const verdict = classifyEditTarget(ls.cwd, filePath)
@@ -487,15 +492,19 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
         return { behavior: 'allow', updatedInput: input }
       }
       const warn = verdict === 'outside' ? '⚠ Fora do workspace — ' : verdict === 'sensitive' ? '⚠ Pasta sensível — ' : ''
+      // Arquivo grande: o renderer recebe só o começo de cada lado e marca a prévia como parcial (H05.4).
+      const big = before.length > PREVIEW_MAX_CHARS || after.length > PREVIEW_MAX_CHARS
       return ask(ls, opts, input, {
         kind: toolName === 'Write' ? 'write' : 'edit',
         toolName,
         title: warn + (opts.title ?? `${toolName} ${toRel(filePath) ?? filePath}`),
         filePath,
         relPath: toRel(filePath) ?? filePath,
-        before,
-        after,
-        isNewFile: !exists
+        before: big ? before.slice(0, PREVIEW_MAX_CHARS) : before,
+        after: big ? after.slice(0, PREVIEW_MAX_CHARS) : after,
+        previewPartial: big || undefined,
+        isNewFile: !exists,
+        previewError: 'error' in preview ? preview.error : undefined
       }, change)
     }
 

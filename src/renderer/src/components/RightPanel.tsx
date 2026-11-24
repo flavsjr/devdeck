@@ -55,6 +55,9 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
     void window.deck.agent.decide(a.id, approve ? { approve: true, alwaysForSession: always } : { approve: false, feedback })
   }
   const isFile = a.kind === 'edit' || a.kind === 'write'
+  // Prévia parcial = aprovar sem ver tudo: "Aprovar todas da sessão" fica desabilitado (mesmo risco do B4).
+  const [diffPartial, setDiffPartial] = useState(false)
+  const partialPreview = Boolean(a.previewPartial) || diffPartial
   const target = isFile ? a.relPath : a.title
 
   // Alt+A / Alt+R só com o foco dentro deste card e para este approvalId; Alt+A nunca liga "sempre".
@@ -81,7 +84,12 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
         </span>
       </div>
 
-      {isFile && <DiffView before={a.before} after={a.after} />}
+      {isFile && a.previewError && (
+        <p className="approval-warn" role="note">
+          {a.previewError}
+        </p>
+      )}
+      {isFile && <DiffView before={a.before} after={a.after} truncated={a.previewPartial} onPartial={setDiffPartial} />}
       {a.kind === 'command' && (
         <div className="approval-cmd">
           {a.description && <div className="muted small">{a.description}</div>}
@@ -112,7 +120,14 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
         </button>
         <button
           className="btn ghost"
-          title={isFile ? 'Aprovar esta e as próximas edições desta sessão' : `Sempre permitir ${a.toolName} nesta sessão`}
+          disabled={isFile && partialPreview}
+          title={
+            isFile && partialPreview
+              ? 'Prévia parcial: aprove esta edição sozinha, depois de conferir'
+              : isFile
+                ? 'Aprovar esta e as próximas edições desta sessão'
+                : `Sempre permitir ${a.toolName} nesta sessão`
+          }
           onClick={() => decide(true, true)}
         >
           {isFile ? 'Aprovar todas da sessão' : 'Sempre nesta sessão'}

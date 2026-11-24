@@ -588,4 +588,21 @@
   .git-paused-reasons li + li {
     margin-top: 4px;
   }
+
+  /* Prévia de Edit que vai falhar (H05.4) */
+  .approval-warn {
+    margin: 0 0 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border-radius: var(--r-md);
+  }
+  .diff-partial {
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+  }
 }

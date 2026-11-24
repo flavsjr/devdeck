@@ -147,7 +147,7 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 | Spike do SDK no asar, `electron-builder.yml`, ícone, `pathToClaudeCodeExecutable`, UI por `app://` | DevOps/Back | ✅ |
 | `verify-fuses`, `verify-sdk`, recusa de switches de depuração | DevOps/Back | ✅ |
 | `release.yml`, `check-tag.mts`, job `package` | DevOps | ✅ (dry run no GitHub pendente) |
-| ICS/edit/diff (`it.todo`) | Back/Front | ⏳ |
+| ICS/edit/diff (`it.todo`) | Back/Front | ✅ |
 | Confiança estrita e "sempre" por caminho | Back/Front | ⏳ |
 | Migration `0002` + teste SQL | Back | ⏳ |
 | ADR-011, ADR-018, ADR-019, emendas 013/015 | TL | ⏳ |
