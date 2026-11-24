@@ -11,6 +11,20 @@
 *Como <persona>, quero <ação> para <valor>.*
 - [ ] Dado … quando … então …
 
+#### Checklist de ameaça (obrigatório se a história toca git ou execução de processo; senão "N/A: <motivo>")
+| Superfície | Coberta? | Como (teste/arquivo) |
+|---|---|---|
+| Raiz do workspace (config, hooks, fsmonitor, filtros) | | |
+| Repositório pai (GIT_CEILING_DIRECTORIES) | | |
+| Submódulo (.git/modules) | | |
+| Repositório embutido (gitlink sem .git/modules) | | |
+| Worktree / `.git` como arquivo `gitdir:` | | |
+| Binário no PATH (cwd e pastas do workspace fora) | | |
+| Env herdada (GIT_*, proxies, loaders) | | |
+| Processo do agente (mesma env? passa por aprovação?) | | |
+
+Cada linha "sim" cita teste com controle positivo. O security review confere linha a linha.
+
 ## Convocação (PO)
 | História | Dono | Envolvidos | Por quê |
 |---|---|---|---|

@@ -1,0 +1,22 @@
+{
+  "scenario": "rate_limit",
+  "sdk": "0.3.330",
+  "capturedAt": "2026-11-24",
+  "origem": "ANTHROPIC_API_KEY falsa + servidor local devolvendo 429 rate_limit_error",
+  "init": {
+    "apiKeySource": "ANTHROPIC_API_KEY"
+  },
+  "assistant": {
+    "error": "rate_limit",
+    "text": "API Error: Request rejected (429) · Number of request tokens has exceeded your per-minute rate limit"
+  },
+  "result": {
+    "subtype": "success",
+    "is_error": true,
+    "result": "API Error: Request rejected (429) · Number of request tokens has exceeded your per-minute rate limit",
+    "api_error_status": 429
+  },
+  "thrown": {
+    "message": "Claude Code returned an error result: API Error: Request rejected (429) · Number of request tokens has exceeded your per-minute rate limit"
+  }
+}
