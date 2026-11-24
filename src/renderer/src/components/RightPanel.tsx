@@ -86,7 +86,7 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
 
       {a.scope && (
         <p className="approval-scope" role="note">
-          <span className="badge">{a.scope === 'outside' ? 'fora do workspace' : 'pasta sensível'}</span>
+          <span className="scope-badge">{a.scope === 'outside' ? 'fora do workspace' : 'pasta sensível'}</span>
           {a.scope === 'outside'
             ? ' Este caminho fica fora do workspace. "Sempre nesta sessão" vale só dentro dele, por isso o DevDeck pergunta de novo.'
             : ' Este caminho está numa pasta sensível (.git, .claude, .github…). Confira antes de aprovar.'}

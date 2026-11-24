@@ -150,6 +150,8 @@ Tema claro + migração do `@layer legacy` (Sprint 06, juntos) · assinatura de 
 | ICS/edit/diff (`it.todo`) | Back/Front | ✅ |
 | Confiança estrita e "sempre" por caminho | Back/Front | ✅ |
 | Migration `0002` + teste SQL | Back | ✅ código · ⏳ execução (sem Postgres local: rodar `supabase test db` ou SQL Editor) |
+| H05.8 credencial na URL de MCP (Could) | Back | ✅ |
+| H05.9 varredura de camadas CSS (Could) | Front | ✅ |
 | ADR-011, ADR-018, ADR-019, emendas 013/015 | TL | ⏳ |
 
 ## QA
