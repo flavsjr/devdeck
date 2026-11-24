@@ -186,6 +186,17 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 - **Contagem de `notify`:** o grep do Front (41) vale como inventário. O critério de aceite é o typecheck sem `notify(string)`, não a contagem.
 - **Achado de processo:** `.claude/agents/ux-designer.md` ainda diz "accent terracota" (ADR-014 é índigo). Corrigir em commit `docs:`, com aprovação do usuário por ser configuração de agente.
 
+### Decisões no build (PO, sobre o inventário e a microcopy do UX — `sprint-06/ux-notificacoes.md`)
+- **Não-erro com 3 erros na tela:** entra na tela e o erro mais antigo vai para os recolhidos ("+N erros"); volta quando o não-erro sai, sem reanúncio pelo `role="alert"`. Erro continua só saindo por ação do usuário.
+- **Conquista fora do teto de 3:** faixa própria, uma visível por vez, fila própria, região `polite`.
+- **Dedupe:** mesma mensagem (tipo + texto) visível ou recolhida soma "×N" e renova o prazo, sem limite de tempo; depois de fechada, abre card novo. O caso "< 5 s" segue no teste.
+- **"Fechar todos (N)":** total visível + recolhidos, sem confirmação; ao fechar pelo teclado, o foco vai para a próxima notificação ou volta ao elemento anterior (evidência no E2E ou roteiro de teclado).
+- **`auth_expired`:** "Como entrar de novo" é a ação principal; a chave da API vira secundária e o corpo diz que ela é cobrada por uso. Em `auth_invalid_key`, "Trocar chave" segue principal.
+- **`auth_missing`** ganha "Tentar de novo"; **"Claude: sem créditos"** na barra de status entra na H06.7 (sai junto se ela sair).
+- **Erro de sessão não ativa:** a notificação cita o título da sessão (como texto) e vai sem ação. Navegar com `sessionId` → backlog da Sprint 07 (muda o contrato da ação, exige TL e Sec).
+- **Na T10:** "Chave removida." quando o campo vazio remove a chave; códigos do Supabase Auth (`otp_expired`, `over_email_send_rate_limit`…) no dicionário `errorText`, com teste; `recarregarPerfil` chama `profile.refresh()` se ela já existir e só ler (TL confere), senão o perfil fica sem "Tentar de novo". Se a T10 apertar, sai primeiro o `recarregarPerfil`.
+- **URL de "Como entrar de novo":** `https://code.claude.com/docs/en/iam` (conferida em 2026-11-24). Textos de expiração da doc ("Login reached its time limit", "Login expired") entram no classificador.
+
 ## Riscos aceitos
 - **Baixa:** com git confiado, o Bash do agente rodando `cd sub && git status` lê `sub/.git` sem a inspeção do DevDeck. Mitigação: Bash sempre pede aprovação (H05.5, nunca recebe "Sempre"), e a linha "processo do agente" do checklist registra o caso.
 - **Baixa:** o `redactPatterns` trabalha por padrão e pode não pegar um formato novo de token. Mitigação: redact por valor exato da chave salva, detalhes recolhidos e redigidos no main, original nunca no renderer.
@@ -195,8 +206,10 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 
 ## Pendências com o usuário
 - Ruleset da `main`: tornar o job `db` obrigatório no primeiro run verde (ação de admin). Até lá a H06.6 fica aberta.
-- Aprovar a correção de `.claude/agents/ux-designer.md` ("accent terracota" → índigo).
-- Decidir se o `CLAUDE.md` passa a citar `src/shared/lib/` como lugar de regra pura usada pelos dois lados (registrado no ADR-020).
+- ~~Aprovar a correção de `.claude/agents/ux-designer.md`~~ e ~~citar `src/shared/lib/` no `CLAUDE.md`~~: aprovados em 2026-11-24 (T49).
+
+## Backlog para a Sprint 07
+- "Ver no chat" abrindo a sessão do erro quando ela não é a ativa (`navegar` com `sessionId` UUID): exige TL e Sec.
 
 ## Tarefas (Tech Lead)
 Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `src/main/lib` e `src/renderer/src/lib` (T03); `agentEnv` repassa `ANTHROPIC_BASE_URL`, então o E2E aponta o SDK para o servidor falso sem mexer no pacote; `api_error_status` existe no resultado do SDK 0.3.330 (`sdk.d.ts:6443`).
@@ -210,7 +223,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T05 · H06.2 · `src/shared/lib/nativeNotify.ts` (`deveNotificarNativo`) + teste. Dep. T03 | Front | feito |
 | T06 · H06.2 · Reducer `src/renderer/src/lib/notifications.ts` com `now` injetado: teto 3, erro conta e não sai sozinho, "+N erros", "Fechar todos" a partir de 2 erros, dedupe de 5 s com "×N" e campo `historico` (20). Teste em `tests/unit/renderer/notifications.test.ts` | Front | feito |
 | T07 · H06.2 · União `AcaoNotificacao` e lista nomeada `RetryOp` mapeada no store. Teste: nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando. Dep. T06 | Front | feito |
-| T08 · H06.2 · Inventário das 41 chamadas de `notify` com tipo e microcopy, na seção de tarefas da sprint | UX | a fazer |
+| T08 · H06.2 · Inventário das 41 chamadas de `notify` com tipo e microcopy, na seção de tarefas da sprint | UX | feito (`sprint-06/ux-notificacoes.md`) |
 | T09 · H06.2 · `components/Notifications.tsx`: ícone lucide, tokens `--notify-*`, `role="alert"` e região `status` montada no boot, pausa com hover e foco, fechar com `aria-label` e 24 px, conquista com visual próprio, `prefers-reduced-motion`, posição fora do composer e do card. CSS no `shell.css`. Dep. T06 | Front | a fazer |
 | T10 · H06.2 · `store.ts`: `notify({ tipo, texto, acao? })`, sai o `toast: string`, migram as 41 chamadas e saem `errorText` (McpView) e `errMsg` (CommunityView). Dep. T04, T08, T09 | Front | a fazer |
 | T11 · H06.2 · Main traduz `ENOENT`, `EACCES` e rede no handler com contexto (`agent.ts` `revertChange`, `agenda.ts`, provedores). Dep. T04 | Back | a fazer |
@@ -224,7 +237,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T19 · H06.3 · Canal `help:open` com `z.enum(['claude-login'])` → URL https fixa no main (`ipc.ts`, `validation.ts`) + teste em `validation.test.ts` | Back | a fazer |
 | T20 · H06.3 · Card no `ChatView.tsx`: texto fixo por `code`, as 3 ações por código, "Detalhes técnicos" recolhido com "Copiar detalhes", "Tentar de novo" desabilitado durante o turno e composer preservado. Dep. T18, T19 | Front | a fazer |
 | T21 · H06.3 · `src/renderer/src/lib/authStatus.ts` (deriva o estado dos itens da sessão) + teste. Chip no `StatusBar.tsx` com ação. Toast "Erro no chat" com "Ver no chat" só fora da aba do chat. Dep. T18, T10 | Front | a fazer |
-| T22 · H06.3 · Microcopy dos cards de autenticação e dos 4 da H06.7, com a URL de "Como entrar" | UX | a fazer |
+| T22 · H06.3 · Microcopy dos cards de autenticação e dos 4 da H06.7, com a URL de "Como entrar" | UX | feito (`sprint-06/ux-notificacoes.md`) |
 | T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | a fazer |
 | T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | a fazer |
 | T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
