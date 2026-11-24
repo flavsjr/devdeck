@@ -205,11 +205,11 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 |---|---|---|
 | T01 · H06.3/H06.7 · **Spike, 1º dia:** capturar mensagens reais do SDK 0.3.330 para OAuth expirada real, chave falsa (401), sem credencial, 429, 529, `billing_error` e sem rede (`api_retry`). Confirmar `SDKAssistantMessage.error`, `api_error_status` e se "sem credencial" chega só por texto. Saída: `tests/fixtures/agent-errors/*.json`, redigidas e com a origem anotada. Decide se a H06.7 continua Should | Back | feito (OAuth expirada: fixture sintética, prova real na T26) |
 | T02 · todas · ADR-020 e ADR-021 em `docs/decisions.md` | TL | feito |
-| T03 · H06.2 · `guard.test.ts` passa a vigiar `src/shared/lib`, proibindo também `window` e `document` | TL | a fazer |
-| T04 · H06.2 · `src/shared/lib/errorText.ts` (tira o prefixo do IPC, traduz `23505`, o limite da `0002`, `ENOENT`, `EACCES`, rede e o genérico) + `tests/unit/shared/errorText.test.ts`. Dep. T03 | Front | a fazer |
-| T05 · H06.2 · `src/shared/lib/nativeNotify.ts` (`deveNotificarNativo`) + teste. Dep. T03 | Front | a fazer |
-| T06 · H06.2 · Reducer `src/renderer/src/lib/notifications.ts` com `now` injetado: teto 3, erro conta e não sai sozinho, "+N erros", "Fechar todos" a partir de 2 erros, dedupe de 5 s com "×N" e campo `historico` (20). Teste em `tests/unit/renderer/notifications.test.ts` | Front | a fazer |
-| T07 · H06.2 · União `AcaoNotificacao` e lista nomeada `RetryOp` mapeada no store. Teste: nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando. Dep. T06 | Front | a fazer |
+| T03 · H06.2 · `guard.test.ts` passa a vigiar `src/shared/lib`, proibindo também `window` e `document` | TL | feito |
+| T04 · H06.2 · `src/shared/lib/errorText.ts` (tira o prefixo do IPC, traduz `23505`, o limite da `0002`, `ENOENT`, `EACCES`, rede e o genérico) + `tests/unit/shared/errorText.test.ts`. Dep. T03 | Front | feito |
+| T05 · H06.2 · `src/shared/lib/nativeNotify.ts` (`deveNotificarNativo`) + teste. Dep. T03 | Front | feito |
+| T06 · H06.2 · Reducer `src/renderer/src/lib/notifications.ts` com `now` injetado: teto 3, erro conta e não sai sozinho, "+N erros", "Fechar todos" a partir de 2 erros, dedupe de 5 s com "×N" e campo `historico` (20). Teste em `tests/unit/renderer/notifications.test.ts` | Front | feito |
+| T07 · H06.2 · União `AcaoNotificacao` e lista nomeada `RetryOp` mapeada no store. Teste: nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando. Dep. T06 | Front | feito |
 | T08 · H06.2 · Inventário das 41 chamadas de `notify` com tipo e microcopy, na seção de tarefas da sprint | UX | a fazer |
 | T09 · H06.2 · `components/Notifications.tsx`: ícone lucide, tokens `--notify-*`, `role="alert"` e região `status` montada no boot, pausa com hover e foco, fechar com `aria-label` e 24 px, conquista com visual próprio, `prefers-reduced-motion`, posição fora do composer e do card. CSS no `shell.css`. Dep. T06 | Front | a fazer |
 | T10 · H06.2 · `store.ts`: `notify({ tipo, texto, acao? })`, sai o `toast: string`, migram as 41 chamadas e saem `errorText` (McpView) e `errMsg` (CommunityView). Dep. T04, T08, T09 | Front | a fazer |
@@ -217,8 +217,8 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T12 · H06.2 · `deveNotificarNativo` em `achievements.ts:52` e `agenda.ts:157`. Evento novo de lembrete main→renderer com `{ id, titulo }` em `src/shared/types.ts`. Dep. T05 | Back | a fazer |
 | T13 · H06.2 · Renderer: aprovação passa a usar `!document.hasFocus()` (`store.ts:293`), `FlowCard.tsx` passa pela regra e o lembrete vira toast info "Abrir na agenda". Dep. T10, T12 | Front | a fazer |
 | T14 · H06.2/H06.3 · Helper `tests/e2e/helpers/fake-api.mjs`: servidor em `127.0.0.1` com 200, 401 (`sk-ant-…`/`Bearer …` falsos), 429, 529 e billing, ligado por `ANTHROPIC_BASE_URL` | QA | a fazer |
-| T15 · H06.3 · `redactPatterns` em `src/main/lib/secrets.ts` (padrões da ata + apiKey salva) + casos em `secrets.test.ts` | Back | a fazer |
-| T16 · H06.3 · Aplicar redact por padrão e por valor exato em `agent.ts:285`, `:303`, `:320` e `:469`. Dep. T15 | Back | a fazer |
+| T15 · H06.3 · `redactPatterns` em `src/main/lib/secrets.ts` (padrões da ata + apiKey salva) + casos em `secrets.test.ts` | Back | feito |
+| T16 · H06.3 · Aplicar redact por padrão e por valor exato em `agent.ts:285`, `:303`, `:320` e `:469`. Dep. T15 | Back | feito |
 | T17 · H06.3/H06.7 · `src/main/lib/agentErrors.ts` (enum → `AgentErrorCode`, desempate por `hasApiKey`/`apiKeySource` + `api_error_status`, texto só como fallback, desconhecido → `unknown`). Teste em `tests/unit/main/agentErrors.test.ts` lendo as fixtures. Dep. T01 | Back | a fazer |
 | T18 · H06.3 · `ChatItem` de erro ganha `code?: AgentErrorCode` e `detail?` (redigido no main) em `shared/types.ts`. `handleMessage` não cria balão quando há `msg.error`. Um card por turno: `result.errors` e o catch do pump só preenchem o mesmo item. Dep. T16, T17 | Back | a fazer |
 | T19 · H06.3 · Canal `help:open` com `z.enum(['claude-login'])` → URL https fixa no main (`ipc.ts`, `validation.ts`) + teste em `validation.test.ts` | Back | a fazer |

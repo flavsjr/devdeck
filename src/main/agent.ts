@@ -6,6 +6,8 @@ import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
 import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
 import { countsAsTurn } from './lib/turns'
+import { pumpErrorItem, redactResultErrors, redactedError, stderrLogArgs } from './lib/agentRedact'
+import { secretValues } from './lib/secrets'
 import type { CanUseTool, Options, PermissionResult, Query, SDKMessage, SDKUserMessage, SettingSource } from '@anthropic-ai/claude-agent-sdk'
 import type { ApprovalDecision, ApprovalRequest, ChatItem, LedgerEntry, SessionMeta } from '@shared/types'
 import {
@@ -80,6 +82,8 @@ interface LiveSession {
   contextWindow: number
   turnStartedAt: number
   cwd: string
+  /** Valores exatos para redação de erros (apiKey salva, env/headers de MCP). Nunca sai do main. */
+  secrets: string[]
 }
 
 interface PendingApproval {
@@ -260,6 +264,9 @@ function claudeExecutable(): string {
 }
 
 async function startLive(s: StoredSession): Promise<LiveSession> {
+  const settings = getSettings()
+  const apiKey = getApiKey()
+  const mcpServers = getMcpServers()
   const ls: LiveSession = {
     id: s.meta.id,
     queue: new AsyncQueue<SDKUserMessage>(),
@@ -270,26 +277,26 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     pendingChanges: new Map(),
     contextWindow: 0,
     turnStartedAt: now(),
-    cwd: s.meta.cwd
+    cwd: s.meta.cwd,
+    secrets: [apiKey ?? '', ...mcpServers.flatMap(secretValues)].filter(Boolean)
   }
   live.set(ls.id, ls)
 
-  const settings = getSettings()
-  const apiKey = getApiKey()
   let settingSources: SettingSource[] = []
   let gitAllowed = false
   try {
     ;({ settingSources, gitAllowed } = await decideWorkspace(s.meta.cwd, settings.loadProjectSettings))
   } catch (err) {
     live.delete(ls.id)
-    throw err
+    // Vira mensagem de IPC: só o texto redigido (H06.3).
+    throw redactedError(err, ls.secrets)
   }
   const options: Options = {
     cwd: s.meta.cwd,
     model: settings.model || undefined,
     effort: settings.effort || undefined,
     maxBudgetUsd: settings.sessionBudgetUsd > 0 ? settings.sessionBudgetUsd : undefined,
-    mcpServers: toSdkMcpServers(getMcpServers()),
+    mcpServers: toSdkMcpServers(mcpServers),
     permissionMode: 'default',
     canUseTool: makeCanUseTool(ls),
     includePartialMessages: true,
@@ -300,7 +307,8 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     env: { ...agentEnv(process.env, process.platform, s.meta.cwd, gitAllowed, noGitDir()), ...(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {}) },
     // env/headers de MCP pelo stdin, não pela linha de comando (legível por outros usuários da máquina).
     mcpServersDelivery: 'initialize',
-    stderr: (data: string) => console.error(`[agent ${ls.id.slice(0, 8)}]`, data.trimEnd())
+    // stderr do Claude Code pode ecoar chave/token: redigido antes do console (H06.3).
+    stderr: (data: string) => console.error(...stderrLogArgs(ls.id, data, ls.secrets))
   }
 
   // App instalado: o Claude Code é binário nativo e fica fora do asar (asarUnpack, ADR-011).
@@ -317,7 +325,8 @@ async function pump(ls: LiveSession): Promise<void> {
   try {
     for await (const msg of ls.q as Query) handleMessage(ls, msg)
   } catch (err) {
-    pushItem(ls.id, { kind: 'error', id: randomUUID(), text: err instanceof Error ? err.message : String(err), ts: now() })
+    // Vai para o arquivo da sessão e para o renderer: redigido (H06.3).
+    pushItem(ls.id, pumpErrorItem(err, ls.secrets, randomUUID(), now()))
   } finally {
     if (live.get(ls.id) === ls) live.delete(ls.id)
     rejectPendingFor(ls.id, 'Processo do agente encerrado.')
@@ -466,7 +475,7 @@ function handleResult(ls: LiveSession, msg: Extract<SDKMessage, { type: 'result'
     durationMs,
     turns: msg.num_turns,
     isError: msg.is_error,
-    errors: msg.subtype === 'success' ? undefined : msg.errors,
+    errors: msg.subtype === 'success' ? undefined : redactResultErrors(msg.errors, ls.secrets),
     ts: now()
   })
   emit({ type: 'session-meta', meta: mustLoad(ls.id).meta })
