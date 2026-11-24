@@ -3,7 +3,7 @@
 // um marcador. O diálogo nativo é respondido pelo teste (dialog.showMessageBox interceptado no main).
 // Uso: npm run test:e2e
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -88,6 +88,10 @@ try {
     throw new Error('estado pausado não apareceu')
   }
   check(marks().length === 0, 'nenhum comando do repositório rodou antes da confiança')
+  await win.evaluate(readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
+  const axeViolations = await win.evaluate(async () => (await window.axe.run('.git-paused', { runOnly: ['wcag2a', 'wcag2aa', 'best-practice'] })).violations.map((v) => v.id))
+  check(axeViolations.length === 0, `axe sem violações em "Git pausado" (${axeViolations.join(', ') || 'nenhuma'})`)
+  check(await win.getByRole('status').filter({ hasText: 'Git pausado neste workspace' }).isVisible(), '"Git pausado" anunciado como status (role=status)')
 
   const button = win.getByRole('button', { name: 'Revisar configurações…' })
   check(await button.isVisible(), 'botão "Revisar configurações…" visível')
