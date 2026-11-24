@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, dialog, nativeTheme, protocol, session, shell } from 'electron'
 import { join, relative, isAbsolute } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -34,6 +34,7 @@ import { resolveMcpInput } from './lib/secrets'
 import { helpUrl } from './lib/help'
 import { setMainWindow } from './mainWindow'
 import { DEBUG_SWITCHES, hasDebugSwitch } from './lib/cli'
+import { themeBg, type ThemePref } from './lib/theme'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
@@ -70,6 +71,16 @@ if (devUrl() && process.env.DEVDECK_USER_DATA) app.setPath('userData', process.e
 migrateLegacyData()
 migrateSettings()
 app.setAppUserModelId('com.devdeck.app')
+
+/**
+ * Tema (H06.1, ADR-020): o main é a fonte única. `themeSource` muda o `prefers-color-scheme` do
+ * Chromium (o tokens.css troca sozinho) e o tema dos diálogos nativos. O fundo da janela vem do
+ * mapa fixo THEME_BG, nunca do renderer.
+ */
+function applyTheme(pref: ThemePref): void {
+  nativeTheme.themeSource = pref
+  win?.setBackgroundColor(themeBg(nativeTheme.shouldUseDarkColors))
+}
 
 function openExternalSafe(url: string): void {
   if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
@@ -116,8 +127,8 @@ function createWindow(): void {
     height: size ? Number(size[2]) : 920,
     minWidth: 1100,
     minHeight: 680,
-    // Mesmo tom de --bg (styles/tokens.css): evita clarão antes do CSS carregar.
-    backgroundColor: '#0b0d12',
+    // Mesmo tom de --bg do tema efetivo (styles/tokens.css): evita clarão antes do CSS carregar.
+    backgroundColor: themeBg(nativeTheme.shouldUseDarkColors),
     title: 'DevDeck',
     autoHideMenuBar: true,
     webPreferences: {
@@ -191,6 +202,7 @@ function registerIpc(): void {
       (k) => before[k] !== after[k]
     )
     if (runtimeChanged) agent.resetIdleSessions()
+    if (before.theme !== after.theme) applyTheme(after.theme)
     return after
   })
   handle('settings:setApiKey', [v.apiKey], (key) => {
@@ -304,6 +316,10 @@ app.whenReady().then(() => {
   if (!devUrl()) Menu.setApplicationMenu(null)
   hardenWebContents()
   registerIpc()
+  // Antes da janela: o backgroundColor inicial e a primeira pintura já saem no tema salvo.
+  applyTheme(getSettings().theme)
+  // Windows trocou de tema (com 'system') ou o themeSource mudou: o fundo nativo acompanha.
+  nativeTheme.on('updated', () => win?.setBackgroundColor(themeBg(nativeTheme.shouldUseDarkColors)))
   createWindow()
   agenda.startAgendaScheduler()
   checkAchievements()

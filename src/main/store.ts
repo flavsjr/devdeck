@@ -18,6 +18,7 @@ import type {
   SessionMeta
 } from '@shared/types'
 import { DEFAULT_UI, sanitizeUi } from '@shared/layout'
+import { resolveTheme } from './lib/theme'
 import { feedView, mcpView, migrateFeeds, migrateMcpList, sealFeed, sealMcp, unsealFeed, unsealMcp, type Cipher, type StoredIcsFeed, type StoredMcpEntry } from './lib/secrets'
 
 // Persistência simples em JSON dentro de %APPDATA%/DevDeck.
@@ -123,15 +124,22 @@ const DEFAULT_SETTINGS: StoredSettings = {
   spotifyUrl: '',
   lastWorkspace: null,
   ui: DEFAULT_UI,
+  // Substituído na leitura por resolveTheme (padrão depende de o settings já existir).
+  theme: 'system',
   settingsVersion: SETTINGS_VERSION
 }
 
 const settingsFile = (): string => join(root(), 'settings.json')
 
 function loadStoredSettings(): StoredSettings {
-  const raw = { ...DEFAULT_SETTINGS, ...readJson<Partial<StoredSettings>>(settingsFile(), {}) }
+  const file = settingsFile()
+  // Settings existente = arquivo no disco (mesmo ilegível); instalação nova = sem arquivo (H06.1).
+  const existia = existsSync(file)
+  const disk = readJson<Partial<StoredSettings> | null>(file, {}) ?? {}
+  const raw = { ...DEFAULT_SETTINGS, ...disk }
   // Valor de disco fora da faixa (arquivo editado à mão, versão antiga) volta para o limite.
-  return { ...raw, ui: sanitizeUi(raw.ui) }
+  // O tema resolvido é gravado na próxima escrita, então a escolha do padrão acontece uma vez só.
+  return { ...raw, ui: sanitizeUi(raw.ui), theme: resolveTheme(disk.theme, existia) }
 }
 
 export function getSettings(): AppSettings {

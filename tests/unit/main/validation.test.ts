@@ -32,6 +32,12 @@ describe('settingsPatch', () => {
     expect(v.settingsPatch.safeParse({ model: 'gpt-4' }).success).toBe(false)
     expect(v.settingsPatch.safeParse({ spotifyUrl: 'https://evil.example' }).success).toBe(false)
   })
+  it('theme: aceita só system, dark e light (H06.1)', () => {
+    for (const ok of ['system', 'dark', 'light']) expect(v.settingsPatch.safeParse({ theme: ok }).success).toBe(true)
+    for (const bad of ['', 'DARK', 'auto', 'high-contrast', '#ffffff', 'light; background:red', 1, null, true, ['dark'], { theme: 'dark' }]) {
+      expect(v.settingsPatch.safeParse({ theme: bad }).success).toBe(false)
+    }
+  })
 })
 
 describe('agendaEvent', () => {

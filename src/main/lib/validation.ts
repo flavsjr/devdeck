@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { RIGHT_PANEL_MAX, RIGHT_PANEL_MIN } from '@shared/layout'
 import { HELP_TOPICS } from './help'
+import { THEME_PREFS } from './theme'
 
 // Esquemas de entrada do IPC. Tudo que vem do renderer passa por aqui antes de tocar disco, rede ou processo.
 
@@ -26,7 +27,9 @@ export const settingsPatch = z
       sidebarOpen: z.boolean(),
       rightPanelOpen: z.boolean(),
       rightPanelWidth: z.number().int().min(RIGHT_PANEL_MIN).max(RIGHT_PANEL_MAX)
-    })
+    }),
+    // Lista fechada (ADR-020): o valor vira `nativeTheme.themeSource`, nunca cor ou CSS do renderer.
+    theme: z.enum(THEME_PREFS)
   })
   .partial()
 

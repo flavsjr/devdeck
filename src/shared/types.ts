@@ -22,7 +22,12 @@ export interface AppSettings {
   lastWorkspace: string | null
   /** Layout: sidebar, painel direito e largura (persistidos). */
   ui: UiPrefs
+  /** Tema (H06.1, ADR-020): o main aplica em `nativeTheme.themeSource`; o CSS segue `prefers-color-scheme`. */
+  theme: ThemePref
 }
+
+/** Preferência de tema. 'system' acompanha o Windows. */
+export type ThemePref = 'system' | 'dark' | 'light'
 
 export type McpTransport = 'stdio' | 'http' | 'sse'
 export type ToolPolicy = 'auto' | 'ask'

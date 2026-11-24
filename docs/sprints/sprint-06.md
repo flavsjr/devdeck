@@ -243,9 +243,9 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
 | T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |
 | T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | a fazer |
-| T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. Inclui teste que compara o `THEME_BG` com o `--bg` de cada tema no `tokens.css` | Back | a fazer |
-| T29 · H06.1 · `theme` em `AppSettings`, `z.enum` no `settingsPatch`, normalização em `store.ts` (inválido → `system`, padrão por instalação) + testes em `validation.test.ts`. Dep. T28 | Back | a fazer |
-| T30 · H06.1 · `index.ts`: `nativeTheme.themeSource` antes de criar a janela e a cada troca, `backgroundColor` pelo mapa e `setBackgroundColor` no `nativeTheme.on('updated')`. Dep. T29 | Back | a fazer |
+| T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. Inclui teste que compara o `THEME_BG` com o `--bg` de cada tema no `tokens.css` | Back | feito |
+| T29 · H06.1 · `theme` em `AppSettings`, `z.enum` no `settingsPatch`, normalização em `store.ts` (inválido → `system`, padrão por instalação) + testes em `validation.test.ts`. Dep. T28 | Back | feito |
+| T30 · H06.1 · `index.ts`: `nativeTheme.themeSource` antes de criar a janela e a cada troca, `backgroundColor` pelo mapa e `setBackgroundColor` no `nativeTheme.on('updated')`. Dep. T29 | Back | feito |
 | T31 · H06.1 · `tokens.css` com `@media (prefers-color-scheme: light)`. `contrast.test.ts` parametrizado: todo semântico existe nos dois temas e o caso do accent é invertido. Dep. T27 | Front | a fazer |
 | T32 · H06.1 · Versões claras de `--hover-tint`, `--shadow`, `--scrim` e `--viz-heat-*`. Regras do legado afetadas saem do legado (catraca no `css-layers.test.ts`). Dep. T31 | Front | a fazer |
 | T33 · H06.1 · Aparência em `SettingsView.tsx`: `radiogroup` e "Sistema (agora: X)" por `matchMedia`. Embed do Spotify segue o tema. Dep. T29 | Front | a fazer |
