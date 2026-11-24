@@ -229,7 +229,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T11 · H06.2 · Main traduz `ENOENT`, `EACCES` e rede no handler com contexto (`agent.ts` `revertChange`, `agenda.ts`, provedores). Dep. T04 | Back | feito |
 | T12 · H06.2 · `deveNotificarNativo` em `achievements.ts:52` e `agenda.ts:157`. Evento novo de lembrete main→renderer com `{ id, titulo }` em `src/shared/types.ts`. Dep. T05 | Back | feito |
 | T13 · H06.2 · Renderer: aprovação passa a usar `!document.hasFocus()` (`store.ts:293`), `FlowCard.tsx` passa pela regra e o lembrete vira toast info "Abrir na agenda". Dep. T10, T12 | Front | a fazer |
-| T14 · H06.2/H06.3 · Helper `tests/e2e/helpers/fake-api.mjs`: servidor em `127.0.0.1` com 200, 401 (`sk-ant-…`/`Bearer …` falsos), 429, 529 e billing, ligado por `ANTHROPIC_BASE_URL` | QA | a fazer |
+| T14 · H06.2/H06.3 · Helper `tests/e2e/helpers/fake-api.mjs`: servidor em `127.0.0.1` com 200, 401 (`sk-ant-…`/`Bearer …` falsos), 429, 529 e billing, ligado por `ANTHROPIC_BASE_URL` | QA | feito |
 | T15 · H06.3 · `redactPatterns` em `src/main/lib/secrets.ts` (padrões da ata + apiKey salva) + casos em `secrets.test.ts` | Back | feito |
 | T16 · H06.3 · Aplicar redact por padrão e por valor exato em `agent.ts:285`, `:303`, `:320` e `:469`. Dep. T15 | Back | feito |
 | T17 · H06.3/H06.7 · `src/main/lib/agentErrors.ts` (enum → `AgentErrorCode`, desempate por `hasApiKey`/`apiKeySource` + `api_error_status`, texto só como fallback, desconhecido → `unknown`). Teste em `tests/unit/main/agentErrors.test.ts` lendo as fixtures. Dep. T01 | Back | feito |
