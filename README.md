@@ -24,7 +24,23 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Keyboard first** | `Ctrl+K` command palette (tabs, chats, actions, fuzzy search), `Ctrl+1–8` to switch tabs, `Ctrl+N` new chat, `Ctrl+L` focus the prompt, `Ctrl+B` / `Ctrl+Alt+B` toggle the side panels, `Ctrl+/` or `F1` lists every shortcut. Approve or reject the focused change with `Alt+A` / `Alt+R`. |
 | **Layout** | "Indigo Night" dark theme built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
 
-## Getting started
+## Install (Windows)
+
+Download `DevDeck-Setup-<version>.exe` and `SHA256SUMS.txt` from the [Releases](https://github.com/flavsjr/devdeck/releases) page. The installer is per-user: no admin rights and no UAC prompt. Your data stays in `%APPDATA%\DevDeck` and is kept on update and uninstall. There is no auto-update, and this version ships the dark theme only.
+
+**Windows may say "Windows protected your PC".** The installer is not code-signed yet. Before clicking *More info → Run anyway*, check the hash:
+
+```powershell
+Get-FileHash .\DevDeck-Setup-0.5.0.exe -Algorithm SHA256
+```
+
+The value must match the installer's line in `SHA256SUMS.txt` from the same release. If it differs, do not install it and open an issue. To confirm the file was built by this repository's CI (optional):
+
+```powershell
+gh attestation verify .\DevDeck-Setup-0.5.0.exe --repo flavsjr/devdeck
+```
+
+## Run from source
 
 ```powershell
 npm install
@@ -34,10 +50,10 @@ npm run dev
 If Electron reports a missing binary, run `node node_modules/electron/install.js`.
 
 - **Claude:** open *Config → Authentication* and paste an Anthropic API key. It is encrypted with the OS keychain via `safeStorage`.
-- **Community (optional):** create a Supabase project and run [`supabase/migrations/0001_community.sql`](supabase/migrations/0001_community.sql). Add `{{ .Token }}` to the Magic Link email template, then copy `.env.example` to `.env`. Use the publishable/anon key only, never the `service_role` key.
+- **Community (optional):** create a Supabase project and run the migrations in [`supabase/migrations/`](supabase/migrations/) in order (`0001`, `0002`). Add `{{ .Token }}` to the Magic Link email template, then copy `.env.example` to `.env`. Use the publishable/anon key only, never the `service_role` key.
 - **Git providers:** in *Profile → Connections*, paste a read-only token for each provider you use.
 
-Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones), `npm run test:coverage`, `npm run build`, `npm start`. CI runs typecheck, tests, build and a secret scan on every push and PR.
+Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones), `npm run test:coverage`, `npm run build`, `npm start`, `npm run pack:win` (unpacked app in `dist/win-unpacked`) and `npm run dist:win` (installer). CI runs typecheck, tests, build and a secret scan on every push and PR.
 
 ### Security model
 
@@ -46,6 +62,10 @@ Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones),
 - "Approve all for this session" never applies outside the workspace or to `.git`, `.claude`, `.vscode`, `.github` and similar folders.
 - MCP environment variables and headers, ICS links, git tokens and the API key are encrypted with the OS keychain. The UI only ever sees a mask, and a stored secret is never reused for a different server target.
 - Trusting a workspace also covers every file under `.claude/` (skills, commands, agents); links there make DevDeck ask every time.
+- **Git never runs repository-configured programs before you trust them.** If `.git/config` has anything beyond plain data (fsmonitor, filters, textconv, hooks path, includes…) or `.git` points elsewhere, git is paused for that workspace, including git run by the agent. Even in a trusted repository, DevDeck runs git by absolute path with fsmonitor and hooks disabled.
+- "Always this session" only applies to paths inside the workspace; tool calls that touch other paths ask every time.
+- MCP server URLs carrying a token in the query string are refused: put credentials in a header.
+- The installed app ships with Electron fuses that block `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`, verifies the asar integrity and refuses remote debugging switches.
 
 ## How we work
 
