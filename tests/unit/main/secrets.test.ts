@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { McpServerEntry } from '../../../src/shared/types'
+import type { McpServerEntry, McpServerInput } from '../../../src/shared/types'
 import {
   MASK,
   SecretError,
+  assertNoSecretInUrl,
   feedView,
   maskIcsUrl,
   maskValue,
@@ -16,8 +17,10 @@ import {
   sameTarget,
   sealFeed,
   sealMcp,
+  secretValues,
   unsealFeed,
   unsealMcp,
+  urlOrigin,
   type Cipher,
   type StoredMcpEntry
 } from '../../../src/main/lib/secrets'
@@ -210,5 +213,24 @@ describe('env perigosa exige redigitar segredos (security review)', () => {
     const stored = { ...gh, env: { ...gh.env, HTTPS_PROXY: 'http://corp:3128' } }
     expect(resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, HTTPS_PROXY: null } }, stored).env).toEqual(stored.env)
     expect(resolveMcpInput({ ...gh, env: { GITHUB_TOKEN: null, HTTPS_PROXY: 'http://corp:3128' } }, stored).env).toEqual(stored.env)
+  })
+})
+
+describe('URL de MCP sem credencial (H05.8)', () => {
+  const http = (url: string): McpServerInput => ({ name: 'remoto', enabled: true, type: 'http', url })
+  it('token na query é recusado com orientação de header', () => {
+    for (const u of ['https://mcp.example.com/sse?token=abc', 'https://mcp.example.com/?api_key=x', 'https://mcp.example.com/?Access_Token=x'])
+      expect(() => resolveMcpInput(http(u), undefined), u).toThrow(/header/)
+  })
+  it('usuário e senha na URL são recusados', () => {
+    expect(() => resolveMcpInput(http('https://u:p@mcp.example.com/'), undefined)).toThrow(/usuário\/senha/)
+  })
+  it('query sem credencial passa; stdio não é conferido', () => {
+    expect(resolveMcpInput(http('https://mcp.example.com/mcp?version=2'), undefined).url).toBe('https://mcp.example.com/mcp?version=2')
+    expect(() => assertNoSecretInUrl(undefined)).not.toThrow()
+  })
+  it('urlOrigin tira query; secretValues inclui a query para o redact', () => {
+    expect(urlOrigin('https://mcp.example.com/a?x=1#f')).toBe('https://mcp.example.com/a')
+    expect(secretValues({ name: 'r', enabled: true, type: 'http', url: 'https://h/?v=segredo123' })).toContain('segredo123')
   })
 })
