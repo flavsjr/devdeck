@@ -84,6 +84,14 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
         </span>
       </div>
 
+      {a.scope && (
+        <p className="approval-scope" role="note">
+          <span className="badge">{a.scope === 'outside' ? 'fora do workspace' : 'pasta sensível'}</span>
+          {a.scope === 'outside'
+            ? ' Este caminho fica fora do workspace. "Sempre nesta sessão" vale só dentro dele, por isso o DevDeck pergunta de novo.'
+            : ' Este caminho está numa pasta sensível (.git, .claude, .github…). Confira antes de aprovar.'}
+        </p>
+      )}
       {isFile && a.previewError && (
         <p className="approval-warn" role="note">
           {a.previewError}
@@ -118,6 +126,7 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
         <button className="btn primary" onClick={() => decide(true)} aria-keyshortcuts="Alt+A">
           Aprovar <kbd className="on-primary">Alt+A</kbd>
         </button>
+        {a.allowAlways !== false && (
         <button
           className="btn ghost"
           disabled={isFile && partialPreview}
@@ -132,6 +141,7 @@ function ApprovalCard({ a }: { a: ApprovalRequest }) {
         >
           {isFile ? 'Aprovar todas da sessão' : 'Sempre nesta sessão'}
         </button>
+        )}
         <span className="spacer" />
         {showFeedback ? (
           <button className="btn danger" onClick={() => decide(false)}>

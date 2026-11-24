@@ -135,6 +135,10 @@ export interface ApprovalRequest {
   previewError?: string
   /** before/after cortados no main (arquivo acima de 1 MB): a prévia é parcial. */
   previewPartial?: boolean
+  /** Algum caminho da tool fica fora do workspace ou em pasta sensível (H05.5). */
+  scope?: 'outside' | 'sensitive'
+  /** false = "Sempre nesta sessão" não vale para este pedido (o main recusa mesmo se pedido). */
+  allowAlways?: boolean
   /** command */
   command?: string
   description?: string

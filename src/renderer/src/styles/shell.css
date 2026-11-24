@@ -605,4 +605,19 @@
     color: var(--warn);
     background: var(--warn-bg);
   }
+
+  /* Pedido com caminho fora do workspace ou em pasta sensível (H05.5) */
+  .approval-scope {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--fg-2);
+  }
+  .approval-scope .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: var(--r-sm, 6px);
+    font-weight: 600;
+    color: var(--on-warn);
+    background: var(--warn);
+  }
 }
