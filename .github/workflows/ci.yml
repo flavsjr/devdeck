@@ -63,6 +63,8 @@ jobs:
       - run: npm ci
       # pack:win = build + electron-builder --dir (afterPack confere o SDK) + verify-fuses
       - run: npm run pack:win
+      # E2E com Playwright no Electron: fluxo "Git pausado" → confiar (diálogo nativo respondido pelo teste).
+      - run: npm run test:e2e
 
   secrets:
     name: secrets (gitleaks)

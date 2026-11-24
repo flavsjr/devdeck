@@ -53,7 +53,7 @@ Se o Electron reclamar de binário ausente, rode `node node_modules/electron/ins
 - **Comunidade (opcional):** crie um projeto no Supabase e rode as migrations de [`supabase/migrations/`](supabase/migrations/) em ordem (`0001`, `0002`). Inclua `{{ .Token }}` no template de e-mail Magic Link e copie `.env.example` para `.env`. Use só a chave publishable/anon, nunca a `service_role`.
 - **Provedores git:** em *Perfil → Conexões*, cole um token de leitura para cada provedor que você usa.
 
-Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `npm run test:coverage`, `npm run build`, `npm start`, `npm run pack:win` (app sem instalador em `dist/win-unpacked`) e `npm run dist:win` (instalador). O CI roda typecheck, testes, build e varredura de segredos em todo push e PR.
+Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `npm run test:coverage`, `npm run build`, `npm start`, `npm run test:e2e` (ponta a ponta com Playwright no app Electron), `npm run pack:win` (app sem instalador em `dist/win-unpacked`) e `npm run dist:win` (instalador). O CI roda typecheck, testes, build e varredura de segredos em todo push e PR.
 
 ### Modelo de segurança
 

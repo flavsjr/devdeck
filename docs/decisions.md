@@ -82,6 +82,7 @@ Formato curto: contexto → decisão → consequências. Novas decisões entram 
 ## ADR-017 — Dependências de UI
 - **Decisão:** `lucide-react` (ícones) e `@fontsource-variable/inter` / `jetbrains-mono` (fontes locais, `font-src 'self'`, nunca `data:`) entram com versão exata, publicadas há mais de 7 dias, sem scripts de instalação. `axe-core` só em dev (`DEVDECK_AXE`). `cmdk` rejeitado: puxaria vários pacotes Radix e um fuzzy próprio; a paleta é nossa (`lib/fuzzy` testada) e reaproveita o `Modal` com focus-trap.
 - **Consequências:** +~300 KB de fontes no pacote (só o subset latino carrega).
+- **Emenda (Sprint 05):** `playwright-core` 1.65.1 (devDependency exata, sem dependências nem scripts de instalação, sem baixar navegadores) para E2E no Electron (`npm run test:e2e`, `tests/e2e/`). Diálogos nativos são respondidos pelo teste interceptando `dialog.showMessageBox` no main; o app roda com `--user-data-dir` descartável.
 
 ## ADR-018 — Git sem executar código do repositório antes da confiança
 - **Contexto (B3):** `git status`/`diff`/`restore` executam o que o `.git/config` do repositório manda (fsmonitor, filtros clean/smudge/process, textconv, `diff.external`, hooks). Repositório recebido pronto (zip, pasta copiada) executaria código só por ser aberto. O simple-git chamava `git` sem caminho absoluto com cwd no workspace (no Windows, um `git.exe` plantado na raiz rodaria), e o próprio Claude Code roda `git status` no cwd ao abrir a sessão.

@@ -11,6 +11,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - **Release em rascunho pelo CI** com `SHA256SUMS.txt` e attestation de build; o README ensina a conferir o hash e a procedência antes de instalar.
 - Aba Alterações e barra de status mostram **"Git pausado"** quando o repositório tem configuração do git que executa programas, com o botão "Revisar configurações…"; a branch atual aparece na barra de status.
 - Card de aprovação avisa quando o Edit vai falhar (`old_string` vazio, ausente ou repetido) e quando a prévia do diff é parcial; mostra o selo "fora do workspace" ou "pasta sensível".
+- Teste ponta a ponta com Playwright no app Electron (`npm run test:e2e`): "Git pausado" → "Revisar configurações…" → confiar, com o controle positivo do filtro; roda no job de empacotamento do CI.
 - Limite na comunidade: 120 curtidas por hora e 10 denúncias por dia por usuário (migration `0002`).
 
 ### Alterado

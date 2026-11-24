@@ -53,7 +53,7 @@ If Electron reports a missing binary, run `node node_modules/electron/install.js
 - **Community (optional):** create a Supabase project and run the migrations in [`supabase/migrations/`](supabase/migrations/) in order (`0001`, `0002`). Add `{{ .Token }}` to the Magic Link email template, then copy `.env.example` to `.env`. Use the publishable/anon key only, never the `service_role` key.
 - **Git providers:** in *Profile → Connections*, paste a read-only token for each provider you use.
 
-Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones), `npm run test:coverage`, `npm run build`, `npm start`, `npm run pack:win` (unpacked app in `dist/win-unpacked`) and `npm run dist:win` (installer). CI runs typecheck, tests, build and a secret scan on every push and PR.
+Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones), `npm run test:coverage`, `npm run build`, `npm start`, `npm run test:e2e` (Playwright end-to-end on the Electron app), `npm run pack:win` (unpacked app in `dist/win-unpacked`) and `npm run dist:win` (installer). CI runs typecheck, tests, build and a secret scan on every push and PR.
 
 ### Security model
 
