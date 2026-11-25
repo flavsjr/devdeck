@@ -217,6 +217,7 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
   - **Baixa:** em workspace confiado, hook `PermissionRequest` ou `disableAllHooks` do projeto podem transformar o `ask` em `allow`; ambos só entram com confiança (ADR-013). Registrar como risco aceito.
 - **Instância única:** sem `app.requestSingleInstanceLock()`; abrir o DevDeck de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck` (corrida nos JSON do store). Corrigir com foco na janela existente em `second-instance`.
 - **Env restrito não é sandbox:** sem confiança, o agente ofereceu rodar git "sem essa variável". Um `env -u GIT_DIR git …` depende só da aprovação do Bash; o card precisa deixar claro quando o comando mexe em `GIT_*`.
+- **Dependabot #1 (média, 2026-11-25):** `minimatch` `>= 7.0.0, < 11.0.1` com DoS por amplificação de `globparts` (correção na 11.0.1). Entra só pelo `electron-builder@26.18.0` → `app-builder-lib`: `minimatch@10.2.6` direto e `9.0.9` via `@electron/universal`; as cópias 3.x e 5.x estão fora da faixa. É dependência de build (escopo `development`), não vai no instalador e os padrões de glob vêm do próprio repo, então o risco real é baixo. Corrigir com `electron-builder` que já traga 11.0.1+ ou `overrides` no `package.json`, conferir com `npm ls minimatch` e rodar o dry run do `release.yml` (DevOps; Cybersecurity revisa o override).
 
 ## Backlog para a Sprint 07
 - "Ver no chat" abrindo a sessão do erro quando ela não é a ativa (`navegar` com `sessionId` UUID): exige TL e Sec.
