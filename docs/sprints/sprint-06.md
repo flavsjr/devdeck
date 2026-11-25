@@ -1,6 +1,6 @@
 # Sprint 06 — Feedback claro: notificações, erros legíveis e tema claro
 
-**Período:** 2026-11-24 → 2026-12-08 · **Versão alvo:** v0.6.0 · **Status:** ✅ fechada em 2026-11-25 (v0.6.0; tag e release com aprovação do usuário)
+**Período:** 2026-11-24 → 2026-12-08 · **Versão alvo:** v0.6.0 · **Status:** ✅ fechada em 2026-11-25 · [release v0.6.0](https://github.com/flavsjr/devdeck/releases/tag/v0.6.0) publicado (pre-release)
 
 > Painel vivo da sprint. Ata em `sprint-06/ata.md`, QA e security review em `sprint-06/qa.md`, spike em `sprint-06/spike-t01.md`.
 
@@ -260,6 +260,7 @@ Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-0
 | H06.10 | ✅ unit + integração no CI + live local | alta do debate (hook de deny) atendida; média do review (`permissionMode` de agente) mitigada |
 
 ## Entregas
+- **Release (2026-11-25):** tag `v0.6.0` em `01b2496` (main com o PR #6 e o #7, que corrigiu um falso positivo do axe no E2E do tema visto no CI da main). [Run 45675120894](https://github.com/flavsjr/devdeck/actions/runs/45675120894) verde: `DevDeck-Setup-0.6.0.exe` (SHA-256 `4707cf061e3a42e35bd67202788453fd7fed82d0946a3db6f8767a3136284e19`), `SHA256SUMS.txt` e attestation. [VirusTotal](https://www.virustotal.com/gui/file/4707cf061e3a42e35bd67202788453fd7fed82d0946a3db6f8767a3136284e19): **0/40** (usuário, 2026-11-25). Publicado pelo usuário como pre-release em 2026-11-25 18:40 UTC.
 - v0.6.0: tema claro (Sistema/Escuro/Claro), notificações tipadas com fila e conquista própria, erros do Claude legíveis (autenticação, limite, sobrecarga, créditos) sem vazar segredo, lista branca de tools do agente com trava em runtime e conectores do claude.ai desligados (H06.10), instância única, pilha de notificações abaixo do cabeçalho, migração do CSS legado (1.634 → 799 linhas, sem mudança visual comprovada).
 - E2E novos: tema, erros do Claude, notificações; integração com o SDK real (`agent-tools`); ferramenta de diff de estilo computado (`style-snapshot.mjs`).
 - ADR-022 (comando sempre pede aprovação) e emendas ao ADR-014 (tema claro, camada views) e ao ADR-022 (lista branca).
