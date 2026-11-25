@@ -5,6 +5,11 @@
 
 | Caso | Resultado | Evidência |
 |---|---|---|
+| H06.3/H06.7 E2E (T24, 2026-11-25): 401 com chave e Bearer falsos no corpo → "A chave da API foi recusada", um card por turno, axe sem serious/critical; 429/529/créditos → cards da H06.7 | ✅ | `node tests/e2e/auth-error.e2e.mjs` → "Erros do Claude: tudo ok" |
+| H06.3 E2E (T24): nenhum valor falso na tela/HTML (com "Detalhes técnicos" aberto), no stdout/stderr do Electron nem nos arquivos do `--user-data-dir` | ✅ | mesmo E2E; controle positivo: o servidor falso respondeu 401 com os valores no corpo |
+| H06.2 E2E (T25, 2026-11-25): conquista (1º turno no servidor falso), sucesso (salvar chave), aviso (nome de MCP inválido), info ("Nada novo para importar"), erro (MCP com `?token=`), axe na pilha a cada tipo; erro continua após 9 s | ✅ | `node tests/e2e/notifications.e2e.mjs` → "Notificações: tudo ok" (2 rodadas) |
+| T25 achado: axe pegava `color-contrast` no meio da animação de entrada do cartão | ✅ teste ajustado | espera as animações da pilha terminarem antes do axe (falso positivo, intermitente) |
+| T25 achado: erro persistente cobre "Importar do Claude" na aba MCP | ⚠️ → UX | registrado nos achados da sprint |
 | H06.1 contraste: todos os pares AA (texto ≥ 4,5; foco/UI ≥ 3) nos dois temas, sinal do diff sobre o fundo da linha, branco sobre accent invertido no claro, todo semântico do escuro existe no claro | ✅ | `tests/unit/renderer/contrast.test.ts` |
 | H06.1 `THEME_BG` × `--bg` dos dois temas | ✅ | `tests/unit/main/theme.test.ts` (o caso do claro deixou de ser pulado) |
 | H06.1 E2E (2026-11-25): troca Escuro ↔ Claro sem recarregar, `getBackgroundColor()` = `--bg`, "Sistema (agora: X)" e fundo seguindo o Windows, persistência após reiniciar; axe sem serious/critical nos dois temas em 8 abas, paleta, ajuda, card de aprovação e "Git pausado" | ✅ | `node tests/e2e/theme.e2e.mjs` → "Tema claro: tudo ok"; capturas 1280×720 em `sprint-06/tema-claro/` |

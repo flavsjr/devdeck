@@ -44,7 +44,7 @@ Fazer o DevDeck se comunicar com clareza (erro, aviso, sucesso e conquista disti
 - [ ] Regra pura `deveNotificarNativo({ focada, visivel })` em `src/shared`, com teste, usada nos 4 caminhos: `achievements.ts` e `agenda.ts` no main, aprovação e Flow no renderer. Nativa só para aprovação, lembrete e conquista, nunca para erro comum. A aprovação troca `document.hidden` por `!document.hasFocus()`.
 - [ ] Dado janela em foco, quando um lembrete da agenda dispara, então aparece um toast info com "Abrir na agenda" (navegação). O evento main→renderer leva só id e título, renderizados como texto.
 - [ ] Em 1280×720 e a ~900 px, a pilha não cobre o composer nem o card de aprovação. Com `prefers-reduced-motion` não há animação de entrada.
-- [ ] E2E dos 5 tipos por fluxo real, sem gancho de teste no pacote: erro (MCP com comando inválido), aviso (nome de MCP inválido), sucesso (salvar chave), info ("Nada novo para importar"), conquista (primeiro turno no servidor local; perfil semeado no `--user-data-dir` descartável como alternativa). axe sem violações com os 5 tipos visíveis.
+- [x] E2E dos 5 tipos por fluxo real, sem gancho de teste no pacote: erro (MCP com comando inválido), aviso (nome de MCP inválido), sucesso (salvar chave), info ("Nada novo para importar"), conquista (primeiro turno no servidor local; perfil semeado no `--user-data-dir` descartável como alternativa). axe sem violações com os 5 tipos visíveis.
 
 ### H06.3 — Erro de autenticação do Claude legível · Must · M
 *Como dev cuja sessão do Claude expirou, quero entender em português o que aconteceu e o que fazer, com um botão, para voltar a usar o chat sem procurar a solução.*
@@ -61,7 +61,7 @@ Fazer o DevDeck se comunicar com clareza (erro, aviso, sucesso e conquista disti
 - [ ] O erro do turno aparece no card do chat e não vira toast também. Se o usuário estiver em outra aba, aparece a notificação "Erro no chat: …" com a ação "Ver no chat".
 - [ ] "Tentar de novo" reenvia a última mensagem só por clique explícito, nunca sozinho, e fica desabilitado durante turno em andamento. O card não apaga o texto do composer.
 - [ ] Regressão: turno com falha de autenticação continua sem contar em estatísticas e conquistas (`lib/turns.ts`).
-- [ ] E2E com servidor em `127.0.0.1` que devolve 401 com `sk-ant-…` e `Bearer …` falsos no corpo: card certo e nenhum valor falso na tela nem no log.
+- [x] E2E com servidor em `127.0.0.1` que devolve 401 com `sk-ant-…` e `Bearer …` falsos no corpo: card certo e nenhum valor falso na tela nem no log.
 - [ ] Evidência manual no app instalado com a sessão OAuth expirada real (prints em `docs/sprints/sprint-06/`).
 
 ### H06.4 — Checklist de ameaça no template + repositório embutido · Should · P
@@ -176,6 +176,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
   - **Baixa:** teste do `decide()` recusando "Sempre" para PowerShell no main; `NO_PATH` em `toolpath.ts` cita `Task`, mas o nome atual da tool é `Agent` (mais restritivo, sem risco).
   - **Baixa:** em workspace confiado, hook `PermissionRequest` ou `disableAllHooks` do projeto podem transformar o `ask` em `allow`; ambos só entram com confiança (ADR-013). Registrar como risco aceito.
 - **Instância única:** sem `app.requestSingleInstanceLock()`; abrir o DevDeck de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck` (corrida nos JSON do store). Corrigir com foco na janela existente em `second-instance`.
+- **Pilha de notificações cobre ações do cabeçalho (E2E da T25, 2026-11-25):** a pilha fica fixa no topo à direita do conteúdo; um erro (que não some sozinho) fica por cima de "Importar do Claude"/"Adicionar" na aba MCP até o usuário fechar. O critério da H06.2 só exige não cobrir o composer e o card de aprovação. Levar ao UX: descer a pilha para abaixo do `view-head` ou para o canto inferior.
 - **Env restrito não é sandbox:** sem confiança, o agente ofereceu rodar git "sem essa variável". Um `env -u GIT_DIR git …` depende só da aprovação do Bash; o card precisa deixar claro quando o comando mexe em `GIT_*`.
 - **Dependabot #1 (média, 2026-11-25):** `minimatch` `>= 7.0.0, < 11.0.1` com DoS por amplificação de `globparts` (correção na 11.0.1). Entra só pelo `electron-builder@26.18.0` → `app-builder-lib`: `minimatch@10.2.6` direto e `9.0.9` via `@electron/universal`; as cópias 3.x e 5.x estão fora da faixa. É dependência de build (escopo `development`), não vai no instalador e os padrões de glob vêm do próprio repo, então o risco real é baixo. Corrigir com `electron-builder` que já traga 11.0.1+ ou `overrides` no `package.json`, conferir com `npm ls minimatch` e rodar o dry run do `release.yml` (DevOps; Cybersecurity revisa o override).
 
@@ -217,8 +218,8 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T21 · H06.3 · `src/renderer/src/lib/authStatus.ts` (deriva o estado dos itens da sessão) + teste. | Front | feito |
 | T22 · H06.3 · Microcopy dos cards de autenticação e dos 4 da H06.7, com a URL de "Como entrar" | UX | feito (`sprint-06/ux-notificacoes.md`) |
 | T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | feito |
-| T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | a fazer |
-| T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
+| T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | feito |
+| T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | feito |
 | T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |
 | T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | feito (paleta validada por contrast.test; revisão da UX) |
 | T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. | Back | feito |
