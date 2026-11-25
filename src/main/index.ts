@@ -32,7 +32,7 @@ import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import { resolveMcpInput } from './lib/secrets'
 import { helpUrl } from './lib/help'
-import { setMainWindow } from './mainWindow'
+import { getMainWindow, mostrarJanelaPrincipal, setMainWindow } from './mainWindow'
 import { DEBUG_SWITCHES, hasDebugSwitch } from './lib/cli'
 import { themeBg, type ThemePref } from './lib/theme'
 import * as agenda from './agenda'
@@ -67,9 +67,25 @@ function registerAppProtocol(): void {
 // Só em dev (QA e capturas): dados isolados numa pasta descartável, sem tocar nos dados reais do usuário.
 if (devUrl() && process.env.DEVDECK_USER_DATA) app.setPath('userData', process.env.DEVDECK_USER_DATA)
 
-// Antes de qualquer leitura de userData: herda dados da época VibeDeck.
-migrateLegacyData()
-migrateSettings()
+/**
+ * Uma instância por pasta de dados (achado da Sprint 05): duas instâncias sobre o mesmo userData
+ * disputavam os JSON do store. O lock vale por userData, então o E2E com --user-data-dir próprio segue
+ * isolado. A segunda abertura só traz a janela da primeira para a frente; a linha de comando dela é
+ * ignorada (nenhum argumento de outro processo vira ação aqui).
+ */
+const primeiraInstancia = app.requestSingleInstanceLock()
+if (!primeiraInstancia) app.exit(0)
+app.on('second-instance', () => {
+  if (getMainWindow()) mostrarJanelaPrincipal()
+  else if (app.isReady()) createWindow()
+})
+
+// Antes de qualquer leitura de userData: herda dados da época VibeDeck. Só a primeira instância
+// toca nos arquivos (app.exit não interrompe o resto deste módulo de forma síncrona).
+if (primeiraInstancia) {
+  migrateLegacyData()
+  migrateSettings()
+}
 app.setAppUserModelId('com.devdeck.app')
 
 /**
@@ -300,6 +316,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  if (!primeiraInstancia) return
   if (!devUrl()) registerAppProtocol()
   // safeStorage só funciona depois do ready: cifra segredos antigos em texto puro (v0.4.0).
   migrateSecrets()

@@ -4,6 +4,15 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Corrigido
+- Abrir o DevDeck de novo criava uma segunda instância sobre os mesmos dados (risco de corromper chats e configurações); agora a janela que já está aberta vem para a frente.
+
+### Segurança
+- `minimatch` das ferramentas de empacotamento atualizado para 11.x (GHSA-g3hv-75wg-m249, negação de serviço por padrão de glob). Não muda o app instalado.
+
+### Alterado
+- Processo do squad: modelo por papel, brief em vez de releitura, trilha rápida para achados pequenos, sprint dividida em painel, ata e QA (`docs/squad.md`).
+
 ## [0.5.0] — 2026-11-25 · Sprint 05
 
 ### Adicionado
