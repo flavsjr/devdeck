@@ -1,0 +1,22 @@
+{
+  "scenario": "overloaded",
+  "sdk": "0.3.330",
+  "capturedAt": "2026-11-24",
+  "origem": "ANTHROPIC_API_KEY falsa + servidor local devolvendo 529 overloaded_error",
+  "init": {
+    "apiKeySource": "ANTHROPIC_API_KEY"
+  },
+  "assistant": {
+    "error": "server_error",
+    "text": "API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:59755)."
+  },
+  "result": {
+    "subtype": "success",
+    "is_error": true,
+    "result": "API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:59755).",
+    "api_error_status": 529
+  },
+  "thrown": {
+    "message": "Claude Code returned an error result: API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:59755)."
+  }
+}

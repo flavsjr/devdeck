@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AchievementsSummary, ProfileSummary, ProviderId } from '@shared/types'
 import { ACHIEVEMENTS, CATEGORY_LABEL } from '@shared/achievements'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { usd } from '../format'
 import { IconRefresh } from './Icons'
@@ -126,7 +127,7 @@ function ProviderCard({ id, summary, onChange }: { id: ProviderId; summary: Prof
       onChange(await window.deck.profile.setToken(id, token, id === 'gitlab' ? baseUrl : undefined))
       setToken('')
     } catch (e) {
-      notify(e instanceof Error ? e.message : String(e))
+      notify({ tipo: 'erro', texto: errorText(e) })
     } finally {
       setBusy(false)
     }
@@ -253,7 +254,7 @@ export function ProfileView() {
     try {
       setSummary(await window.deck.profile.refresh())
     } catch (e) {
-      notify(e instanceof Error ? e.message : String(e))
+      notify({ tipo: 'erro', texto: errorText(e) })
     } finally {
       setRefreshing(false)
     }

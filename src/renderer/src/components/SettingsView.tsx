@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import type { AppSettings, EffortLevel } from '@shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type { AppSettings, EffortLevel, ThemePref } from '@shared/types'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
+import { useTemaClaro } from '../useColorScheme'
 
 const MODELS = [
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5 (padrão)' },
@@ -9,12 +11,29 @@ const MODELS = [
   { id: 'claude-fable-5-2', label: 'Claude Fable 5.2' }
 ]
 const EFFORTS: (EffortLevel | '')[] = ['', 'low', 'medium', 'high', 'xhigh', 'max']
+const TEMAS: { id: ThemePref; label: string }[] = [
+  { id: 'system', label: 'Sistema' },
+  { id: 'dark', label: 'Escuro' },
+  { id: 'light', label: 'Claro' }
+]
 
 export function SettingsView() {
   const settings = useStore((s) => s.settings)
   const setSettings = useStore((s) => s.setSettings)
   const notify = useStore((s) => s.notify)
+  const focoAlvo = useStore((s) => s.focoAlvo)
+  const limparFocoAlvo = useStore((s) => s.limparFocoAlvo)
   const [key, setKey] = useState('')
+  const keyRef = useRef<HTMLInputElement>(null)
+  const pronto = Boolean(settings)
+  const claro = useTemaClaro()
+
+  // "Usar chave da API" / "Trocar chave" no card de erro do chat: foca o campo ao abrir a aba.
+  useEffect(() => {
+    if (focoAlvo !== 'chaveApi' || !pronto) return
+    keyRef.current?.focus()
+    limparFocoAlvo()
+  }, [focoAlvo, pronto, limparFocoAlvo])
 
   if (!settings) return null
 
@@ -22,13 +41,14 @@ export function SettingsView() {
     setSettings(await window.deck.settings.update(patch))
   }
 
-  const saveKey = async (): Promise<void> => {
+  /** Campo vazio remove a chave salva. */
+  const saveKey = async (valor: string | null): Promise<void> => {
     try {
-      setSettings(await window.deck.settings.setApiKey(key || null))
+      setSettings(await window.deck.settings.setApiKey(valor || null))
       setKey('')
-      notify('Chave salva (criptografada pelo sistema).')
+      notify({ tipo: 'sucesso', texto: valor ? 'Chave salva (criptografada pelo sistema).' : 'Chave removida.' })
     } catch (e) {
-      notify(e instanceof Error ? e.message : String(e))
+      notify({ tipo: 'erro', texto: errorText(e) })
     }
   }
 
@@ -39,18 +59,42 @@ export function SettingsView() {
       </div>
 
       <div className="card">
+        <div className="panel-title" id="aparencia-titulo">
+          Aparência
+        </div>
+        {/* H06.1: troca na hora (o main aplica o nativeTheme) e "Sistema" mostra o tema efetivo. */}
+        <div className="theme-choice" role="radiogroup" aria-labelledby="aparencia-titulo">
+          {TEMAS.map((t) => (
+            <label key={t.id} className="theme-option">
+              <input type="radio" name="tema" value={t.id} checked={settings.theme === t.id} onChange={() => void update({ theme: t.id })} />
+              {/* Com Escuro/Claro forçado, o renderer não vê o tema do Windows: o "agora" só aparece em Sistema. */}
+              {t.id === 'system' && settings.theme === 'system' ? `Sistema (agora: ${claro ? 'Claro' : 'Escuro'})` : t.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
         <div className="panel-title">Autenticação</div>
         <p className="muted small">
           Chave da API Anthropic (console.anthropic.com). Fica criptografada com o cofre do sistema (DPAPI no Windows) e é passada só ao processo do agente.
           Sem chave, o SDK tenta as credenciais já existentes do Claude Code nesta máquina.
         </p>
         <div className="row-actions">
-          <input type="password" placeholder={settings.hasApiKey ? '•••••••• (salva)' : 'sk-ant-...'} value={key} onChange={(e) => setKey(e.target.value)} />
-          <button className="btn primary" onClick={() => void saveKey()} disabled={!key}>
+          <input
+            ref={keyRef}
+            id="api-key"
+            type="password"
+            aria-label="Chave da API Anthropic"
+            placeholder={settings.hasApiKey ? '•••••••• (salva)' : 'sk-ant-...'}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
+          <button className="btn primary" onClick={() => void saveKey(key)} disabled={!key}>
             Salvar chave
           </button>
           {settings.hasApiKey && (
-            <button className="btn ghost" onClick={() => void window.deck.settings.setApiKey(null).then(setSettings)}>
+            <button className="btn ghost" onClick={() => void saveKey(null)}>
               Remover
             </button>
           )}

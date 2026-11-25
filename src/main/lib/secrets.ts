@@ -238,6 +238,50 @@ export function redact(message: string, secrets: (string | undefined)[]): string
   return out
 }
 
+// ---------- Redação por padrão (H06.3, ADR-021) ----------
+// A mensagem de erro do SDK/Claude Code pode trazer chave ou token em formato que não conhecemos
+// pelo valor exato (outra chave, token OAuth, JWT). Estes padrões cobrem os formatos conhecidos;
+// o rótulo (Bearer, x-api-key, nome do parâmetro) fica para o texto continuar legível.
+
+/** Chave da Anthropic (`sk-ant-api03-…`, `sk-ant-oat01-…`). */
+const RE_ANTHROPIC_KEY = /sk-ant-[\w-]+/g
+/** `Authorization: Bearer <token>`. O valor para em espaço ou aspas para não engolir o JSON em volta. */
+const RE_AUTH_SCHEME = /\b(Bearer)(\s+)[^\s"'`]+/gi
+/**
+ * `Authorization: Basic <valor>` e `Authorization: token <valor>` (security review da Sprint 06). Só depois de
+ * `Authorization`: "token" solto é palavra comum ("the token is invalid") e não pode ser mascarado.
+ */
+const RE_AUTH_HEADER_OTHER = /\b(Authorization["']?\s*[:=]\s*["']?(?:Basic|token))(\s+)[^\s"'`]+/gi
+/** JWT: três partes base64url, a primeira começando por `eyJ` (`{"`). */
+const RE_JWT = /\beyJ[\w-]+\.[\w-]+\.[\w-]+/g
+/** `x-api-key: <valor>`, `"x-api-key":"<valor>"`, `api_key=<valor>`. */
+const RE_API_KEY_FIELD = /\b((?:x-)?api[-_]?key)(["']?\s*[:=]\s*["']?)[^\s"'`,;&}]+/gi
+/** Parâmetros de query/fragmento com credencial: `?token=`, `&key=`, `&code=`, `#access_token=`… */
+const RE_SECRET_QUERY = /([?&#])(access_token|refresh_token|id_token|token|api_key|apikey|key|code|client_secret)=[^&#\s"'`<>]+/gi
+
+/**
+ * Mascara segredos por padrão e a apiKey salva (por valor exato). Pura e idempotente:
+ * texto sem segredo volta igual.
+ */
+export function redactPatterns(text: string, apiKey?: string | null): string {
+  let out = apiKey ? redact(text, [apiKey]) : text
+  out = out.replace(RE_ANTHROPIC_KEY, MASK)
+  out = out.replace(RE_JWT, MASK)
+  out = out.replace(RE_AUTH_SCHEME, (_m, scheme: string, sp: string) => `${scheme}${sp}${MASK}`)
+  out = out.replace(RE_AUTH_HEADER_OTHER, (_m, head: string, sp: string) => `${head}${sp}${MASK}`)
+  out = out.replace(RE_API_KEY_FIELD, (_m, name: string, sep: string) => `${name}${sep}${MASK}`)
+  out = out.replace(RE_SECRET_QUERY, (_m, lead: string, name: string) => `${lead}${name}=${MASK}`)
+  return out
+}
+
+/**
+ * Redação completa: primeiro os valores exatos conhecidos (apiKey salva, env/headers de MCP),
+ * depois os padrões. Use em toda mensagem de erro que vai para IPC, console ou disco.
+ */
+export function redactAll(text: string, knownSecrets: (string | null | undefined)[]): string {
+  return redactPatterns(redact(text, knownSecrets.map((s) => s ?? undefined)))
+}
+
 /** Todos os valores secretos de uma entrada (para `redact`), incluindo a query da URL. */
 export function secretValues(e: McpServerEntry): string[] {
   let query: string[] = []

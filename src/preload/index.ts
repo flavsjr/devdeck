@@ -67,6 +67,9 @@ const api: DeckApi = {
     removeFeed: (id) => invoke('agenda:removeFeed', id),
     syncFeeds: () => invoke('agenda:syncFeeds')
   },
+  help: {
+    open: (topic) => invoke('help:open', topic)
+  },
   openExternal: (url) => invoke('shell:openExternal', url)
 }
 

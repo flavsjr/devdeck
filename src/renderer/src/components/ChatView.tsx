@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatItem } from '@shared/types'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { basename, duration, usd } from '../format'
 import { Markdown } from './Markdown'
 import { DiffView } from './DiffView'
+import { AgentErrorCard } from './AgentErrorCard'
 import { IconSend, IconStop, IconX } from './Icons'
 import { Logo } from './Logo'
 import { keysFor } from '../lib/shortcuts'
+import { mensagemParaRepetir } from '../lib/agentErrorCard'
 
 const EMPTY: ChatItem[] = []
 
@@ -45,7 +48,7 @@ function ChangeCard({ sessionId, item }: { sessionId: string; item: Extract<Chat
       : `Reverter a alteração em ${basename(item.filePath)}?`
     if (!confirm(msg)) return
     const r = await window.deck.agent.revertChange(sessionId, item.id)
-    if (!r.ok) notify(r.error ?? 'Falha ao reverter.')
+    if (!r.ok) notify({ tipo: 'erro', texto: r.error ? errorText(r.error) : `Não foi possível reverter a alteração em ${basename(item.filePath)}.` })
   }
   return (
     <div className={`change-card ${item.reverted ? 'reverted' : ''}`}>
@@ -70,7 +73,17 @@ function ChangeCard({ sessionId, item }: { sessionId: string; item: Extract<Chat
   )
 }
 
-function Item({ sessionId, item }: { sessionId: string; item: ChatItem }) {
+interface ItemProps {
+  sessionId: string
+  item: ChatItem
+  /** Itens da sessão (o card de erro descobre se é do último turno). */
+  items: ChatItem[]
+  busy: boolean
+  /** Quando o ChatView montou: card de erro mais novo que isso acabou de chegar e é anunciado. */
+  montadoEm: number
+}
+
+function Item({ sessionId, item, items, busy, montadoEm }: ItemProps) {
   switch (item.kind) {
     case 'user':
       return (
@@ -108,7 +121,17 @@ function Item({ sessionId, item }: { sessionId: string; item: ChatItem }) {
         </div>
       )
     case 'error':
-      return <div className="msg error">{item.text}</div>
+      // Item antigo, sem código: como antes (texto já gravado em PT-BR).
+      if (!item.code) return <div className="msg error">{item.text}</div>
+      return (
+        <AgentErrorCard
+          sessionId={sessionId}
+          item={item}
+          podeRepetir={mensagemParaRepetir(items, item.id) !== null}
+          ocupado={busy}
+          anunciar={item.ts >= montadoEm}
+        />
+      )
     default:
       return null
   }
@@ -126,6 +149,7 @@ export function ChatView() {
   const send = useStore((s) => s.send)
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
+  const [montadoEm] = useState(() => Date.now())
 
   useEffect(() => {
     const el = listRef.current
@@ -170,7 +194,7 @@ export function ChatView() {
             </dl>
           </div>
         )}
-        {activeId && items.map((it) => <Item key={it.id} sessionId={activeId} item={it} />)}
+        {activeId && items.map((it) => <Item key={it.id} sessionId={activeId} item={it} items={items} busy={busy} montadoEm={montadoEm} />)}
         {streaming && (
           <div className="msg assistant streaming">
             <Markdown text={streaming} />

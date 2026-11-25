@@ -1,25 +1,8 @@
-/* Estilos herdados (Sprint 02): perfil, conquistas, agenda, comunidade. */
-@layer legacy {
-  /* Sprint 2: perfil, conquistas, agenda, comunidade */
-
-  .rail {
-    overflow-y: auto;
-  }
-  .rail-btn span {
-    font-size: 10px;
-  }
-  .pill.ok {
-    border-color: color-mix(in srgb, var(--ok) 50%, transparent);
-    color: var(--ok);
-  }
-  .pill.bad {
-    border-color: color-mix(in srgb, var(--bad) 50%, transparent);
-    color: var(--bad);
-  }
-  .link.small {
-    font-size: 12px;
-  }
-
+/*
+ * Estilos por aba (H06.5, ADR-014): perfil, conquistas e agenda, migrados do legado. Camada `views`, a última:
+ * vence base e shell, então seletor aqui precisa ter escopo da aba e não reusar classe do shell sem escopo.
+ */
+@layer views {
   /* ---------- perfil ---------- */
   .profile-card {
     display: flex;
@@ -83,7 +66,7 @@
     font-size: 12.5px;
     background: var(--bg-2);
   }
-  .meter.thin {
+  .ach .meter.thin {
     height: 3px;
     margin: 6px 0 0;
   }
@@ -184,11 +167,18 @@
     padding: 8px 10px;
     background: var(--bg-2);
   }
+  /* Conquista bloqueada: sem opacidade no cartão (derrubava o contraste do texto abaixo de 4,5:1); só o ícone apaga. */
   .ach.locked {
-    opacity: 0.55;
+    border-style: dashed;
   }
   .ach.locked .ach-icon {
     filter: grayscale(1);
+    opacity: 0.45;
+  }
+  .ach.locked .ach-title,
+  .ach.locked .ach-title span,
+  .ach.locked .small.muted {
+    color: var(--muted);
   }
   .ach.done {
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -344,142 +334,5 @@
   }
   .today .occ {
     margin: 4px 10px;
-  }
-  .reminder {
-    position: fixed;
-    top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-3);
-    border: 1px solid var(--warn);
-    border-radius: 10px;
-    padding: 8px 14px;
-    box-shadow: 0 10px 30px var(--scrim);
-    z-index: 20;
-  }
-
-  /* ---------- comunidade ---------- */
-  .community .filters input {
-    max-width: 320px;
-  }
-  .feed {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 10px;
-  }
-  .post-card {
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--bg-1);
-    padding: 10px 14px;
-    cursor: pointer;
-  }
-  .post-card:hover {
-    border-color: var(--line-2);
-  }
-  .post-kind {
-    font-size: 11.5px;
-    color: var(--accent);
-    font-family: var(--mono);
-  }
-  .post-title {
-    font-weight: 600;
-    font-size: 15px;
-    margin: 2px 0;
-  }
-  .post-excerpt {
-    white-space: pre-wrap;
-    max-height: 3.2em;
-    overflow: hidden;
-  }
-  .post-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-  }
-  .author {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .tag {
-    color: var(--muted);
-    font-size: 11.5px;
-  }
-  .like {
-    border: 1px solid var(--line-2);
-    background: none;
-    border-radius: 12px;
-    padding: 0 8px;
-    font-size: 12px;
-    color: var(--fg-2);
-  }
-  .like.on {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-  .post-detail {
-    max-width: 860px;
-    margin-top: 10px;
-  }
-  .post-detail h2 {
-    margin: 8px 0 4px;
-    font-size: 22px;
-  }
-  .post-body {
-    margin: 14px 0;
-  }
-  .snippet {
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .snippet-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 10px;
-    background: var(--bg-2);
-    border-bottom: 1px solid var(--line);
-  }
-  .snippet pre {
-    margin: 0;
-    padding: 10px 12px;
-    overflow: auto;
-    max-height: 520px;
-    font-size: 12.5px;
-    background: var(--bg-1);
-  }
-  .comments {
-    margin-top: 18px;
-    border-top: 1px solid var(--line);
-  }
-  .comment {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .login .row-actions input {
-    max-width: 320px;
-  }
-
-  /* Modal genérico (ex.: denúncia na comunidade) */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: var(--scrim);
-    display: grid;
-    place-items: center;
-    z-index: 30;
-  }
-  .modal {
-    width: min(520px, calc(100vw - 32px));
-    margin: 0;
-    box-shadow: 0 16px 40px var(--scrim);
   }
 }

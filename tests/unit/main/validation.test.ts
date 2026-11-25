@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as v from '../../../src/main/lib/validation'
+import { HELP_TOPICS, helpUrl } from '../../../src/main/lib/help'
 
 describe('ids', () => {
   it('UUID aceito; caminhos forjados recusados', () => {
@@ -30,6 +31,12 @@ describe('settingsPatch', () => {
     expect(v.settingsPatch.safeParse({ effort: 'turbo' }).success).toBe(false)
     expect(v.settingsPatch.safeParse({ model: 'gpt-4' }).success).toBe(false)
     expect(v.settingsPatch.safeParse({ spotifyUrl: 'https://evil.example' }).success).toBe(false)
+  })
+  it('theme: aceita só system, dark e light (H06.1)', () => {
+    for (const ok of ['system', 'dark', 'light']) expect(v.settingsPatch.safeParse({ theme: ok }).success).toBe(true)
+    for (const bad of ['', 'DARK', 'auto', 'high-contrast', '#ffffff', 'light; background:red', 1, null, true, ['dark'], { theme: 'dark' }]) {
+      expect(v.settingsPatch.safeParse({ theme: bad }).success).toBe(false)
+    }
   })
 })
 
@@ -71,6 +78,21 @@ describe('icsFeedInput', () => {
     expect(v.icsFeedInput.safeParse({ ...base, lastSync: 1 }).success).toBe(false)
     expect(v.icsFeedInput.safeParse({ ...base, error: 'x' }).success).toBe(false)
     expect(v.icsFeedInput.safeParse({ ...base, count: 3 }).success).toBe(false)
+  })
+})
+
+describe('helpTopic (help:open, H06.3)', () => {
+  it('aceita só tópico da lista fechada', () => {
+    expect(v.helpTopic.safeParse('claude-login').success).toBe(true)
+  })
+  it('recusa valor fora do enum, URL e tipo errado', () => {
+    for (const bad of ['', 'Claude-Login', 'claude-login ', 'https://code.claude.com/docs/en/iam', 'javascript:alert(1)', 'file:///C:/Windows', '__proto__', 1, null, undefined, {}]) {
+      expect(v.helpTopic.safeParse(bad).success, String(bad)).toBe(false)
+    }
+  })
+  it('todo tópico tem URL https fixa no main', () => {
+    for (const t of HELP_TOPICS) expect(helpUrl(t)).toMatch(/^https:\/\/[^/\s]+\//)
+    expect(helpUrl('claude-login')).toBe('https://code.claude.com/docs/en/iam')
   })
 })
 

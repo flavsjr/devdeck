@@ -35,6 +35,27 @@
     --diff-red: #f85149;
     --black: #000000;
 
+    /* primitivos do tema claro (H06.1, ADR-020) */
+    --paper-0: #ffffff;
+    --paper-1: #f6f7f9;
+    --paper-2: #eef0f4;
+    --paper-3: #e6e9ef;
+    --paper-4: #d8dce5;
+    --paper-5: #c4cad6;
+    --ink-6: #7a8397;
+    --ink-9: #545d70;
+    --ink-10: #3a4252;
+    --ink-12: #161a22;
+    --indigo-2: #c3cbff;
+    --indigo-8: #3d4ed8;
+    --indigo-11: #2f3db8;
+    --green-11: #17703f;
+    --red-11: #b42b25;
+    --amber-11: #7f5300;
+    --teal-11: #0b6e77;
+    --pink-11: #b1365f;
+    --white: #ffffff;
+
     /* ---------- semânticos: superfícies e texto ---------- */
     --bg: var(--slate-0);
     --bg-1: var(--slate-1);
@@ -47,6 +68,8 @@
     --fg-2: var(--slate-10);
     --muted: var(--slate-9);
     --hover-tint: color-mix(in srgb, var(--slate-12) 4%, transparent);
+    /* Campo de mensagem do chat: no escuro destaca com --bg-1; no claro, branco sobre o fundo (revisão da UX, H06.1). */
+    --composer-bg: var(--bg-1);
 
     /* ---------- semânticos: marca e estados ---------- */
     --accent: var(--indigo-9);
@@ -66,6 +89,19 @@
     --on-warn: var(--slate-0);
     --add-bg: color-mix(in srgb, var(--diff-green) 18%, transparent);
     --del-bg: color-mix(in srgb, var(--diff-red) 18%, transparent);
+
+    /* ---------- semânticos: notificações (H06.2) ---------- */
+    /* Cartão opaco; a cor do tipo vai no ícone e na faixa lateral (o tipo também é dito em texto oculto). */
+    --notify-surface: var(--slate-3);
+    --notify-line: var(--slate-5);
+    --notify-erro: var(--red-9);
+    --notify-aviso: var(--amber-9);
+    --notify-sucesso: var(--green-9);
+    --notify-info: var(--teal-9);
+    /* Conquista: índigo claro (o --indigo-9 daria 4,2:1 sobre o próprio fundo tingido). */
+    --notify-conquista: var(--indigo-10);
+    --notify-conquista-bg: color-mix(in srgb, var(--indigo-9) 14%, transparent);
+    --notify-conquista-line: color-mix(in srgb, var(--indigo-9) 45%, transparent);
 
     --scrim: color-mix(in srgb, var(--black) 55%, transparent);
     --shadow: 0 12px 32px color-mix(in srgb, var(--black) 45%, transparent);
@@ -94,5 +130,72 @@
     --sans: 'Inter Variable', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
     --ease: cubic-bezier(0.2, 0, 0, 1);
     color-scheme: dark;
+  }
+
+  /*
+   * Tema claro (H06.1, ADR-020). O main fixa `nativeTheme.themeSource`, então esta media query vale também
+   * para "Claro" escolhido com o Windows escuro. Redefine só semânticos; --bg igual a THEME_BG.light do main.
+   */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: var(--paper-0);
+      --bg-1: var(--paper-1);
+      --bg-2: var(--paper-2);
+      --bg-3: var(--paper-3);
+      --line: var(--paper-4);
+      --line-2: var(--paper-5);
+      --line-strong: var(--ink-6);
+      --fg: var(--ink-12);
+      --fg-2: var(--ink-10);
+      --muted: var(--ink-9);
+      --hover-tint: color-mix(in srgb, var(--ink-12) 5%, transparent);
+      --composer-bg: var(--paper-0);
+
+      --accent: var(--indigo-8);
+      --accent-2: var(--indigo-11);
+      --accent-bg: color-mix(in srgb, var(--indigo-8) 10%, transparent);
+      --accent-line: color-mix(in srgb, var(--indigo-8) 40%, transparent);
+      /* No claro o accent é escuro: texto branco passa (no escuro é o contrário). */
+      --on-accent: var(--white);
+      --focus: var(--indigo-8);
+
+      --ok: var(--green-11);
+      --ok-bg: color-mix(in srgb, var(--green-11) 10%, transparent);
+      --bad: var(--red-11);
+      --bad-bg: color-mix(in srgb, var(--red-11) 9%, transparent);
+      --warn: var(--amber-11);
+      --warn-bg: color-mix(in srgb, var(--amber-9) 16%, transparent);
+      --on-warn: var(--white);
+      --add-bg: color-mix(in srgb, var(--diff-green) 16%, transparent);
+      --del-bg: color-mix(in srgb, var(--diff-red) 14%, transparent);
+
+      --notify-surface: var(--paper-0);
+      --notify-line: var(--paper-5);
+      --notify-erro: var(--red-11);
+      --notify-aviso: var(--amber-11);
+      --notify-sucesso: var(--green-11);
+      --notify-info: var(--teal-11);
+      --notify-conquista: var(--indigo-11);
+      --notify-conquista-bg: color-mix(in srgb, var(--indigo-8) 10%, transparent);
+      --notify-conquista-line: color-mix(in srgb, var(--indigo-8) 40%, transparent);
+
+      --scrim: color-mix(in srgb, var(--black) 32%, transparent);
+      --shadow: 0 12px 32px color-mix(in srgb, var(--black) 14%, transparent);
+
+      /* Sequencial invertida: no claro, mais intenso = mais escuro. */
+      /* Passo 1 separado da célula vazia (--bg-3) como no escuro: o dia com pouca atividade não some. */
+      --viz-heat-1: var(--indigo-2);
+      --viz-heat-2: var(--indigo-10);
+      --viz-heat-3: var(--indigo-7);
+      --viz-heat-4: var(--indigo-11);
+      --viz-cat-1: var(--indigo-8);
+      --viz-cat-2: var(--teal-11);
+      --viz-cat-3: var(--amber-11);
+      --viz-cat-4: var(--pink-11);
+      --viz-cat-5: var(--green-11);
+      --viz-other: var(--ink-6);
+      --viz-focus: var(--indigo-11);
+      color-scheme: light;
+    }
   }
 }

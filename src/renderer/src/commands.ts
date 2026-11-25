@@ -37,7 +37,7 @@ export function runAction(action: ShortcutAction): void {
       break
     case 'newChat':
       if (st.workspace) void st.newSession()
-      else st.notify('Abra uma pasta de projeto antes de criar um chat.')
+      else st.notify({ tipo: 'aviso', texto: 'Abra uma pasta de projeto antes de criar um chat.' })
       break
     case 'focusComposer':
       focusComposer()
@@ -48,7 +48,7 @@ export function runAction(action: ShortcutAction): void {
     case 'toggleRightPanel': {
       const pending = st.approvals.filter((a) => a.sessionId === st.activeId).length
       if (pending > 0) {
-        st.notify('Há aprovação pendente: o painel fica aberto até você decidir.')
+        st.notify({ tipo: 'aviso', texto: 'Há uma aprovação pendente. O painel fica aberto até você decidir.' })
         return
       }
       if (window.innerWidth < NARROW_WINDOW) st.setOverlay(!st.overlayOpen)

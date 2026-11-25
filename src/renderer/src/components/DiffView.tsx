@@ -61,7 +61,7 @@ export function DiffView(props: { before?: string; after?: string; patch?: strin
                     <td className="ln">{r.oldNo ?? ''}</td>
                     <td className="ln">{r.newNo ?? ''}</td>
                     <td className="code">
-                      <span className="sign">{r.type === 'add' ? '+' : r.type === 'del' ? '−' : ' '}</span>
+                      <span className={`sign ${r.type === 'add' ? 'diff-sign-add' : r.type === 'del' ? 'diff-sign-del' : ''}`}>{r.type === 'add' ? '+' : r.type === 'del' ? '−' : ' '}</span>
                       {r.text}
                     </td>
                   </tr>
@@ -80,9 +80,16 @@ export function DiffView(props: { before?: string; after?: string; patch?: strin
                 ) : (
                   <tr key={i}>
                     <td className="ln">{r.left?.oldNo ?? ''}</td>
-                    <td className={`code ${r.left?.type === 'del' ? 'del' : r.left ? '' : 'empty'}`}>{r.left?.text ?? ''}</td>
+                    <td className={`code ${r.left?.type === 'del' ? 'del' : r.left ? '' : 'empty'}`}>
+                      {/* Sinal no texto (não só cor), lido pelo leitor de tela (H06.1). */}
+                      {r.left?.type === 'del' && <span className="sign diff-sign-del">−</span>}
+                      {r.left?.text ?? ''}
+                    </td>
                     <td className="ln">{r.right?.newNo ?? ''}</td>
-                    <td className={`code ${r.right?.type === 'add' ? 'add' : r.right ? '' : 'empty'}`}>{r.right?.text ?? ''}</td>
+                    <td className={`code ${r.right?.type === 'add' ? 'add' : r.right ? '' : 'empty'}`}>
+                      {r.right?.type === 'add' && <span className="sign diff-sign-add">+</span>}
+                      {r.right?.text ?? ''}
+                    </td>
                   </tr>
                 )
               )}

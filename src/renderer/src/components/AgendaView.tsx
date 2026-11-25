@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AgendaEvent, EventKind, IcsFeedInput, IcsFeedView, Occurrence, Recurrence } from '@shared/types'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { IconPlus, IconRefresh } from './Icons'
 
@@ -71,8 +72,8 @@ function EventEditor({ ev, onClose }: { ev: AgendaEvent; onClose: () => void }) 
   }
 
   const save = async (): Promise<void> => {
-    if (!d.title.trim()) return notify('Dê um título ao evento.')
-    if (d.link && !/^https:\/\//.test(d.link)) return notify('O link precisa começar com https://')
+    if (!d.title.trim()) return notify({ tipo: 'aviso', texto: 'Dê um título ao evento.' })
+    if (d.link && !/^https:\/\//.test(d.link)) return notify({ tipo: 'aviso', texto: 'O link da reunião precisa começar com https://.' })
     await window.deck.agenda.save(d)
     onClose()
   }
@@ -194,24 +195,24 @@ function Feeds() {
     window.deck.agenda
       .saveFeed(input)
       .then(setFeeds)
-      .catch((e: unknown) => notify(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => notify({ tipo: 'erro', texto: errorText(e) }))
   }
 
   const add = async (): Promise<void> => {
-    if (!/^(https|webcal):\/\//i.test(draft.url.trim())) return notify('Cole um link https:// ou webcal:// de calendário ICS.')
+    if (!/^(https|webcal):\/\//i.test(draft.url.trim())) return notify({ tipo: 'aviso', texto: 'Cole um link https:// ou webcal:// de um calendário ICS.' })
     setBusy(true)
     let list: IcsFeedView[]
     try {
       list = await window.deck.agenda.saveFeed({ id: '', name: draft.name || 'Calendário', url: draft.url.trim(), enabled: true, remindMin: 10 })
     } catch (e) {
       setBusy(false)
-      return notify(e instanceof Error ? e.message : String(e))
+      return notify({ tipo: 'erro', texto: errorText(e) })
     }
     setFeeds(list)
     setBusy(false)
     setDraft({ name: '', url: '' })
     const added = list[list.length - 1]
-    if (added?.error) notify(`Falha ao sincronizar: ${added.error}`)
+    if (added?.error) notify({ tipo: 'aviso', texto: `Calendário adicionado, mas a sincronização falhou: ${errorText(added.error)}` })
   }
 
   return (

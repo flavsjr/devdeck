@@ -1,4 +1,4 @@
-import { BrowserWindow, Notification, net } from 'electron'
+import { Notification, net } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type ICAL from 'ical.js'
 import type { AgendaEvent, IcsFeed, IcsFeedInput, IcsFeedView, Occurrence } from '@shared/types'
@@ -8,6 +8,9 @@ import { checkAchievements } from './achievements'
 import { emit } from './events'
 import { MAX_DAYS, expandLocal, isValidLocalStart } from './lib/recurrence'
 import { expandIcsEvents, parseIcs } from './lib/ics'
+import { HttpStatusError, MensagemUsuario, falhaComContexto } from './lib/userError'
+import { deveNotificarNativo } from '@shared/lib/nativeNotify'
+import { estadoJanelaPrincipal, mostrarJanelaPrincipal } from './mainWindow'
 
 // Agenda local com recorrência + assinaturas ICS somente leitura + lembretes.
 
@@ -32,20 +35,22 @@ function parseFeed(feed: IcsFeed): ICAL.Event[] {
 async function syncFeed(feed: IcsFeed): Promise<IcsFeed> {
   try {
     const url = feed.url.replace(/^webcal:\/\//i, 'https://')
-    if (!/^https:\/\//i.test(url)) throw new Error('Use um link https:// (ou webcal://).')
+    if (!/^https:\/\//i.test(url)) throw new MensagemUsuario('Use um link https:// (ou webcal://).')
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 30_000)
     const res = await net.fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t))
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+    if (!res.ok) throw new HttpStatusError(res.status)
     const text = await res.text()
-    if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Resposta não é um calendário ICS.')
+    if (!text.includes('BEGIN:VCALENDAR')) throw new MensagemUsuario('Resposta não é um calendário ICS.')
     saveIcsText(feed.id, text)
     parsedCache.delete(feed.id)
     const count = parseFeed(feed).length
     return { ...feed, lastSync: Date.now(), error: undefined, count }
   } catch (err) {
-    // A mensagem vai para o renderer: nunca com o link (que carrega o token).
-    return { ...feed, lastSync: Date.now(), error: redact(err instanceof Error ? err.message : String(err), [feed.url, feed.url.replace(/^webcal:\/\//i, 'https://'), feed.url.replace(/^(https|webcal):\/\/[^/]+/i, '')]) }
+    // A mensagem vai para o renderer: PT-BR com contexto (H06.2, T11) e nunca com o link (que carrega o token).
+    // falhaComContexto não repassa texto cru; o redact fica como defesa extra.
+    const msg = falhaComContexto('Não foi possível baixar o calendário', err, 'O servidor do calendário')
+    return { ...feed, lastSync: Date.now(), error: redact(msg, [feed.url, feed.url.replace(/^webcal:\/\//i, 'https://'), feed.url.replace(/^(https|webcal):\/\/[^/]+/i, '')]) }
   }
 }
 
@@ -153,10 +158,13 @@ function tickReminders(): void {
     const minutesLeft = Math.round((o.start - now) / 60_000)
     if (now < o.start - remindMin * 60_000 || now >= o.start) continue
     notified.add(o.key)
-    emit({ type: 'reminder', occurrence: o, minutesLeft })
-    if (Notification.isSupported()) {
+    // Nativa só com o usuário fora do app (deveNotificarNativo, ADR-021); com a janela em foco,
+    // evento para o toast "Abrir na agenda", só com id e título.
+    if (!deveNotificarNativo(estadoJanelaPrincipal(), 'lembrete')) {
+      emit({ type: 'agenda-reminder', id: o.key, titulo: o.title })
+    } else if (Notification.isSupported()) {
       const n = new Notification({ title: `${o.title} em ${minutesLeft} min`, body: o.link ? 'Clique para abrir o DevDeck e entrar.' : (o.location ?? o.feedName ?? 'Lembrete do DevDeck') })
-      n.on('click', () => BrowserWindow.getAllWindows()[0]?.show())
+      n.on('click', () => mostrarJanelaPrincipal())
       n.show()
     }
   }

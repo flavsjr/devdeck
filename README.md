@@ -8,6 +8,8 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 
 ![DevDeck with the command palette open](docs/sprints/sprint-04/depois/chat-palette.png)
 
+![DevDeck in the light theme with an approval pending](docs/sprints/sprint-06/tema-claro/11-aprovacao.png)
+
 ## Features
 
 | Area | What you get |
@@ -22,11 +24,11 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Community** | Articles and code snippets on Supabase, with likes, comments and reports. Access is enforced by row-level security. |
 | **Flow** | Spotify embed and a 25/5 focus timer. |
 | **Keyboard first** | `Ctrl+K` command palette (tabs, chats, actions, fuzzy search), `Ctrl+1–8` to switch tabs, `Ctrl+N` new chat, `Ctrl+L` focus the prompt, `Ctrl+B` / `Ctrl+Alt+B` toggle the side panels, `Ctrl+/` or `F1` lists every shortcut. Approve or reject the focused change with `Alt+A` / `Alt+R`. |
-| **Layout** | "Indigo Night" dark theme built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
+| **Layout** | "Indigo Night" theme in dark and light (or follow Windows), built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
 
 ## Install (Windows)
 
-Download `DevDeck-Setup-<version>.exe` and `SHA256SUMS.txt` from the [Releases](https://github.com/flavsjr/devdeck/releases) page. The installer is per-user: no admin rights and no UAC prompt. Your data stays in `%APPDATA%\DevDeck` and is kept on update and uninstall. There is no auto-update, and this version ships the dark theme only.
+Download `DevDeck-Setup-<version>.exe` and `SHA256SUMS.txt` from the [Releases](https://github.com/flavsjr/devdeck/releases) page. The installer is per-user: no admin rights and no UAC prompt. Your data stays in `%APPDATA%\DevDeck` and is kept on update and uninstall. There is no auto-update.
 
 **Windows may say "Windows protected your PC".** The installer is not code-signed yet. Before clicking *More info → Run anyway*, check the hash:
 
@@ -60,6 +62,7 @@ Other scripts: `npm run typecheck`, `npm test` (Vitest, runs in two time zones),
 - Only the DevDeck UI can call the main process, and every argument is validated (zod). Navigation, new windows and browser permissions are denied by default.
 - Project settings (`.claude/settings.json`, `.mcp.json`) are **off by default**. When enabled, DevDeck lists the hooks, permissions and MCP servers a repository wants to run and only loads them after you trust the workspace. It asks again if those files change.
 - Every shell command the agent runs (Bash or PowerShell) stops for approval, including the ones Claude Code treats as read-only, such as `git status`.
+- The agent only gets the tools the approval card knows how to show (read, search, edit, write, shell, web search, subagent). Your claude.ai connectors are not loaded in DevDeck's chat; MCP servers come only from DevDeck or a trusted project `.mcp.json`.
 - "Approve all for this session" never applies outside the workspace or to `.git`, `.claude`, `.vscode`, `.github` and similar folders.
 - MCP environment variables and headers, ICS links, git tokens and the API key are encrypted with the OS keychain. The UI only ever sees a mask, and a stored secret is never reused for a different server target.
 - Trusting a workspace also covers every file under `.claude/` (skills, commands, agents); links there make DevDeck ask every time.

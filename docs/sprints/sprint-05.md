@@ -1,6 +1,6 @@
 # Sprint 05 — Distribuição segura
 
-**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** em fechamento (pendências manuais)
+**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** ✅ fechada em 2026-11-25 · [release v0.5.0](https://github.com/flavsjr/devdeck/releases/tag/v0.5.0) publicado (pre-release)
 
 ## Objetivo
 Distribuir o DevDeck como instalador Windows verificável, sem que abrir um repositório recebido pronto execute código pelo git.
@@ -218,11 +218,13 @@ Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
 - **Baixa:** sem confiança, o git do agente também fica indisponível (intencional, documentado na UI). Workspace aberto numa subpasta de repo: o agente não usa o git do pai.
 - **Baixa:** cache do gate por lstat; `sdk-hashes` de dois arquivos; tag `v*` sem ruleset até o usuário configurar.
 - **Baixa:** Linux `basic_text` sem verificação manual, se não houver máquina.
+- **Baixa (2026-11-25):** NVDA real, teclas mortas do ABNT2 físico e MCP/ICS com credencial real sem verificação manual. Cobertura parcial: axe nos estados críticos, Unicode no chat e E2E de segredo com token falso. Repetir no roteiro da Sprint 06.
 
 ## Pendências para fechar
-1. Roteiro manual da H05.7 no app instalado (lista abaixo), com prints em `docs/sprints/sprint-05/manual/`.
-2. `supabase test db` (ou SQL Editor) com `supabase/tests/0002_rate_limit.sql`.
-3. Dry run do `release.yml` (`workflow_dispatch`) depois do push; ruleset de tag `v*` no GitHub antes da tag `v0.5.0`.
+1. ✅ Roteiro manual da H05.7 no app instalado (lista abaixo), fechado em 2026-11-25 com a build do dry run. Itens sem verificação possível viraram risco aceito (NVDA, teclado ABNT2 físico, MCP/ICS com credencial real).
+2. ✅ (agente, 2026-11-25) `supabase test db` local (CLI 3.4.0, `postgres:17.12.0.002`, `supabase/config.toml` mínimo sem `project_id` real; porta 55322 porque o Windows reserva 53952–54451): migrations 0001 e 0002 aplicadas, `0002_rate_limit.sql` **10/10 ok**.
+3. ✅ Dry run do `release.yml` (`workflow_dispatch` na `main` `3be44a1`, [run 45611684787](https://github.com/flavsjr/devdeck/actions/runs/45611684787)): `build (windows)` verde em 6,5 min com artefato `installer` (238 MB); `release (draft)` pulado, como esperado fora de tag. `DevDeck-Setup-0.5.0.exe` do artefato: SHA-256 `e1372e00e5a69665ca391a4663f392aa52c636ed4fb43ccbbc9a715a6026c221` (é a build usada no roteiro manual restante). Ruleset de tag ✅ (usuário, 2026-11-25; conferido pela API): "Proteção de tags" ativo em `refs/tags/v*` com `creation`, `update`, `deletion` e `non_fast_forward`; bypass só para o papel admin.
+4. ✅ Tag e release (2026-11-25): tag `v0.5.0` em `b81b9f8` (main com o fix do ADR-022, PR #5), criada com aprovação do usuário. [Run 45631405457](https://github.com/flavsjr/devdeck/actions/runs/45631405457) verde: pre-release em rascunho "DevDeck v0.5.0 — distribuição segura" com `DevDeck-Setup-0.5.0.exe` (SHA-256 `bc2adfcb77582deecc81d77bb0699006f9fd1fa16f0c45ffce8f93f19bd1dbb3`), `SHA256SUMS.txt` e attestation de procedência. [VirusTotal](https://www.virustotal.com/gui/file/bc2adfcb77582deecc81d77bb0699006f9fd1fa16f0c45ffce8f93f19bd1dbb3) (usuário, 2026-11-25): **1/56**, só CTX `Exe.unknown.generic` (heurística genérica, esperada em NSIS sem assinatura); demais engines sem detecção. Falso positivo aceito: hash confere com o build atestado do CI. Publicado pelo usuário como pre-release em 2026-11-25 15:50 UTC.
 
 ### Roteiro manual (H05.7)
 1. Hash dos dados antes: `Get-ChildItem $env:APPDATA\DevDeck -Recurse -File | Get-FileHash | Sort Path > antes.txt`.
@@ -252,7 +254,11 @@ Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
 | 11. Segredos de MCP | ✅ parcial (agente, E2E) | Token falso salvo por IPC: renderer recebe só a máscara, nenhum arquivo de dados tem o token em claro, `mcp-servers.json` guarda o header cifrado; URL com `?token=` recusada. MCP e ICS reais: ⏳ com credencial do usuário |
 | 7. Depuração bloqueada | ✅ (agente, `dist/win-unpacked`) | `--`, `-`, `/remote-debugging-port` e `--inspect` → saída 1 |
 | **Bug** | ✅ corrigido | Turno que falhou na autenticação desbloqueou "Hello, Claude": estatísticas e conquistas agora só contam turno concluído (`lib/turns.ts`, teste) |
-| Pendente | ⏳ | git do SDK com login válido (passo 4), `ç`/teclas mortas (8), NVDA (9), MCP/ICS reais (11) |
+| 3 e 4. Chat com login válido, sem confiança | ✅ (usuário + agente, 2026-11-25) | Build do dry run (SHA-256 `e1372e00…c221`) instalada em `%LOCALAPPDATA%\Programs\DevDeck` (0.5.0). Repo `devdeck-repo-sdk` com `filter.evil.clean` e `a.txt` com mtime no futuro, "Abrir sem git": status bar "git pausado", chat respondeu de verdade (2 turnos, $0.14) e `marcador-sdk.txt` **não existe** (conferido pelo agente) |
+| 4. Controle positivo com login válido | ✅ (agente, computer-use, 2026-11-25) | Filtro trocado por um script que grava a cadeia de processos pai no marcador (`%TEMP%\devdeck-quem.sh`). Mudar o `.git/config` pausou o git de novo sem rodar nada (gate reavaliado). **Sem confiança:** chat respondeu e o `git status` pedido ao agente pelo Bash falhou com `not a git repository: …\DevDeck\no-git-here`; marcador sem linha nova. **Com confiança:** linhas `git.exe < DevDeck.exe` (status do app) e uma `git.exe < bash.exe` (Bash do agente). A CLI do SDK 0.3.330 não rodou `git status` sozinha ao abrir o chat em nenhum dos casos |
+| 8. ABNT2 por automação | ⚠️ não verificável | A ferramenta envia o caractere, não a tecla física (`;` saiu `;`, não `ç`). Unicode colado (`ç Ç á ã ê ~ ^`) chega certo no chat e na resposta. Teclas mortas físicas: risco aceito |
+| 9 e 11. NVDA, MCP/ICS reais | ⚠️ risco aceito (usuário, 2026-11-25) | NVDA não tem automação confiável do que é falado; o agente não digita token. Coberto parcialmente por axe e E2E com token falso |
+| **Achados** | → Sprint 06 | (1) Sem `requestSingleInstanceLock`: abrir o app de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck`. (2) `permissionMode: 'default'` libera Bash só-leitura (`git status`) **sem** chamar `canUseTool`; contradiz a mitigação "Bash sempre pede aprovação" do risco aceito da Sprint 06. (3) Sem confiança, o agente sugeriu rodar git "sem essa variável": o env restrito não é sandbox, um `env -u GIT_DIR …` só depende da aprovação do Bash |
 
 ## Backlog para a Sprint 06 (observado no roteiro)
 - **Notificações fora do padrão (usuário):** hoje é um toast único de texto para tudo — erro, aviso, conquista, informação —, sem tipo nem severidade, sem fila (um substitui o outro), sem ação e com mensagem crua do SDK/git. Levar ao debate com UX: tipos (erro/aviso/sucesso/conquista) com ícone e cor por token, fila, duração por tipo, ação ("Tentar de novo", "Abrir configurações"), região `aria-live` adequada e conquista com visual próprio, separado de erro.

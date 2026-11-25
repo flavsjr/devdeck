@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { DiffView } from './DiffView'
 import { IconPause, IconRefresh } from './Icons'
@@ -47,7 +48,7 @@ export function ChangesView() {
     window.deck.git
       .diff(selected)
       .then((d) => alive && setDiff({ path: selected, ...d }))
-      .catch((e: unknown) => alive && notify(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => alive && notify({ tipo: 'erro', texto: errorText(e) }))
     return () => {
       alive = false
     }
@@ -60,7 +61,8 @@ export function ChangesView() {
       setSelected(null)
       await refresh()
     } catch (e) {
-      notify(e instanceof Error ? e.message : String(e))
+      // Destrutivo: nunca oferece "Tentar de novo".
+      notify({ tipo: 'erro', texto: errorText(e) })
     }
   }
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, dialog, nativeTheme, protocol, session, shell } from 'electron'
 import { join, relative, isAbsolute } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -31,7 +31,10 @@ import { APP_INDEX, APP_SCHEME, isAllowedSubframeUrl, isAppUrl, isPermissionAllo
 import { appLocation } from './appLocation'
 import * as v from './lib/validation'
 import { resolveMcpInput } from './lib/secrets'
+import { helpUrl } from './lib/help'
+import { getMainWindow, mostrarJanelaPrincipal, setMainWindow } from './mainWindow'
 import { DEBUG_SWITCHES, hasDebugSwitch } from './lib/cli'
+import { themeBg, type ThemePref } from './lib/theme'
 import * as agenda from './agenda'
 import * as agent from './agent'
 
@@ -64,10 +67,36 @@ function registerAppProtocol(): void {
 // Só em dev (QA e capturas): dados isolados numa pasta descartável, sem tocar nos dados reais do usuário.
 if (devUrl() && process.env.DEVDECK_USER_DATA) app.setPath('userData', process.env.DEVDECK_USER_DATA)
 
-// Antes de qualquer leitura de userData: herda dados da época VibeDeck.
-migrateLegacyData()
-migrateSettings()
+/**
+ * Uma instância por pasta de dados (achado da Sprint 05): duas instâncias sobre o mesmo userData
+ * disputavam os JSON do store. O lock vale por userData, então o E2E com --user-data-dir próprio segue
+ * isolado. A segunda abertura só traz a janela da primeira para a frente; a linha de comando dela é
+ * ignorada (nenhum argumento de outro processo vira ação aqui).
+ */
+const primeiraInstancia = app.requestSingleInstanceLock()
+if (!primeiraInstancia) app.exit(0)
+app.on('second-instance', () => {
+  if (getMainWindow()) mostrarJanelaPrincipal()
+  else if (app.isReady()) createWindow()
+})
+
+// Antes de qualquer leitura de userData: herda dados da época VibeDeck. Só a primeira instância
+// toca nos arquivos (app.exit não interrompe o resto deste módulo de forma síncrona).
+if (primeiraInstancia) {
+  migrateLegacyData()
+  migrateSettings()
+}
 app.setAppUserModelId('com.devdeck.app')
+
+/**
+ * Tema (H06.1, ADR-020): o main é a fonte única. `themeSource` muda o `prefers-color-scheme` do
+ * Chromium (o tokens.css troca sozinho) e o tema dos diálogos nativos. O fundo da janela vem do
+ * mapa fixo THEME_BG, nunca do renderer.
+ */
+function applyTheme(pref: ThemePref): void {
+  nativeTheme.themeSource = pref
+  win?.setBackgroundColor(themeBg(nativeTheme.shouldUseDarkColors))
+}
 
 function openExternalSafe(url: string): void {
   if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
@@ -114,8 +143,8 @@ function createWindow(): void {
     height: size ? Number(size[2]) : 920,
     minWidth: 1100,
     minHeight: 680,
-    // Mesmo tom de --bg (styles/tokens.css): evita clarão antes do CSS carregar.
-    backgroundColor: '#0b0d12',
+    // Mesmo tom de --bg do tema efetivo (styles/tokens.css): evita clarão antes do CSS carregar.
+    backgroundColor: themeBg(nativeTheme.shouldUseDarkColors),
     title: 'DevDeck',
     autoHideMenuBar: true,
     webPreferences: {
@@ -125,6 +154,12 @@ function createWindow(): void {
       sandbox: true,
       webviewTag: false
     }
+  })
+
+  setMainWindow(win)
+  win.on('closed', () => {
+    setMainWindow(null)
+    win = null
   })
 
   win.webContents.on('preload-error', (_e, path, err) => console.error('[preload-error]', path, err))
@@ -183,6 +218,7 @@ function registerIpc(): void {
       (k) => before[k] !== after[k]
     )
     if (runtimeChanged) agent.resetIdleSessions()
+    if (before.theme !== after.theme) applyTheme(after.theme)
     return after
   })
   handle('settings:setApiKey', [v.apiKey], (key) => {
@@ -273,9 +309,14 @@ function registerIpc(): void {
   handle('agenda:syncFeeds', [], () => agenda.syncAllFeeds())
 
   handle('shell:openExternal', [v.externalUrl], (url) => openExternalSafe(url))
+  // Ajuda (H06.3): o renderer manda só o tópico; a URL https sai do mapa fixo do main.
+  handle('help:open', [v.helpTopic], async (topic) => {
+    await shell.openExternal(helpUrl(topic))
+  })
 }
 
 app.whenReady().then(() => {
+  if (!primeiraInstancia) return
   if (!devUrl()) registerAppProtocol()
   // safeStorage só funciona depois do ready: cifra segredos antigos em texto puro (v0.4.0).
   migrateSecrets()
@@ -292,6 +333,10 @@ app.whenReady().then(() => {
   if (!devUrl()) Menu.setApplicationMenu(null)
   hardenWebContents()
   registerIpc()
+  // Antes da janela: o backgroundColor inicial e a primeira pintura já saem no tema salvo.
+  applyTheme(getSettings().theme)
+  // Windows trocou de tema (com 'system') ou o themeSource mudou: o fundo nativo acompanha.
+  nativeTheme.on('updated', () => win?.setBackgroundColor(themeBg(nativeTheme.shouldUseDarkColors)))
   createWindow()
   agenda.startAgendaScheduler()
   checkAchievements()

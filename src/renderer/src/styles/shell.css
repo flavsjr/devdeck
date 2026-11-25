@@ -226,10 +226,6 @@
   .card {
     border-radius: var(--r-md);
   }
-  .toast {
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow);
-  }
   .empty h2 {
     color: var(--fg);
     font-weight: 600;
@@ -251,14 +247,6 @@
   }
   .pending-banner .btn {
     margin-left: auto;
-  }
-
-  .reminder {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow);
   }
 
   /* ---------- painel direito ---------- */
@@ -534,20 +522,7 @@
   }
 }
 
-/* Conquista bloqueada: sem opacidade (derrubava o contraste do texto abaixo de 4,5:1). */
 @layer shell {
-  .ach.locked {
-    opacity: 1;
-    border-style: dashed;
-  }
-  .ach.locked .ach-icon {
-    opacity: 0.45;
-  }
-  .ach.locked .ach-title,
-  .ach.locked .ach-title span,
-  .ach.locked .small.muted {
-    color: var(--muted);
-  }
   .view-pad:focus-visible {
     outline-offset: -2px;
   }
@@ -619,5 +594,392 @@
     font-weight: 600;
     color: var(--on-warn);
     background: var(--warn);
+  }
+
+  /* ---------- notificações (H06.2, components/Notifications.tsx) ----------
+   * Posição: topo da coluna principal, encostada no painel direito. O composer fica no rodapé da
+   * coluna principal e o card de aprovação no painel direito (travado aberto com aprovação), então
+   * a pilha não cobre nenhum dos dois. 1280×720: coluna principal de 608 px, pilha de 360 px.
+   * A altura máxima deixa livre o composer no tamanho máximo (textarea de 240 px + chips + faixa
+   * de aprovação pendente + barra de status ≈ 360 px); passou disso, a pilha rola. */
+  /* Abaixo do view-head (padding 20 px + ação de ~32 px): erro, que não some sozinho, não cobre as ações do
+     cabeçalho das abas (achado do E2E T25, decisão da UX em 2026-11-25). */
+  .notify-stack {
+    position: fixed;
+    top: 60px;
+    right: var(--right-w, 40px);
+    z-index: 40;
+    width: min(384px, calc(100vw - 48px - var(--sidebar-w, 0px) - var(--right-w, 40px)));
+    max-height: calc(100vh - 400px);
+    padding: 0 12px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    /* Área vazia da pilha não bloqueia clique no que está embaixo; só os cartões recebem o mouse. */
+    pointer-events: none;
+  }
+  /* Janela estreita (< 1280 px CSS; ~900 px com zoom) com o painel direito em sobreposição: a pilha
+   * vai para a esquerda, sobre a barra lateral, e termina antes do painel (que tem o card de aprovação). */
+  .app:has(.right.overlay) .notify-stack {
+    right: auto;
+    left: 48px;
+    width: min(384px, max(204px, calc(100vw - 48px - min(var(--right-panel-w, 360px), 100vw - 96px))));
+  }
+  .notify-card {
+    --notify-tipo: var(--notify-info);
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 9px 6px 9px 10px;
+    background: var(--notify-surface);
+    border: 1px solid var(--notify-line);
+    border-left: 3px solid var(--notify-tipo);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+    color: var(--fg);
+    font-size: 13px;
+    line-height: 18px;
+    animation: notify-entrada 160ms var(--ease);
+  }
+  .notify-erro {
+    --notify-tipo: var(--notify-erro);
+  }
+  .notify-aviso {
+    --notify-tipo: var(--notify-aviso);
+  }
+  .notify-sucesso {
+    --notify-tipo: var(--notify-sucesso);
+  }
+  .notify-info {
+    --notify-tipo: var(--notify-info);
+  }
+  .notify-conquista {
+    --notify-tipo: var(--notify-conquista);
+  }
+  .notify-icon {
+    flex: none;
+    display: inline-flex;
+    padding-top: 1px;
+    color: var(--notify-tipo);
+  }
+  .notify-body,
+  .notify-alert {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notify-alert .notify-body {
+    display: block;
+  }
+  .notify-count {
+    margin-left: 6px;
+    color: var(--fg-2);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .notify-card .notify-action {
+    flex: none;
+    align-self: center;
+  }
+  /* Fechar: alvo de 24 × 24 px (WCAG 2.5.8). */
+  .notify-close {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg-2);
+    cursor: pointer;
+  }
+  .notify-close:hover {
+    background: var(--hover-tint);
+    color: var(--fg);
+  }
+
+  /* Conquista: faixa própria, fora do teto de 3 e uma por vez, no pé da pilha (fundo tingido,
+   * troféu em destaque, título e XP). */
+  .notify-achievements {
+    margin-top: 6px;
+  }
+  .notify-card.notify-conquista {
+    padding: 10px 6px 10px 10px;
+    background: linear-gradient(var(--notify-conquista-bg), var(--notify-conquista-bg)), var(--notify-surface);
+    border-color: var(--notify-conquista-line);
+    border-left-color: var(--notify-conquista);
+  }
+  .notify-conquista .notify-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: var(--r-pill);
+    background: var(--notify-conquista-bg);
+  }
+  .notify-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--notify-conquista);
+  }
+  .notify-achievement-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    color: var(--fg);
+  }
+  .notify-xp {
+    padding: 0 6px;
+    border: 1px solid var(--notify-conquista-line);
+    border-radius: var(--r-pill);
+    color: var(--notify-conquista);
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .notify-conquista .notify-text {
+    display: block;
+    color: var(--fg-2);
+  }
+
+  /* Resumo dos erros: "+N erros" (expande os recolhidos) e "Fechar todos". */
+  .notify-summary {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 2px 6px;
+    background: var(--notify-surface);
+    border: 1px solid var(--notify-line);
+    border-radius: var(--r-md);
+    font-size: 12px;
+  }
+  .notify-spacer {
+    flex: 1;
+  }
+  .notify-link {
+    min-height: 24px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .notify-more {
+    color: var(--notify-erro);
+  }
+  .notify-link:hover {
+    background: var(--hover-tint);
+  }
+  .notify-collapsed .notify-card {
+    margin-left: 12px;
+    box-shadow: none;
+  }
+
+  @keyframes notify-entrada {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* Sem animação de entrada com movimento reduzido (o base.css só encurta a duração). */
+  @media (prefers-reduced-motion: reduce) {
+    .notify-card {
+      animation: none;
+    }
+  }
+
+  /* ---------- card de erro do Claude no chat (H06.3, H06.7, components/AgentErrorCard.tsx) ----------
+   * Ícone + título, nunca só cor: --bad para conta, créditos e desconhecido; --warn para limite,
+   * sobrecarga e rede. Texto do corpo em --fg sobre --bg-1 (AA nos dois tons). */
+  .agent-error {
+    --agent-error-tom: var(--bad);
+    max-width: 92%;
+    padding: 12px 14px;
+    background: var(--bg-1);
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--agent-error-tom);
+    border-radius: var(--r-md);
+    color: var(--fg);
+  }
+  .agent-error-warn {
+    --agent-error-tom: var(--warn);
+  }
+  .agent-error-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .agent-error-icon {
+    flex: none;
+    display: inline-flex;
+    padding-top: 1px;
+    color: var(--agent-error-tom);
+  }
+  .agent-error-text {
+    min-width: 0;
+  }
+  .agent-error-title {
+    margin: 0 0 4px;
+    font-weight: 600;
+  }
+  .agent-error-body {
+    margin: 0;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .agent-error-body code {
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--bg-3);
+    font-size: 12px;
+  }
+  .agent-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0 28px;
+  }
+  .agent-error-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  /* "Tentar de novo" com turno em andamento: aria-disabled mantém o foco e a dica; visual de desabilitado. */
+  .agent-error-actions .btn[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .agent-error-actions .btn.primary[aria-disabled='true']:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .agent-error-hint {
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+  .agent-error-details {
+    margin: 8px 0 0 28px;
+  }
+  .agent-error-toggle {
+    min-height: 24px;
+    padding: 0 4px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg-2);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .agent-error-toggle:hover {
+    color: var(--fg);
+  }
+  .agent-error-detail {
+    margin: 6px 0;
+    max-height: 200px;
+    overflow: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--bg);
+    color: var(--fg-2);
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Aparência nas Configurações (H06.1): três opções em linha, rádio nativo com a cor do accent. */
+@layer shell {
+  .theme-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--space) * 2);
+  }
+  .theme-option {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    min-height: 32px;
+    padding: 0 calc(var(--space) * 3);
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius);
+    background: var(--bg-2);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .theme-option:hover {
+    background: var(--hover-tint);
+  }
+  .theme-option:has(input:checked) {
+    border-color: var(--accent-line);
+    background: var(--accent-bg);
+  }
+  .theme-option input {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+}
+
+/* Diff (H06.1): o sinal +/− tem a cor do tipo, com contraste AA sobre o fundo da linha nos dois temas. */
+@layer shell {
+  .diff-sign-add {
+    color: var(--ok);
+  }
+  .diff-sign-del {
+    color: var(--bad);
+  }
+}
+
+/* "Claude está trabalhando…" (saiu do legado na H06.1): o texto fica com contraste AA o tempo todo;
+   quem pulsa é o ponto. Sem animação com prefers-reduced-motion (base.css). */
+@layer shell {
+  .thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .thinking::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    animation: pulse 1.6s infinite;
+  }
+}
+
+/* Botão principal desabilitado (revisão da UX, H06.1): texto branco sobre accent a 50% ficava ilegível no
+   claro. Fundo neutro e texto --muted (≥ 4,5 sobre --bg-3 nos dois temas, conferido no contrast.test). */
+@layer shell {
+  .btn.primary:disabled {
+    background: var(--bg-3);
+    border-color: var(--line-2);
+    color: var(--muted);
+    opacity: 1;
   }
 }

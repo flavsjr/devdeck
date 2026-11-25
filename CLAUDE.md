@@ -3,9 +3,11 @@
 App desktop Electron + React + TypeScript. Leia `docs/squad.md` antes de trabalhar numa feature.
 
 ## Processo (obrigatório)
-- Trabalho acontece em **sprints**: um arquivo por sprint em `docs/sprints/sprint-NN.md` (modelo em `_template.md`) com histórias, ata do debate, tarefas, QA, security review e retro.
+- Trabalho acontece em **sprints**: painel vivo em `docs/sprints/sprint-NN.md` (modelo `_template.md`), ata em `sprint-NN/ata.md`, QA e security review em `sprint-NN/qa.md`.
 - Decisões passam pelo **debate do squad** (agentes em `.claude/agents/`: po, tech-lead, ux-designer, frontend, backend, qa, cybersecurity, devops). Só participam os papéis **convocados** na matriz do PO: quem trabalha na história ou tem veto sobre o risco dela (regras em `docs/squad.md`). Decisão final é do PO; objeção bloqueante de Cybersecurity só cai com mitigação registrada.
-- Decisão de arquitetura nova → ADR em `docs/decisions.md`.
+- Bug ou achado de tamanho P sem decisão de produto vai pela **trilha rápida** (`docs/squad.md`): sem debate, TL revisa, Sec só se tocar gatilho.
+- **Economia de contexto** (`docs/squad.md`): ao chamar um papel, mande um brief (história, critérios, tarefas, ADRs por número), não peça para ler a sprint ou `decisions.md` inteiros. Sprints fechadas não se leem sem motivo. Prova por teste/E2E antes de computer-use.
+- Decisão de arquitetura nova → ADR em `docs/decisions.md` (com linha no índice do topo).
 - Toda entrega atualiza `CHANGELOG.md` (Keep a Changelog, SemVer, uma versão por sprint).
 - README existe em inglês (`README.md`) e português (`README.pt-BR.md`): mudou um, atualize o outro.
 
@@ -19,7 +21,7 @@ App desktop Electron + React + TypeScript. Leia `docs/squad.md` antes de trabalh
 - Renderer nunca acessa fs, rede privilegiada ou segredos: tudo via `window.deck` (`DeckApi` em `src/shared/types.ts`) e handlers em `src/main/index.ts` que validam a entrada.
 - Segredos só no main com `safeStorage`. Rede no main com `net.fetch`.
 - SQL do Supabase: nova migration numerada em `supabase/migrations/`, RLS em toda tabela, grants por coluna.
-- Regra de negócio nova vai para `src/main/lib/` ou `src/renderer/src/lib/` (sem `electron`, `fs`, `store`, `events`) **com teste** em `tests/unit/`.
+- Regra de negócio nova vai para `src/main/lib/` ou `src/renderer/src/lib/` (sem `electron`, `fs`, `store`, `events`) **com teste** em `tests/unit/`. Regra pura usada pelo main **e** pelo renderer vai para `src/shared/lib/` (também sem `window`/`document`), com teste em `tests/unit/shared/` (ADR-020).
 - Novo canal IPC: registrar com `handle()` de `src/main/ipc.ts` e esquema zod em `src/main/lib/validation.ts`. Ids que viram caminho de arquivo são UUID.
 - Antes de entregar: `npm run typecheck`, `npm test` e `npm run build` sem erros.
 

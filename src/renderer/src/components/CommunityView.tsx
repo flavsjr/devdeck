@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { ACHIEVEMENT_BY_ID } from '@shared/achievements'
+import { errorText, motivoConhecido } from '@shared/lib/errorText'
 import { useStore } from '../store'
 import { Modal } from './Modal'
 import { supabase, POST_SELECT, type Comment, type CommunityProfile, type Post } from '../supabase'
@@ -10,11 +11,6 @@ import { Markdown } from './Markdown'
 
 type Tab = 'feed' | 'mine' | 'new'
 type KindFilter = 'all' | 'article' | 'snippet'
-
-function errMsg(e: unknown): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return String(e)
-}
 
 function ago(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000
@@ -80,7 +76,8 @@ function Login() {
     setBusy(true)
     const { error } = await supabase!.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } })
     setBusy(false)
-    if (error) return notify(error.message)
+    // Códigos do Supabase Auth (over_email_send_rate_limit…) vêm do dicionário; o message é em inglês.
+    if (error) return notify({ tipo: 'erro', texto: motivoConhecido(error) ?? 'Não foi possível enviar o código. Confira o e-mail e tente de novo.' })
     setSent(true)
   }
 
@@ -88,7 +85,7 @@ function Login() {
     setBusy(true)
     const { error } = await supabase!.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' })
     setBusy(false)
-    if (error) notify(error.message)
+    if (error) notify({ tipo: 'erro', texto: motivoConhecido(error) ?? 'Não foi possível verificar o código. Tente de novo.' })
   }
 
   return (
@@ -131,7 +128,8 @@ function UsernameSetup({ uid, onDone }: { uid: string; onDone: (p: CommunityProf
       badges: local.profile.featured.slice(0, 3)
     }
     const { data, error } = await supabase!.from('profiles').insert(row).select().single()
-    if (error) return notify(error.code === '23505' ? 'Esse username já existe.' : error.message)
+    if (error)
+      return notify(error.code === '23505' ? { tipo: 'aviso', texto: 'Esse @username já está em uso. Escolha outro.' } : { tipo: 'erro', texto: errorText(error) })
     onDone(data as CommunityProfile)
   }
   return (
@@ -172,8 +170,8 @@ function Composer({ uid, onPosted }: { uid: string; onPosted: () => void }) {
       tags: tagList
     })
     setBusy(false)
-    if (error) return notify(error.message)
-    notify('Publicado.')
+    if (error) return notify({ tipo: 'erro', texto: errorText(error) })
+    notify({ tipo: 'sucesso', texto: 'Post publicado.' })
     onPosted()
   }
 
@@ -250,7 +248,7 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
       .eq('post_id', post.id)
       .order('created_at')
       .limit(200)
-    if (error) notify(error.message)
+    if (error) notify({ tipo: 'erro', texto: motivoConhecido(error) ?? 'Não foi possível carregar os comentários.' })
     else setComments(data as unknown as Comment[])
   }, [post.id, notify])
 
@@ -260,7 +258,7 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
 
   const comment = async (): Promise<void> => {
     const { error } = await supabase!.from('comments').insert({ post_id: post.id, author_id: uid, body: text.trim() })
-    if (error) return notify(error.message)
+    if (error) return notify({ tipo: 'erro', texto: errorText(error) })
     setText('')
     void loadComments()
   }
@@ -271,27 +269,35 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
   const [sending, setSending] = useState(false)
 
   const openReport = (): void => {
-    if (!uid) return notify('Entre na comunidade para denunciar um post.')
+    if (!uid) return notify({ tipo: 'aviso', texto: 'Entre na comunidade para denunciar um post.' })
     setReason('')
     setReporting(true)
   }
 
   const sendReport = async (): Promise<void> => {
     const r = reason.trim()
-    if (r.length < 3) return notify('Descreva o motivo (mínimo 3 caracteres).')
+    if (r.length < 3) return notify({ tipo: 'aviso', texto: 'Descreva o motivo (mínimo 3 caracteres).' })
     setSending(true)
     const { error } = await supabase!.from('reports').insert({ post_id: post.id, reporter_id: uid, reason: r.slice(0, 500) })
     setSending(false)
-    if (error) return notify(error.code === '23505' ? 'Você já denunciou este post.' : error.message)
+    // errorText cobre o limite de denúncias da 0002.
+    if (error) return notify(error.code === '23505' ? { tipo: 'info', texto: 'Você já denunciou este post.' } : { tipo: 'erro', texto: errorText(error) })
     setReporting(false)
-    notify('Denúncia registrada. Obrigado por ajudar a comunidade!')
+    notify({ tipo: 'sucesso', texto: 'Denúncia enviada. Obrigado por ajudar a comunidade.' })
   }
 
   const remove = async (): Promise<void> => {
     if (!confirm('Excluir este post e todos os comentários? Não dá para desfazer.')) return
     const { error } = await supabase!.from('posts').delete().eq('id', post.id)
-    if (error) return notify(error.message)
+    if (error) return notify({ tipo: 'erro', texto: errorText(error) })
     onDeleted()
+  }
+
+  const copyCode = (): void => {
+    navigator.clipboard
+      .writeText(post.code ?? '')
+      .then(() => notify({ tipo: 'sucesso', texto: 'Código copiado.' }))
+      .catch(() => notify({ tipo: 'erro', texto: 'Não foi possível copiar.' }))
   }
 
   return (
@@ -326,7 +332,7 @@ function PostDetail({ post, uid, liked, onLike, onBack, onDeleted }: { post: Pos
           <div className="snippet">
             <div className="snippet-head">
               <span className="mono small">{post.language}</span>
-              <button className="btn ghost sm" onClick={() => void navigator.clipboard.writeText(post.code ?? '').then(() => notify('Código copiado.'))}>
+              <button className="btn ghost sm" onClick={copyCode}>
                 Copiar
               </button>
             </div>
@@ -430,7 +436,7 @@ export function CommunityView() {
     if (tab === 'mine' && uid) query = query.eq('author_id', uid)
     const { data, error } = await query
     setLoading(false)
-    if (error) return notify(error.message)
+    if (error) return notify({ tipo: 'erro', texto: motivoConhecido(error) ?? 'Não foi possível carregar o feed.' })
     const list = data as unknown as Post[]
     setPosts(list)
     if (uid && list.length) {
@@ -472,7 +478,8 @@ export function CommunityView() {
     setOpen((o) => (o && o.id === p.id ? { ...o, like_count: o.like_count + delta } : o))
     const { error } = has ? await supabase!.from('likes').delete().eq('post_id', p.id).eq('user_id', uid) : await supabase!.from('likes').insert({ post_id: p.id, user_id: uid })
     if (error) {
-      notify(errMsg(error))
+      // errorText cobre o limite de curtidas da 0002.
+      notify({ tipo: 'erro', texto: errorText(error) })
       void load()
     }
   }

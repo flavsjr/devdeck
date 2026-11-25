@@ -1,0 +1,22 @@
+{
+  "scenario": "billing",
+  "sdk": "0.3.330",
+  "capturedAt": "2026-11-24",
+  "origem": "ANTHROPIC_API_KEY falsa + servidor local devolvendo 400 \"credit balance is too low\"",
+  "init": {
+    "apiKeySource": "ANTHROPIC_API_KEY"
+  },
+  "assistant": {
+    "error": "billing_error",
+    "text": "Credit balance is too low"
+  },
+  "result": {
+    "subtype": "success",
+    "is_error": true,
+    "result": "Credit balance is too low",
+    "api_error_status": 400
+  },
+  "thrown": {
+    "message": "Claude Code returned an error result: Credit balance is too low"
+  }
+}

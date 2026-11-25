@@ -7,9 +7,11 @@ import '@fontsource-variable/inter/wght.css'
 import '@fontsource-variable/jetbrains-mono/wght.css'
 import './styles/tokens.css'
 import './styles/app.css'
-import './styles/views.css'
+import './styles/community.css'
 import './styles/base.css'
+import './styles/components.css'
 import './styles/shell.css'
+import './styles/views.css'
 
 // Arquivo ou link arrastado para a janela não pode navegar a UI para fora do app.
 window.addEventListener('dragover', (e) => e.preventDefault())

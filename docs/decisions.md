@@ -2,6 +2,32 @@
 
 Formato curto: contexto → decisão → consequências. Novas decisões entram no fim, numeradas.
 
+## Índice
+Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a partir da linha. ADR novo ou emenda acrescenta/atualiza a linha aqui.
+
+- ADR-001 — Electron + React + TypeScript
+- ADR-002 — Claude Agent SDK como motor do chat
+- ADR-003 — Persistência local em JSON
+- ADR-004 — Aprovação antes de aplicar + rollback por patch reverso
+- ADR-005 — Tokens pessoais para GitHub/GitLab/Bitbucket
+- ADR-006 — Comunidade em Supabase com RLS
+- ADR-007 — Agenda local + ICS somente leitura
+- ADR-008 — Squad, sprints e changelog
+- ADR-009 — Testes com Vitest em lógica pura isolada
+- ADR-010 — CI no GitHub Actions
+- ADR-011 — Instalador NSIS per-user
+- ADR-012 — Fronteira do IPC: origem + zod
+- ADR-013 — Confiança explícita em configurações de projeto
+- ADR-014 — Sistema de estilos: tokens em camadas (emendas H06.1: tema claro; H06.5: camada views e migração)
+- ADR-015 — Segredos de configuração cifrados e mascarados
+- ADR-016 — Atalhos no renderer, menu nulo em produção
+- ADR-017 — Dependências de UI
+- ADR-018 — Git sem executar código do repositório antes da confiança
+- ADR-019 — Release em rascunho com checksum e procedência
+- ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
+- ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados
+- ADR-022 — Comando do agente sempre passa pelo card de aprovação (emenda H06.10: lista branca de tools)
+
 ## ADR-001 — Electron + React + TypeScript
 - **Contexto:** precisa de acesso a arquivos, processos (MCP stdio, agente) e git locais, com UI rica.
 - **Decisão:** Electron 45 + electron-vite + React 19 + TS. Main/preload em CommonJS; SDK ESM-only carregado por `import()` dinâmico.
@@ -68,6 +94,8 @@ Formato curto: contexto → decisão → consequências. Novas decisões entram 
 - **Contexto:** a paleta (terracota `#d97757` e creme) era a da marca Claude; cores literais espalhadas por ~1.700 linhas de CSS e em componentes.
 - **Decisão:** CSS puro com `@layer tokens, legacy, base, shell`. `styles/tokens.css` é o único arquivo com cor literal, em duas camadas (primitivos → semânticos), identidade "Índigo Noturno". O CSS antigo foi migrado para tokens e envolvido em `@layer legacy`; regras novas vencem pela ordem da camada, sem `!important`. Testes: guarda de cor literal e da paleta antiga, contraste WCAG AA dos pares usados (`lib/contrast`). Sem Tailwind nem CSS-in-JS.
 - **Consequências:** trocar de tema = trocar semânticos (tema claro na Sprint 06). Regra de `shell` que sobrescreve um seletor do legado precisa redeclarar as variantes (ex.: `.btn.primary`).
+- **Emenda (H06.5, 2026-11-25): camada `views` e migração do legado.** Ordem `tokens, legacy, base, shell, views`. `views.css` (perfil, conquistas, agenda) é a última camada: vence o shell, então só reusa classe do shell com escopo da aba (lista `VIEWS_SHELL_SHARED` no `css-layers.test`, só encolhe) e não usa `!important`. Componentes migrados ficam em `components.css` (`@layer shell`, importado antes do `shell.css`). O legado (app.css + community.css) tem catraca de linhas no teste. Mover CSS de camada exige o diff de estilo computado zerado (`tests/e2e/style-snapshot.mjs`, base do commit anterior): a especificidade só vale dentro da camada, então regra que vencia por especificidade no legado pode passar a perder ou ganhar.
+- **Emenda (H06.1, 2026-11-25): tema claro.** O claro é um bloco `@media (prefers-color-scheme: light) { :root { … } }` no próprio `tokens.css`, que redefine só semânticos sobre primitivos novos (`--paper-*`, `--ink-*`, `--indigo-8/11`…). `themeTokens()` (`renderer/src/lib/contrast.ts`) separa os dois temas e o `contrast.test` roda todos os pares AA em cada um; outro teste exige que todo semântico do escuro exista no claro. No claro o accent é escuro e `--on-accent` é branco (invertido do escuro). Estilo novo vai no `shell` com nome de classe próprio (o `css-layers.test` barra reuso de classe do legado); regra do legado que muda com o tema sai do legado (ex.: `.thinking`). Em E2E com Playwright, `electron.launch` precisa de `colorScheme: null`: o padrão emula `light` e esconde a troca feita pelo `nativeTheme`.
 
 ## ADR-015 — Segredos de configuração cifrados e mascarados
 - **Contexto:** env/headers de MCP e o link ICS ficavam em texto puro no disco e voltavam inteiros ao renderer.
@@ -93,7 +121,28 @@ Formato curto: contexto → decisão → consequências. Novas decisões entram 
 - **Decisão:** `release.yml` só por tag `v*.*.*` (e `workflow_dispatch` como dry run sem release), `permissions: {}` no topo. Job `build` (Windows, só leitura, sem cache) confere tag = versão (`scripts/check-tag.mts`), roda `npm ci`, typecheck, testes e `dist:win` (afterPack + verify-fuses) e sobe o instalador como artefato. Job `release` (Ubuntu, sem npm) é o único com `contents: write`, `id-token: write` e `attestations: write`: gera `SHA256SUMS.txt`, emite a attestation de build (`actions/attest-build-provenance` fixada por SHA) e cria o release **rascunho** com `gh release create --draft --verify-tag`. Publicar é manual, depois de conferir hash, attestation e VirusTotal. O CI ganha um job `package` (fora de PR) com `pack:win` para pegar quebra de empacotamento antes da tag.
 - **Consequências:** nenhum código de terceiros roda com token de escrita. Sem assinatura de código; procedência por `gh attestation verify`. Tag só com aprovação explícita do usuário (dispara o workflow).
 
+## ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
+- **Status:** decidido na Sprint 06 (H06.1, H06.2).
+- **Contexto:** o app só tinha tema escuro. O ADR-014 previu trocar semânticos. Era preciso trocar sem recarregar, acompanhar o Windows, abrir sem piscar e manter os diálogos nativos no tema. Regras puras usadas pelos dois processos (`errorText`, `deveNotificarNativo`) não tinham lugar, porque `lib/` é por processo.
+- **Decisão:** `theme: 'system' | 'dark' | 'light'` no settings (`z.enum` no `settingsPatch`). Valor inválido no disco vira `system`; settings existente sem `theme` vira `dark` e instalação nova vira `system` (`src/main/lib/theme.ts`). O main aplica `nativeTheme.themeSource` antes de criar a janela e a cada troca. O `backgroundColor` vem de um mapa fixo no main (`THEME_BG`), nunca do renderer, escolhido por `shouldUseDarkColors` e atualizado em `nativeTheme.on('updated')`; um teste confere que o mapa é igual ao `--bg` de cada tema. O `tokens.css` redefine os semânticos em `@media (prefers-color-scheme: light)` dentro de `@layer tokens`. O Chromium deriva a media query do `themeSource`, então o renderer não precisa de IPC nem de listener ("Sistema (agora: X)" e o embed usam `matchMedia`). `src/shared/lib/` guarda regra pura usada pelo main e pelo renderer, sem `electron`, `fs`, `store`, `events`, `window` ou `document` (garantido pelo `guard.test.ts`), com testes em `tests/unit/shared/`.
+- **Alternativas rejeitadas:** `data-theme` no `<html>` sincronizado por IPC (dois estados, flash até a primeira pintura, diálogos fora do tema); `light-dark()` por token (complica o parse do `contrast.test` e mistura os temas na mesma linha); regra duplicada em cada `lib/` (dois textos para o mesmo código).
+- **Consequências:** o tema efetivo tem uma fonte só, o main. Semântico novo sem valor nos dois temas quebra o `contrast.test`. Citar `src/shared/lib/` no `CLAUDE.md` depende do usuário.
+
+## ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados
+- **Status:** decidido na Sprint 06 (H06.2, H06.3, H06.7).
+- **Contexto:** `notify(string)` sumia em 5 s sem tipo, mostrava "Error invoking remote method…" cru, a sessão expirada aparecia em inglês e até três vezes por turno, e a mensagem do SDK podia levar token para o IPC, o console e o disco.
+- **Decisão:**
+  - `notify({ tipo, texto, acao? })` com 5 tipos e reducer puro (`renderer/src/lib/notifications.ts`, `now` injetado). Teto de 3; erro conta no teto e só sai por ação do usuário; "+N erros"; dedupe em 5 s. Erro em `role="alert"`, os demais numa região `status` polite montada no boot, e nunca move o foco.
+  - Ação é uma união fechada: `navegar` ou `repetir` com `RetryOp` nomeada, sem callback livre. Um teste garante que nenhuma `RetryOp` aprova, liga "Sempre" ou executa comando.
+  - Notificação nativa só sem foco (`deveNotificarNativo`) e só para aprovação, lembrete e conquista. O evento de lembrete leva só id e título.
+  - `src/shared/lib/errorText` é o dicionário único: o main traduz fs e rede no handler com contexto; o renderer traduz o Supabase e tira o prefixo do IPC.
+  - `src/main/lib/agentErrors` classifica pelo `SDKAssistantMessage.error`. `authentication_failed` é desempatado por `hasApiKey`/`apiKeySource` + `api_error_status`, com texto só como fallback e desconhecido virando `unknown`. O item `error` ganha `code` e `detail` (redigido no main) e o renderer mostra texto fixo por `code`. Mensagem sintética com `error` não vira balão: um card por turno, sem toast duplicado.
+  - "Como entrar de novo" vai por canal com chave de lista fechada para uma URL fixa no main. "Tentar de novo" só por clique.
+- **Alternativas rejeitadas:** classificar só por texto (quebra a cada atualização do SDK); callback livre na ação (não testável e poderia aprovar); emissor nativo único por IPC (superfície nova sem ganho); biblioteca de toast (dependência nova sem erro persistente pronto); mostrar a mensagem original (vazamento).
+- **Consequências:** o typecheck impede voltar ao `notify(string)`. As fixtures do SDK viram contrato: atualizar o SDK obriga a regravá-las no mesmo PR do `sdk-hashes.json` (ADR-011).
+
 ## ADR-022 — Comando do agente sempre passa pelo card de aprovação
 - **Contexto:** no roteiro manual da v0.5.0 (2026-11-25), o `git status` pedido ao agente rodou sem card. Com `permissionMode: 'default'`, o Claude Code (SDK 0.3.330) libera sozinho o Bash que considera só-leitura e não chama o `canUseTool`; reproduzido no SDK puro (0 chamadas). Num workspace confiado, `git status` dentro de um repositório embutido roda o filtro dele sem o usuário ver, e a mitigação "Bash sempre pede aprovação" (H05.5) não valia para esses comandos. O mesmo roteiro mostrou que a CLI não roda `git status` sozinha ao abrir a sessão nessa versão (ADR-018 supunha que sim; o env restrito continua valendo para o git que o agente rodar).
-- **Decisão:** hook `PreToolUse` no `query()` (`src/main/lib/askHook.ts`) com matcher `Bash|PowerShell` respondendo `permissionDecision: 'ask'`, o que devolve a decisão ao `canUseTool`; `onFailure: 'block'` (se o hook falhar, o comando é bloqueado). PowerShell usa o mesmo card de comando do Bash e, como ele, nunca recebe "Sempre nesta sessão". `Monitor` (comando de shell em segundo plano, com o mesmo avaliador do Bash, apontado pela Cybersecurity) sai da sessão por `disallowedTools`. Read, Glob e Grep continuam sem card. Regra `deny` de permissão vence o `ask` do hook; regra `allow` não vence (o `ask` chega ao `canUseTool`).
+- **Decisão:** hook `PreToolUse` no `query()` (`src/main/lib/agentPolicy.ts`, antes `askHook.ts`) com matcher `Bash|PowerShell` respondendo `permissionDecision: 'ask'`, o que devolve a decisão ao `canUseTool`; `onFailure: 'block'` (se o hook falhar, o comando é bloqueado). PowerShell usa o mesmo card de comando do Bash e, como ele, nunca recebe "Sempre nesta sessão". `Monitor` (comando de shell em segundo plano, com o mesmo avaliador do Bash, apontado pela Cybersecurity) sai da sessão por `disallowedTools`. Read, Glob e Grep continuam sem card. Regra `deny` de permissão vence o `ask` do hook; regra `allow` não vence (o `ask` chega ao `canUseTool`).
 - **Consequências:** um card a mais para comandos inofensivos (`ls`, `pwd`); sem Monitor no chat. Validado no SDK puro (com hook, `canUseTool` chamado) e no app (card "Executar comando" para `git status` por Bash e PowerShell; rejeitar → o filtro do repositório não roda). Atualização do SDK exige repetir a validação (nome de tool novo que execute comando entra na lista). Sprint 06: trocar a lista negra por lista branca (`tools`) conferida no `system/init` e teste de integração contando chamadas do `canUseTool`.
+- **Emenda (H06.10, 2026-11-25): lista branca de tools.** O SDK 0.3.330 oferecia 31 tools ao agente (RemoteTrigger, PublishPlugin, CronCreate, Workflow…) e, com login do claude.ai, os conectores da conta (`mcp__claude_ai_*`). Agora o `query()` recebe `agentToolOptions()`: `tools` = Read, Glob, Grep, Edit, Write, NotebookEdit, Bash, PowerShell, WebSearch, Task (subagente herda a lista); `settings.disableClaudeAiConnectors: true` (flag vence `false` do projeto); `Monitor` segue em `disallowedTools`. Trava em runtime (Cybersecurity): o hook `PreToolUse` passa a valer para toda tool, sem matcher, com `onFailure: 'block'`, e responde `deny` para tool fora da lista (Task e Agent contam como a mesma) e para `mcp__*` cuja `mcp_server.source` não seja `dynamic` (servidores do DevDeck) ou `project` (`.mcp.json` confiado, ADR-013). Sem `strictMcpConfig` para não quebrar o ADR-013. Fica de fora: `AskUserQuestion` (o DevDeck não tem UI para responder; Sprint 07). Provas: unit da política e das opções, integração com o SDK real lendo `system/init` sem login (roda no CI) e teste live opt-in (`DEVDECK_SDK_LIVE=1`) com agente de projeto declarando `tools: Monitor`.
