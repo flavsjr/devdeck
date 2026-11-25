@@ -39,5 +39,6 @@ for (const f of fs.readdirSync(inDir).filter((n) => n.endsWith('.raw.json'))) {
   }
   const name = raw.scenario.replace(/_/g, '-') + '.json'
   fs.writeFileSync(path.join(outDir, name), JSON.stringify(fixture, null, 2) + '\n')
-  console.log(name, JSON.stringify(fixture).length)
+  // Só o nome do arquivo: a fixture tem campos de credencial (apiKeySource), que não vão para o console (CodeQL).
+  console.log(`gravada: ${name}`)
 }

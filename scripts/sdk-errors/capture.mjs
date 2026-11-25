@@ -77,7 +77,8 @@ async function run(name, sc) {
   }
   const out = { scenario: name, sdk: '0.3.330', capturedAt: new Date().toISOString(), hits, thrown, stderr, messages: msgs }
   fs.writeFileSync(path.join(outDir, `${name}.raw.json`), JSON.stringify(out, null, 2))
-  const summary = msgs.map((m) => `${m.type}${m.subtype ? '/' + m.subtype : ''}${m.error ? ' error=' + m.error : ''}${m.api_error_status !== undefined ? ' status=' + m.api_error_status : ''}${m.apiKeySource ? ' keySource=' + m.apiKeySource : ''}`)
+  // Resumo no console sem campos de credencial (o apiKeySource fica só no .raw.json local; alerta do CodeQL).
+  const summary = msgs.map((m) => `${m.type}${m.subtype ? '/' + m.subtype : ''}${m.error ? ' error=' + m.error : ''}${m.api_error_status !== undefined ? ' status=' + m.api_error_status : ''}`)
   console.log(`== ${name}: hits=${hits.length} thrown=${thrown ? thrown.message.slice(0, 120) : '-'}`)
   console.log('   ' + summary.join(' | '))
 }
