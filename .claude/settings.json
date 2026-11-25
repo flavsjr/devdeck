@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test)",
+      "Bash(npm test *)",
+      "Bash(npm run test:coverage)",
+      "Bash(npm run build)",
+      "Bash(npm ls *)",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git show *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh release view *)",
+      "PowerShell(npm run typecheck)",
+      "PowerShell(npm run typecheck *)",
+      "PowerShell(npm test)",
+      "PowerShell(npm test *)",
+      "PowerShell(npm run test:coverage)",
+      "PowerShell(npm run build)",
+      "PowerShell(npm ls *)",
+      "PowerShell(git status *)",
+      "PowerShell(git status)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git diff)",
+      "PowerShell(git show *)",
+      "PowerShell(gh run view *)",
+      "PowerShell(gh run list *)",
+      "PowerShell(gh pr view *)",
+      "PowerShell(gh pr checks *)",
+      "PowerShell(gh release view *)"
+    ]
+  }
+}

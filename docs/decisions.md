@@ -2,6 +2,32 @@
 
 Formato curto: contexto → decisão → consequências. Novas decisões entram no fim, numeradas.
 
+## Índice
+Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a partir da linha. ADR novo ou emenda acrescenta/atualiza a linha aqui.
+
+- ADR-001 — Electron + React + TypeScript
+- ADR-002 — Claude Agent SDK como motor do chat
+- ADR-003 — Persistência local em JSON
+- ADR-004 — Aprovação antes de aplicar + rollback por patch reverso
+- ADR-005 — Tokens pessoais para GitHub/GitLab/Bitbucket
+- ADR-006 — Comunidade em Supabase com RLS
+- ADR-007 — Agenda local + ICS somente leitura
+- ADR-008 — Squad, sprints e changelog
+- ADR-009 — Testes com Vitest em lógica pura isolada
+- ADR-010 — CI no GitHub Actions
+- ADR-011 — Instalador NSIS per-user
+- ADR-012 — Fronteira do IPC: origem + zod
+- ADR-013 — Confiança explícita em configurações de projeto
+- ADR-014 — Sistema de estilos: tokens em camadas
+- ADR-015 — Segredos de configuração cifrados e mascarados
+- ADR-016 — Atalhos no renderer, menu nulo em produção
+- ADR-017 — Dependências de UI
+- ADR-018 — Git sem executar código do repositório antes da confiança
+- ADR-019 — Release em rascunho com checksum e procedência
+- ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
+- ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados
+- ADR-022 — Comando do agente sempre passa pelo card de aprovação
+
 ## ADR-001 — Electron + React + TypeScript
 - **Contexto:** precisa de acesso a arquivos, processos (MCP stdio, agente) e git locais, com UI rica.
 - **Decisão:** Electron 45 + electron-vite + React 19 + TS. Main/preload em CommonJS; SDK ESM-only carregado por `import()` dinâmico.

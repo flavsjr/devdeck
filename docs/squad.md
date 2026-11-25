@@ -18,13 +18,35 @@ O DevDeck é desenvolvido como se fosse uma empresa pequena: um squad com papéi
 ## Rito de cada sprint
 
 1. **Planning** — PO escreve histórias + critérios de aceite em `docs/sprints/sprint-NN.md` e, para cada história, a **matriz de convocação** (quem trabalha nela).
-2. **Debate** — só os papéis convocados dão parecer, e só sobre as histórias em que trabalham (ver "Quem participa" abaixo). Depois, uma rodada de réplica só para os conflitos. PO registra a decisão.
+2. **Debate** — só os papéis convocados dão parecer, e só sobre as histórias em que trabalham (ver "Quem participa" abaixo). Depois, uma rodada de réplica só para os conflitos. PO registra a decisão em `sprint-NN/ata.md`.
 3. **Desenho** — Tech Lead quebra em tarefas Front/Back e registra ADRs em [`decisions.md`](decisions.md).
 4. **Build** — Front e Back implementam; `npm run typecheck` e `npm run build` verdes.
-5. **QA** — plano de testes executado; resultados com evidência na sprint.
+5. **QA** — plano de testes executado; resultados com evidência em `sprint-NN/qa.md`.
 6. **Security review** — checklist do agente `cybersecurity`; achados bloqueantes resolvidos.
 7. **Release** — DevOps atualiza versão, `CHANGELOG.md`, tag `vX.Y.Z` (push só com aprovação).
 8. **Retro** — o que funcionou, o que melhorar, ações para a próxima sprint.
+
+## Trilha rápida
+
+Bug, achado de revisão ou ajuste de tamanho **P** que não pede decisão de produto nem cria contrato novo (IPC, tabela, dependência de runtime) **não passa pelo debate**:
+
+1. O orquestrador registra uma linha na tabela "Trilha rápida" da sprint: item, dono, gatilho de segurança (sim/não).
+2. O dono implementa com teste. O Tech Lead revisa o diff.
+3. Se tocar gatilho de segurança (lista em "Regras de convocação"), Cybersecurity revisa só o diff e registra achados na mesma linha.
+4. Commit próprio; linha no `CHANGELOG.md` da versão da sprint.
+
+Vira história normal (com debate) se: mudar comportamento visível de forma não óbvia, precisar de ADR, tiver trade-off entre papéis ou crescer além de P durante o trabalho.
+
+## Economia de contexto
+
+Cada subagente começa do zero e paga para reler tudo. Regras para o orquestrador e para os papéis:
+
+- **Modelo por papel:** Tech Lead e Cybersecurity usam Opus (desenho e veto, onde erro custa caro); os demais usam Sonnet. O `model:` fica no frontmatter de `.claude/agents/*.md`.
+- **Brief, não releitura:** ao chamar um papel, o orquestrador manda a história com critérios, as tarefas dele, as decisões que o afetam e os ADRs por número. O papel lê o código que precisa e não lê a sprint nem `decisions.md` inteiros.
+- **Arquivos da sprint:** `sprint-NN.md` é o painel vivo (objetivo, histórias, trilha rápida, tarefas, riscos, pendências, entregas, retro). Ata do debate em `sprint-NN/ata.md`, QA e security review em `sprint-NN/qa.md`, evidências (prints, JSON do axe) em `sprint-NN/`. Sprints fechadas são histórico: ninguém lê sem motivo.
+- **Escrita curta:** parecer ≤ 120 palavras; célula da tabela de tarefas em uma linha (o detalhe vai no commit, no teste ou no ADR); evidência é comando + linha que prova, não saída inteira.
+- **Prova barata primeiro:** teste unitário, integração ou E2E scriptado antes de computer-use. Computer-use só no roteiro final, com captura em escala reduzida.
+- **Paralelo só quando independente:** pareceres do debate em paralelo; implementação de Front e Back em paralelo só sem arquivo em comum.
 
 ## Quem participa do debate
 
