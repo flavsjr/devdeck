@@ -8,6 +8,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Abrir o DevDeck de novo criava uma segunda instância sobre os mesmos dados (risco de corromper chats e configurações); agora a janela que já está aberta vem para a frente.
 
 ### Segurança
+- **O agente do chat só tem as ferramentas que o card de aprovação sabe mostrar**: ler, buscar, editar, escrever, rodar comando (Bash/PowerShell), busca na web e subagente. Saíram ferramentas como agendamento, gatilho remoto e publicação de plugin, e os conectores da sua conta do claude.ai deixam de aparecer no chat do DevDeck. Ferramenta fora da lista é negada mesmo que o Claude Code a ofereça (ADR-022, emenda).
 - `minimatch` das ferramentas de empacotamento atualizado para 11.x (GHSA-g3hv-75wg-m249, negação de serviço por padrão de glob). Não muda o app instalado.
 
 ### Alterado

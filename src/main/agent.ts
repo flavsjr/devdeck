@@ -5,7 +5,7 @@ import { basename, join } from 'node:path'
 import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
 import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
-import { ALWAYS_ASK_TOOLS, DISALLOWED_TOOLS, alwaysAskHooks } from './lib/askHook'
+import { ALWAYS_ASK_TOOLS, agentToolOptions } from './lib/agentPolicy'
 import { countsAsTurn } from './lib/turns'
 import { ROTULO_ERRO_AGENTE, agentErrorDetail, pumpErrorItem, redactResultErrors, redactedError, stderrLogArgs, type AgentErrorParts } from './lib/agentRedact'
 import { classifyAgentError } from './lib/agentErrors'
@@ -346,9 +346,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     mcpServers: toSdkMcpServers(mcpServers),
     permissionMode: 'default',
     canUseTool: makeCanUseTool(ls),
-    // Sem isto o Claude Code libera comando "só-leitura" (ex.: `git status`) sem chamar o canUseTool (ADR-022).
-    hooks: alwaysAskHooks(),
-    disallowedTools: [...DISALLOWED_TOOLS],
+    // Lista branca de tools, hook que nega o que estiver fora dela e força o card em comando "só-leitura"
+    // (`git status`), sem Monitor e sem conectores do claude.ai (ADR-022 e emenda da H06.10).
+    ...agentToolOptions(),
     includePartialMessages: true,
     settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },

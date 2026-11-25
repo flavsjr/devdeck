@@ -60,6 +60,7 @@ Outros scripts: `npm run typecheck`, `npm test` (Vitest, roda em dois fusos), `n
 - Só a interface do DevDeck chama o processo principal, e todo argumento é validado (zod). Navegação, janelas novas e permissões do navegador são negadas por padrão.
 - Configurações do projeto (`.claude/settings.json`, `.mcp.json`) vêm **desligadas**. Quando ligadas, o DevDeck lista os hooks, permissões e servidores MCP que o repositório quer executar e só carrega depois que você confia no workspace. Se esses arquivos mudarem, ele pergunta de novo.
 - Todo comando de shell do agente (Bash ou PowerShell) para no card de aprovação, inclusive os que o Claude Code trata como só-leitura, como `git status`.
+- O agente só recebe as ferramentas que o card de aprovação sabe mostrar (ler, buscar, editar, escrever, shell, busca na web, subagente). Os conectores da sua conta do claude.ai não carregam no chat do DevDeck; servidores MCP vêm só do DevDeck ou do `.mcp.json` de um projeto confiado.
 - "Aprovar todas da sessão" nunca vale fora do workspace nem em `.git`, `.claude`, `.vscode`, `.github` e pastas parecidas.
 - Variáveis e headers de MCP, links ICS, tokens git e a chave da API ficam cifrados no cofre do sistema. A interface só vê uma máscara, e um segredo guardado nunca é reaproveitado para outro destino.
 - Confiar num workspace cobre também os arquivos de `.claude/` (skills, comandos, agentes); se houver links ali, o DevDeck pergunta toda vez.

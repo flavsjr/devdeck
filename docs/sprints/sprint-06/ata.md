@@ -63,3 +63,11 @@ Movida da `sprint-06.md` em 2026-11-25 (processo novo, ver `docs/squad.md` → "
 - **Erro de sessão não ativa:** a notificação cita o título da sessão (como texto) e vai sem ação. Navegar com `sessionId` → backlog da Sprint 07 (muda o contrato da ação, exige TL e Sec).
 - **Na T10:** "Chave removida." quando o campo vazio remove a chave; códigos do Supabase Auth (`otp_expired`, `over_email_send_rate_limit`…) no dicionário `errorText`, com teste; `recarregarPerfil` chama `profile.refresh()` se ela já existir e só ler (TL confere), senão o perfil fica sem "Tentar de novo". Se a T10 apertar, sai primeiro o `recarregarPerfil`.
 - **URL de "Como entrar de novo":** `https://code.claude.com/docs/en/iam` (conferida em 2026-11-24). Textos de expiração da doc ("Login reached its time limit", "Login expired") entram no classificador.
+
+### Tema: lista branca de tools do agente (H06.10, 2026-11-25)
+**Convocados:** PO, TL, Back (dono, pelo orquestrador), Sec, QA · brief único com fatos medidos no SDK 0.3.330 (31 tools por padrão; conectores do claude.ai carregam depois do `init`; com `tools` + `disableClaudeAiConnectors` o subagente fica só com a lista).
+- **TL:** de acordo; `askHook.ts` → `agentPolicy.ts`; manter Task; sem `strictMcpConfig` (quebraria ADR-013). P, Must.
+- **Sec:** sem bloqueante; manter Task e WebSearch. **[alta]** trava em runtime: hook em toda tool negando fora da lista e MCP de origem não aceita. **[média]** teste com subagente rodando `git status` e agente de projeto com `tools: Monitor`.
+- **QA:** unit extraindo as opções do `query()` para função pura; integração lendo `init.tools` (sai sem login → roda no CI, comparar como subconjunto); subagente só com turno do modelo → local.
+- **Decisão (PO):** hook de deny aceito agora (única trava se o SDK mudar). Teste com subagente local e opt-in, com evidência no `qa.md`; sem ele a história não fecha. Must, P+. `AskUserQuestion` com UI fica para a Sprint 07.
+- **Security review (2026-11-25):** média sobre `permissionMode` declarado por agente de projeto. Medido sem brecha; mitigação com variação (acceptEdits → ask, demais → deny) registrada no `qa.md`. Code review do TL: aprovado; risco do `ToolSearch` descartado por teste.

@@ -109,6 +109,13 @@ Cada linha "sim" cita teste com controle positivo. O security review confere lin
 - [ ] Nenhum desses ganha "tentar de novo" automático.
 - [ ] Se o spike não confirmar o enum, volta para Could.
 
+### H06.10 — Lista branca de tools do agente · Must · P+ (entrou em 2026-11-25, achado do fechamento da Sprint 05)
+*Como dev, quero que o agente do chat só tenha as tools que o card de aprovação sabe mostrar, para não aprovar às cegas uma ação fora do workspace.*
+- [x] `query()` com `tools` = Read, Glob, Grep, Edit, Write, NotebookEdit, Bash, PowerShell, WebSearch, Task; `Monitor` em `disallowedTools`; conectores do claude.ai desligados.
+- [x] Hook `PreToolUse` em toda tool (`onFailure: 'block'`): `deny` fora da lista e para MCP de origem diferente de `dynamic`/`project`; `ask` em Bash/PowerShell.
+- [x] Subagente herda a lista; Bash pedido por subagente passa pelo `canUseTool`; agente de projeto com `tools: Monitor` não roda Monitor.
+- [x] Emenda ao ADR-022, CHANGELOG (Segurança) e READMEs EN/PT.
+
 ### Could
 - **H06.8** — "Alternar tema" na paleta (Ctrl+K) (P).
 - **H06.9** — Histórico das últimas 20 notificações da sessão, num sino na barra de status, guardado no mesmo reducer; "Limpar (só desta sessão)" sem confirmação (M).
@@ -132,6 +139,7 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 | H06.7 outros erros | Back | TL, Front, UX, Sec | mesmo classificador e mesmo `redactPatterns` da H06.3 |
 | H06.8 (Could) | Front | TL | paleta, sem gatilho |
 | H06.9 (Could) | Front | TL, UX | estado e desenho do histórico |
+| H06.10 lista branca de tools | Back | TL, Sec, QA | execução de comando, MCP e confiança no workspace (Sec); prova com SDK real (QA) |
 
 **Não convocados (sem tarefa na história):** H06.2: DevOps · H06.5: UX, Back, Sec, DevOps · H06.1, H06.3, H06.4: DevOps · H06.4, H06.6: UX, Front. DevOps opina só na H06.6 (o release da v0.6.0 é rito, não debate).
 
@@ -146,6 +154,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 - **Autenticação:** "Como entrar de novo" (URL fixa no main) é a ação principal; chave da API é secundária.
 - **Fila:** teto de 3, erro só sai por ação, conquista em faixa própria, dedupe "×N".
 - **Tema:** Escuro para settings existente, Sistema em instalação nova; `nativeTheme` + `prefers-color-scheme`; accent claro ~`#3d4ed8`. Tema antes do legado (≤ 50%, timebox).
+- **H06.10 (2026-11-25):** lista branca de 10 tools + conectores do claude.ai desligados + hook de `deny` em runtime (alta da Sec, aceita); MCP só de origem `dynamic`/`project`; sem `strictMcpConfig` (ADR-013); teste com subagente fica local e opt-in, com evidência no `qa.md`. `AskUserQuestion` com UI → Sprint 07.
 - **Fora da sprint:** navegar para sessão não ativa (Sprint 07); `/login` pelo `claude.exe` empacotado (Won't).
 
 ## Riscos aceitos
@@ -162,7 +171,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 ## Achados do fechamento da Sprint 05 (2026-11-25) — levar ao PO e à Cybersecurity
 - ~~**Revisar o 1º risco aceito acima:** Bash só-leitura sem `canUseTool`~~ → corrigido antes da tag `v0.5.0` no branch `fix/bash-sempre-pede-aprovacao` (`77bb313`, ADR-022): hook `PreToolUse` `ask` para Bash/PowerShell e `Monitor` em `disallowedTools`. A mitigação do risco volta a valer.
 - **Pendências não bloqueantes da revisão de Cybersecurity do fix (2026-11-25):**
-  - **Média:** trocar a lista negra por lista branca (`tools: [...]` só com o que o card sabe mostrar) e conferir o `tools` do `system/init` em teste. `Workflow`, `CronCreate`, `EnterWorktree` e `Agent` com `isolation: "worktree"` executam código e não foram conferidas.
+  - ~~**Média:** trocar a lista negra por lista branca~~ → virou H06.10 (feita em 2026-11-25). (`tools: [...]` só com o que o card sabe mostrar) e conferir o `tools` do `system/init` em teste. `Workflow`, `CronCreate`, `EnterWorktree` e `Agent` com `isolation: "worktree"` executam código e não foram conferidas.
   - **Baixa:** teste de integração com o SDK real contando chamadas do `canUseTool` para `git status` (Bash, PowerShell, Monitor), para pegar atualização do SDK sem hook.
   - **Baixa:** teste do `decide()` recusando "Sempre" para PowerShell no main; `NO_PATH` em `toolpath.ts` cita `Task`, mas o nome atual da tool é `Agent` (mais restritivo, sem risco).
   - **Baixa:** em workspace confiado, hook `PermissionRequest` ou `disableAllHooks` do projeto podem transformar o `ask` em `allow`; ambos só entram com confiança (ADR-013). Registrar como risco aceito.
@@ -178,7 +187,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 |---|---|---|---|
 | Instância única: `requestSingleInstanceLock` + foco na janela em `second-instance` | Back | sim (store em disco) | ✅ 2026-11-25. Teste `singleInstance.test.ts`; no `pack:win`, 2ª instância no mesmo userData sai com 0 e outra pasta abre. TL aprovado; Sec sem achados |
 | `minimatch` ≥ 11.0.1 (Dependabot #1) | DevOps | sim (dependência de build) | ✅ 2026-11-25. `overrides` só na faixa afetada → 11.0.9; `pack:win` com fuses ok. TL aprovado; Sec sem achados. CI com `npm ci` verde ([run 45652772146](https://github.com/flavsjr/devdeck/actions/runs/45652772146)) e dry run do `release.yml` verde em 6,5 min com artefato `installer` ([run 45652794525](https://github.com/flavsjr/devdeck/actions/runs/45652794525)). Build de mac (`@electron/universal`) não verificado |
-| Lista branca de tools do agente (`tools: [...]`) | Back | sim | avaliar: se precisar emendar o ADR-022, vira história |
+| Lista branca de tools do agente (`tools: [...]`) | Back | sim | → virou história H06.10 (emenda ao ADR-022) |
 
 ## Tarefas (Tech Lead)
 Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `src/main/lib` e `src/renderer/src/lib` (T03); `agentEnv` repassa `ANTHROPIC_BASE_URL`, então o E2E aponta o SDK para o servidor falso sem mexer no pacote; `api_error_status` existe no resultado do SDK 0.3.330 (`sdk.d.ts:6443`).
@@ -242,6 +251,7 @@ Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-0
 ## QA e security review (resumo de [`sprint-06/qa.md`](sprint-06/qa.md))
 | História | QA | Security |
 |---|---|---|
+| H06.10 | ✅ unit + integração no CI + live local | alta do debate (hook de deny) atendida; média do review (`permissionMode` de agente) mitigada |
 
 ## Entregas
 - …
