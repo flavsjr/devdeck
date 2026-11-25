@@ -76,3 +76,4 @@ Movida da `sprint-06.md` em 2026-11-25 (processo novo, ver `docs/squad.md` → "
 - Paleta clara (T27) desenhada já validada pelo `contrast.test` (a UX não roda contraste) e revisada pela UX depois; UX aprovou com ajustes.
 - Fundo do composer no claro fica para a H06.5 (regra do legado; mover agora aumentaria as exceções do `css-layers`).
 - "Sistema (agora: X)" só aparece com Sistema marcado: com Escuro/Claro forçado o renderer não enxerga o tema do Windows.
+- **Escopo (usuário, 2026-11-25):** tudo relacionado à comunidade fica para depois; H06.6 sai da Sprint 06 (T39 feita fica).

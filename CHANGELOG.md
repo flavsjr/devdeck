@@ -8,6 +8,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - **Tema claro**: em *Configurações → Aparência*, escolha Sistema, Escuro ou Claro. Troca na hora, sem recarregar, fica salva e, em "Sistema", acompanha o Windows com o app aberto. Contraste AA conferido por teste nos dois temas.
 
 ### Corrigido
+- Uma notificação de erro (que fica até ser fechada) cobria os botões do topo das abas, como "Importar do Claude"; a pilha agora começa abaixo do cabeçalho.
 - "Claude está trabalhando…" piscava o texto até ficar ilegível (contraste abaixo de 3:1); agora o texto fica fixo e quem pulsa é um ponto ao lado.
 - No diff lado a lado, as linhas adicionadas e removidas não tinham o sinal `+`/`−`, só a cor; agora têm nos dois modos.
 - Abrir o DevDeck de novo criava uma segunda instância sobre os mesmos dados (risco de corromper chats e configurações); agora a janela que já está aberta vem para a frente.

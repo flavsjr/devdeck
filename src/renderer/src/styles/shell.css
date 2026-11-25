@@ -615,9 +615,11 @@
    * a pilha não cobre nenhum dos dois. 1280×720: coluna principal de 608 px, pilha de 360 px.
    * A altura máxima deixa livre o composer no tamanho máximo (textarea de 240 px + chips + faixa
    * de aprovação pendente + barra de status ≈ 360 px); passou disso, a pilha rola. */
+  /* Abaixo do view-head (padding 20 px + ação de ~32 px): erro, que não some sozinho, não cobre as ações do
+     cabeçalho das abas (achado do E2E T25, decisão da UX em 2026-11-25). */
   .notify-stack {
     position: fixed;
-    top: 8px;
+    top: 60px;
     right: var(--right-w, 40px);
     z-index: 40;
     width: min(384px, calc(100vw - 48px - var(--sidebar-w, 0px) - var(--right-w, 40px)));

@@ -102,16 +102,23 @@ try {
   await form.getByRole('button', { name: 'Salvar' }).click()
   await conferir('aviso', 'Nome do servidor', 'MCP com nome inválido')
 
-  // ---------- info: importar sem nada novo ----------
-  // Antes do erro: a pilha fica no topo à direita, por cima do botão (achado registrado na Sprint 06).
-  await win.getByRole('button', { name: 'Importar do Claude' }).click()
-  await conferir('info', 'Nada novo para importar.', 'importar do Claude')
-
   await form.getByPlaceholder('ex.: github').fill('remoto')
   await form.locator('select').first().selectOption('http')
   await form.getByPlaceholder('https://exemplo.com/mcp').fill('https://exemplo.com/mcp?token=abc')
   await form.getByRole('button', { name: 'Salvar' }).click()
   await conferir('erro', 'token', 'MCP com token na URL')
+
+  // ---------- info: importar sem nada novo, COM o erro na tela ----------
+  // A pilha fica abaixo do view-head: as ações do cabeçalho continuam clicáveis (achado da T25).
+  const sobrepoe = (a, b) => a && b && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+  const importar = win.getByRole('button', { name: 'Importar do Claude' })
+  for (const nome of ['Importar do Claude', 'Adicionar']) {
+    const caixaBotao = await win.getByRole('button', { name: nome }).first().boundingBox()
+    const cartoes = await win.locator('.notify-card').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))
+    check(!cartoes.some((c) => sobrepoe(c, caixaBotao)), `com erro na tela, nenhum cartão cobre "${nome}"`)
+  }
+  await importar.click({ timeout: 5000 })
+  await conferir('info', 'Nada novo para importar.', 'importar do Claude com erro na tela')
 
   // Erro não some sozinho (os outros tipos somem no prazo).
   await win.waitForTimeout(9000)

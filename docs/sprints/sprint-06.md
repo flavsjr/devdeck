@@ -92,7 +92,7 @@ Cada linha "sim" cita teste com controle positivo. O security review confere lin
 - [ ] Classes migradas com prefixo ou escopo, sem `!important`. A lista de exceções do `css-layers.test.ts` (47 hoje) encolhe a cada área.
 - [ ] Capturas do E2E antes e depois de cada área migrada, nos dois temas, comparadas manualmente (sem pixelmatch). axe continua sem violações.
 
-### H06.6 — pgTAP no CI · Should · G
+### H06.6 — pgTAP no CI · Should · G · **fora da Sprint 06** (usuário, 2026-11-25: tudo da comunidade fica para depois)
 *Como mantenedor da comunidade, quero que os testes de RLS e de limite rodem no CI para que uma migration não abra um buraco sem ninguém ver.*
 - [ ] Job `db`: Supabase CLI como binário baixado com `curl` e conferido por `sha256sum -c`, com o hash escrito no workflow. O hash sai do arquivo de checksums oficial do release e só troca por PR que cita esse arquivo; falha do `sha256sum` derruba o job.
 - [ ] `supabase db start` (ou `supabase start -x` sem os serviços não usados) + `supabase test db` com todos os `supabase/tests/*.sql`. Falha do pgTAP deixa o CI vermelho.
@@ -176,11 +176,12 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
   - **Baixa:** teste do `decide()` recusando "Sempre" para PowerShell no main; `NO_PATH` em `toolpath.ts` cita `Task`, mas o nome atual da tool é `Agent` (mais restritivo, sem risco).
   - **Baixa:** em workspace confiado, hook `PermissionRequest` ou `disableAllHooks` do projeto podem transformar o `ask` em `allow`; ambos só entram com confiança (ADR-013). Registrar como risco aceito.
 - **Instância única:** sem `app.requestSingleInstanceLock()`; abrir o DevDeck de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck` (corrida nos JSON do store). Corrigir com foco na janela existente em `second-instance`.
-- **Pilha de notificações cobre ações do cabeçalho (E2E da T25, 2026-11-25):** a pilha fica fixa no topo à direita do conteúdo; um erro (que não some sozinho) fica por cima de "Importar do Claude"/"Adicionar" na aba MCP até o usuário fechar. O critério da H06.2 só exige não cobrir o composer e o card de aprovação. Levar ao UX: descer a pilha para abaixo do `view-head` ou para o canto inferior.
+- ~~**Pilha de notificações cobre ações do cabeçalho (E2E da T25, 2026-11-25):**~~ → corrigido pela trilha rápida (UX escolheu descer a pilha para abaixo do `view-head`, `top: 60px`). a pilha fica fixa no topo à direita do conteúdo; um erro (que não some sozinho) fica por cima de "Importar do Claude"/"Adicionar" na aba MCP até o usuário fechar. O critério da H06.2 só exige não cobrir o composer e o card de aprovação. Levar ao UX: descer a pilha para abaixo do `view-head` ou para o canto inferior.
 - **Env restrito não é sandbox:** sem confiança, o agente ofereceu rodar git "sem essa variável". Um `env -u GIT_DIR git …` depende só da aprovação do Bash; o card precisa deixar claro quando o comando mexe em `GIT_*`.
 - **Dependabot #1 (média, 2026-11-25):** `minimatch` `>= 7.0.0, < 11.0.1` com DoS por amplificação de `globparts` (correção na 11.0.1). Entra só pelo `electron-builder@26.18.0` → `app-builder-lib`: `minimatch@10.2.6` direto e `9.0.9` via `@electron/universal`; as cópias 3.x e 5.x estão fora da faixa. É dependência de build (escopo `development`), não vai no instalador e os padrões de glob vêm do próprio repo, então o risco real é baixo. Corrigir com `electron-builder` que já traga 11.0.1+ ou `overrides` no `package.json`, conferir com `npm ls minimatch` e rodar o dry run do `release.yml` (DevOps; Cybersecurity revisa o override).
 
 ## Backlog para a Sprint 07
+- **Comunidade (decisão do usuário, 2026-11-25):** tudo da comunidade fica para depois, inclusive a H06.6 (pgTAP no CI: T40–T43). `supabase/config.toml` (T39) já está pronto para quando voltar.
 - "Ver no chat" abrindo a sessão do erro quando ela não é a ativa (`navegar` com `sessionId` UUID): exige TL e Sec.
 
 ## Trilha rápida (sem debate, ver `docs/squad.md`)
@@ -189,6 +190,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 | Instância única: `requestSingleInstanceLock` + foco na janela em `second-instance` | Back | sim (store em disco) | ✅ 2026-11-25. Teste `singleInstance.test.ts`; no `pack:win`, 2ª instância no mesmo userData sai com 0 e outra pasta abre. TL aprovado; Sec sem achados |
 | `minimatch` ≥ 11.0.1 (Dependabot #1) | DevOps | sim (dependência de build) | ✅ 2026-11-25. `overrides` só na faixa afetada → 11.0.9; `pack:win` com fuses ok. TL aprovado; Sec sem achados. CI com `npm ci` verde ([run 45652772146](https://github.com/flavsjr/devdeck/actions/runs/45652772146)) e dry run do `release.yml` verde em 6,5 min com artefato `installer` ([run 45652794525](https://github.com/flavsjr/devdeck/actions/runs/45652794525)). Build de mac (`@electron/universal`) não verificado |
 | Lista branca de tools do agente (`tools: [...]`) | Back | sim | → virou história H06.10 (emenda ao ADR-022) |
+| Pilha de notificações abaixo do `view-head` (achado da T25) | Front + UX | não | ✅ 2026-11-25. E2E: com erro na tela, nenhum cartão cobre "Importar do Claude"/"Adicionar" e o clique funciona; controle com `top: 8px` falha |
 
 ## Tarefas (Tech Lead)
 Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `src/main/lib` e `src/renderer/src/lib` (T03); `agentEnv` repassa `ANTHROPIC_BASE_URL`, então o E2E aponta o SDK para o servidor falso sem mexer no pacote; `api_error_status` existe no resultado do SDK 0.3.330 (`sdk.d.ts:6443`).
@@ -234,10 +236,10 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | a fazer |
 | T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | a fazer |
 | T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | feito (porta 55322: o Windows reserva 53952–54451) |
-| T40 · H06.6 · Job `db` no `ci.yml`: `curl` + `sha256sum -c` (hash citado do arquivo oficial), `supabase db start`, `supabase test db`, `contents: read`, `persist-credentials: false`, sem secret. Duração registrada | DevOps | a fazer |
-| T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | a fazer |
-| T42 · H06.6 · Controle positivo num branch descartável com o link do run vermelho no PR. Emenda ao ADR-010. Dep. T40 | DevOps + TL | a fazer |
-| T43 · H06.6 · Usuário torna o `db` obrigatório no ruleset no 1º run verde, com a data registrada na ata. Dep. T40 | Usuário (admin) | a fazer |
+| T40 · H06.6 · Job `db` no `ci.yml`: `curl` + `sha256sum -c` (hash citado do arquivo oficial), `supabase db start`, `supabase test db`, `contents: read`, `persist-credentials: false`, sem secret. Duração registrada | DevOps | adiada (comunidade depois) |
+| T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | adiada (comunidade depois) |
+| T42 · H06.6 · Controle positivo num branch descartável com o link do run vermelho no PR. Emenda ao ADR-010. Dep. T40 | DevOps + TL | adiada (comunidade depois) |
+| T43 · H06.6 · Usuário torna o `db` obrigatório no ruleset no 1º run verde, com a data registrada na ata. Dep. T40 | Usuário (admin) | adiada (comunidade depois) |
 | T44 · H06.5 · Criar a camada `views` em `index.css` (`tokens, legacy, base, shell, views`) e a catraca de linhas do legado no `css-layers.test.ts` | Front | a fazer |
 | T45 · H06.5 · Migrar o `views.css` por área (uma tarefa e um commit por aba), com escopo e sem `!important`, capturas antes e depois nos dois temas e axe. Timebox M. Dep. T44, T35 | Front + QA | a fazer |
 | T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | a fazer |
