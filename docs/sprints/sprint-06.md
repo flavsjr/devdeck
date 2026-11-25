@@ -1,6 +1,6 @@
 # Sprint 06 — Feedback claro: notificações, erros legíveis e tema claro
 
-**Período:** 2026-11-24 → 2026-12-08 · **Versão alvo:** v0.6.0 · **Status:** planejada
+**Período:** 2026-11-24 → 2026-12-08 · **Versão alvo:** v0.6.0 · **Status:** ✅ fechada em 2026-11-25 (v0.6.0; tag e release com aprovação do usuário)
 
 > Painel vivo da sprint. Ata em `sprint-06/ata.md`, QA e security review em `sprint-06/qa.md`, spike em `sprint-06/spike-t01.md`.
 
@@ -33,41 +33,41 @@ Fazer o DevDeck se comunicar com clareza (erro, aviso, sucesso e conquista disti
 
 ### H06.2 — Sistema de notificações · Must · M
 *Como dev, quero distinguir de relance um erro de um aviso, de um sucesso e de uma conquista, e agir sobre eles, para não perder o que importa nem ler mensagem crua.*
-- [ ] Dado `notify({ tipo, texto, acao? })` com tipo `erro | aviso | sucesso | info | conquista`, quando a notificação aparece, então tem ícone lucide e cor por token semântico, e o tipo é dito em texto para o leitor de tela ("Erro:", "Aviso:"…), nunca só pela cor.
-- [ ] Typecheck sem nenhuma chamada `notify(string)`. Inventário do grep (41 chamadas) com o tipo de cada uma revisado pelo UX antes da migração.
-- [ ] `src/shared/lib/errorText.ts` (dicionário puro, sem `electron`/`fs`/DOM, teste em `tests/unit/shared/`): sem o prefixo "Error invoking remote method…", códigos conhecidos em PT-BR e texto genérico para o resto. O main traduz `ENOENT`, `EACCES` e rede no handler, antes do `throw`, com contexto; o renderer traduz o `code` do Supabase (`23505`, limite da `0002`) e tira o prefixo do IPC. Saem os helpers locais da McpView e da CommunityView.
-- [ ] Fila (reducer puro em `lib/notifications`, `now` injetado, com teste): no máximo 3 visíveis, e erro conta no teto. Sai primeiro a mais antiga que não é erro; erro nunca sai sem ação do usuário. Com 3 erros, o próximo vira "+N erros"; "Fechar todos" a partir de 2 erros. A mesma mensagem em menos de 5 s não duplica e mostra "×2" ("repetida 2 vezes" para o leitor de tela).
-- [ ] Durações: sucesso 4 s, info 5 s, conquista 6 s, aviso 8 s. **Erro fica até ser fechado.** O tempo pausa com mouse ou foco em cima. Fechar tem `aria-label="Fechar notificação"` e alvo ≥ 24 px.
-- [ ] Erro em `role="alert"`; os outros tipos numa região `role="status"` `aria-live="polite"` presente no DOM desde o boot. Notificação nunca rouba o foco.
-- [ ] Cada notificação tem no máximo uma ação, de uma união fechada: `{ tipo: 'navegar', destino: View } | { tipo: 'repetir', op: RetryOp }`, com `RetryOp` numa lista nomeada. Teste: nenhuma `RetryOp` aprova alteração, liga "Sempre" ou executa comando.
-- [ ] Conquista tem visual próprio (ícone, título e XP), separado da pilha de erros.
-- [ ] Regra pura `deveNotificarNativo({ focada, visivel })` em `src/shared`, com teste, usada nos 4 caminhos: `achievements.ts` e `agenda.ts` no main, aprovação e Flow no renderer. Nativa só para aprovação, lembrete e conquista, nunca para erro comum. A aprovação troca `document.hidden` por `!document.hasFocus()`.
-- [ ] Dado janela em foco, quando um lembrete da agenda dispara, então aparece um toast info com "Abrir na agenda" (navegação). O evento main→renderer leva só id e título, renderizados como texto.
-- [ ] Em 1280×720 e a ~900 px, a pilha não cobre o composer nem o card de aprovação. Com `prefers-reduced-motion` não há animação de entrada.
+- [x] Dado `notify({ tipo, texto, acao? })` com tipo `erro | aviso | sucesso | info | conquista`, quando a notificação aparece, então tem ícone lucide e cor por token semântico, e o tipo é dito em texto para o leitor de tela ("Erro:", "Aviso:"…), nunca só pela cor.
+- [x] Typecheck sem nenhuma chamada `notify(string)`. Inventário do grep (41 chamadas) com o tipo de cada uma revisado pelo UX antes da migração.
+- [x] `src/shared/lib/errorText.ts` (dicionário puro, sem `electron`/`fs`/DOM, teste em `tests/unit/shared/`): sem o prefixo "Error invoking remote method…", códigos conhecidos em PT-BR e texto genérico para o resto. O main traduz `ENOENT`, `EACCES` e rede no handler, antes do `throw`, com contexto; o renderer traduz o `code` do Supabase (`23505`, limite da `0002`) e tira o prefixo do IPC. Saem os helpers locais da McpView e da CommunityView.
+- [x] Fila (reducer puro em `lib/notifications`, `now` injetado, com teste): no máximo 3 visíveis, e erro conta no teto. Sai primeiro a mais antiga que não é erro; erro nunca sai sem ação do usuário. Com 3 erros, o próximo vira "+N erros"; "Fechar todos" a partir de 2 erros. A mesma mensagem em menos de 5 s não duplica e mostra "×2" ("repetida 2 vezes" para o leitor de tela).
+- [ ] Durações: sucesso 4 s, info 5 s, conquista 6 s, aviso 8 s. **Erro fica até ser fechado.** O tempo pausa com mouse ou foco em cima. Fechar tem `aria-label="Fechar notificação"` e alvo ≥ 24 px. — ⚠️ parcial no fechamento: alvo ≥ 24 px sem teste → Sprint 07
+- [ ] Erro em `role="alert"`; os outros tipos numa região `role="status"` `aria-live="polite"` presente no DOM desde o boot. Notificação nunca rouba o foco. — ⚠️ parcial no fechamento: só no E2E; "não rouba o foco" sem teste → Sprint 07
+- [x] Cada notificação tem no máximo uma ação, de uma união fechada: `{ tipo: 'navegar', destino: View } | { tipo: 'repetir', op: RetryOp }`, com `RetryOp` numa lista nomeada. Teste: nenhuma `RetryOp` aprova alteração, liga "Sempre" ou executa comando.
+- [x] Conquista tem visual próprio (ícone, título e XP), separado da pilha de erros.
+- [x] Regra pura `deveNotificarNativo({ focada, visivel })` em `src/shared`, com teste, usada nos 4 caminhos: `achievements.ts` e `agenda.ts` no main, aprovação e Flow no renderer. Nativa só para aprovação, lembrete e conquista, nunca para erro comum. A aprovação troca `document.hidden` por `!document.hasFocus()`.
+- [ ] Dado janela em foco, quando um lembrete da agenda dispara, então aparece um toast info com "Abrir na agenda" (navegação). O evento main→renderer leva só id e título, renderizados como texto. — ⚠️ parcial no fechamento: fluxo sem teste → Sprint 07
+- [ ] Em 1280×720 e a ~900 px, a pilha não cobre o composer nem o card de aprovação. Com `prefers-reduced-motion` não há animação de entrada. — ⚠️ parcial no fechamento: layout só no E2E de aprovação; reduced-motion sem teste → Sprint 07
 - [x] E2E dos 5 tipos por fluxo real, sem gancho de teste no pacote: erro (MCP com comando inválido), aviso (nome de MCP inválido), sucesso (salvar chave), info ("Nada novo para importar"), conquista (primeiro turno no servidor local; perfil semeado no `--user-data-dir` descartável como alternativa). axe sem violações com os 5 tipos visíveis.
 
 ### H06.3 — Erro de autenticação do Claude legível · Must · M
 *Como dev cuja sessão do Claude expirou, quero entender em português o que aconteceu e o que fazer, com um botão, para voltar a usar o chat sem procurar a solução.*
-- [ ] Classificador puro `src/main/lib/agentErrors.ts`: usa `SDKAssistantMessage.error` tipado do SDK 0.3.330. O desempate de `authentication_failed` em `auth_expired`, `auth_invalid_key` e `auth_missing` usa `hasApiKey`/`apiKeySource` + `api_error_status` 401, e o texto só como fallback. Enum desconhecido vira `unknown`. Fixtures em `tests/fixtures/agent-errors/`, capturadas do 0.3.330, redigidas e com a origem anotada; atualizar o SDK obriga a regravar as fixtures.
-- [ ] Dado sessão OAuth expirada, quando envio uma mensagem, então o chat mostra o card "Sua sessão do Claude expirou" com a explicação e as ações "Usar chave da API" (abre Configurações com foco no campo), "Como entrar de novo" e "Tentar de novo".
-- [ ] Dado chave da API salva e recusada, quando o turno falha, então o card é "A chave da API foi recusada", com "Trocar chave", e não fala de OAuth.
-- [ ] Dado `auth_missing`, então o card é "Nenhuma conta do Claude conectada", com "Adicionar chave da API" e "Como entrar".
-- [ ] Fora de "Detalhes técnicos", o card não contém a mensagem original: o renderer mapeia o código para texto fixo.
-- [ ] Um card por turno: a mensagem sintética do assistente (texto cru em inglês) some quando `msg.error` existir, e `result.errors` e o catch do pump não duplicam o card.
-- [ ] `redactPatterns` puro em `lib/secrets.ts` (`sk-ant-[\w-]+`, `Bearer\s+\S+`, JWT `eyJ…`, `x-api-key`, query `token`/`key`/`code`/`access_token`, apiKey salva), aplicado junto com o redact por valor exato em `agent.ts:285` (rethrow → IPC), `:303` (stderr → console), `:320` (catch do pump → item de chat em disco) e `:469` (`result.errors`). Teste com espião no `console.error` e leitura do arquivo de sessão em disco: nenhum valor falso aparece.
-- [ ] "Detalhes técnicos" recolhido, redigido no main, com "Copiar detalhes" que copia o mesmo texto. O original nunca chega ao renderer. Se o `redactPatterns` não ficar pronto, os detalhes ficam escondidos.
-- [ ] "Como entrar de novo" abre só uma URL https fixa, por `openExternal` validado no main; o IPC recebe uma chave de lista fechada, nunca a URL.
-- [ ] Dado erro de autenticação, a barra de status mostra "Claude: sessão expirada", "Claude: chave recusada" ou "Claude: sem conta", com ação, até o próximo turno concluído.
-- [ ] O erro do turno aparece no card do chat e não vira toast também. Se o usuário estiver em outra aba, aparece a notificação "Erro no chat: …" com a ação "Ver no chat".
-- [ ] "Tentar de novo" reenvia a última mensagem só por clique explícito, nunca sozinho, e fica desabilitado durante turno em andamento. O card não apaga o texto do composer.
-- [ ] Regressão: turno com falha de autenticação continua sem contar em estatísticas e conquistas (`lib/turns.ts`).
+- [x] Classificador puro `src/main/lib/agentErrors.ts`: usa `SDKAssistantMessage.error` tipado do SDK 0.3.330. O desempate de `authentication_failed` em `auth_expired`, `auth_invalid_key` e `auth_missing` usa `hasApiKey`/`apiKeySource` + `api_error_status` 401, e o texto só como fallback. Enum desconhecido vira `unknown`. Fixtures em `tests/fixtures/agent-errors/`, capturadas do 0.3.330, redigidas e com a origem anotada; atualizar o SDK obriga a regravar as fixtures.
+- [ ] Dado sessão OAuth expirada, quando envio uma mensagem, então o chat mostra o card "Sua sessão do Claude expirou" com a explicação e as ações "Usar chave da API" (abre Configurações com foco no campo), "Como entrar de novo" e "Tentar de novo". — ⚠️ parcial no fechamento: texto/ação em unit; sessão real é a T26 → Sprint 07
+- [x] Dado chave da API salva e recusada, quando o turno falha, então o card é "A chave da API foi recusada", com "Trocar chave", e não fala de OAuth.
+- [x] Dado `auth_missing`, então o card é "Nenhuma conta do Claude conectada", com "Adicionar chave da API" e "Como entrar".
+- [x] Fora de "Detalhes técnicos", o card não contém a mensagem original: o renderer mapeia o código para texto fixo.
+- [x] Um card por turno: a mensagem sintética do assistente (texto cru em inglês) some quando `msg.error` existir, e `result.errors` e o catch do pump não duplicam o card.
+- [x] `redactPatterns` puro em `lib/secrets.ts` (`sk-ant-[\w-]+`, `Bearer\s+\S+`, JWT `eyJ…`, `x-api-key`, query `token`/`key`/`code`/`access_token`, apiKey salva), aplicado junto com o redact por valor exato em `agent.ts:285` (rethrow → IPC), `:303` (stderr → console), `:320` (catch do pump → item de chat em disco) e `:469` (`result.errors`). Teste com espião no `console.error` e leitura do arquivo de sessão em disco: nenhum valor falso aparece.
+- [ ] "Detalhes técnicos" recolhido, redigido no main, com "Copiar detalhes" que copia o mesmo texto. O original nunca chega ao renderer. Se o `redactPatterns` não ficar pronto, os detalhes ficam escondidos. — ⚠️ parcial no fechamento: "Copiar" sem teste de igualdade → Sprint 07
+- [x] "Como entrar de novo" abre só uma URL https fixa, por `openExternal` validado no main; o IPC recebe uma chave de lista fechada, nunca a URL.
+- [x] Dado erro de autenticação, a barra de status mostra "Claude: sessão expirada", "Claude: chave recusada" ou "Claude: sem conta", com ação, até o próximo turno concluído.
+- [ ] O erro do turno aparece no card do chat e não vira toast também. Se o usuário estiver em outra aba, aparece a notificação "Erro no chat: …" com a ação "Ver no chat". — ⚠️ parcial no fechamento: sem toast duplicado sem teste → Sprint 07
+- [ ] "Tentar de novo" reenvia a última mensagem só por clique explícito, nunca sozinho, e fica desabilitado durante turno em andamento. O card não apaga o texto do composer. — ⚠️ parcial no fechamento: desabilitado/composer intacto sem teste → Sprint 07
+- [x] Regressão: turno com falha de autenticação continua sem contar em estatísticas e conquistas (`lib/turns.ts`).
 - [x] E2E com servidor em `127.0.0.1` que devolve 401 com `sk-ant-…` e `Bearer …` falsos no corpo: card certo e nenhum valor falso na tela nem no log.
-- [ ] Evidência manual no app instalado com a sessão OAuth expirada real (prints em `docs/sprints/sprint-06/`).
+- [ ] Evidência manual no app instalado com a sessão OAuth expirada real (prints em `docs/sprints/sprint-06/`). — ⚠️ parcial no fechamento: pendência com o usuário (T26) → Sprint 07
 
 ### H06.4 — Checklist de ameaça no template + repositório embutido · Should · P
 *Como squad, quero um checklist de ameaça obrigatório nas histórias que tocam git ou processo para que bypass como o do submódulo apareça no debate, não no security review.*
-- [ ] `_template.md` ganha a seção "Checklist de ameaça" (texto da Cybersecurity, abaixo). É obrigatória em história que toca git ou execução de processo, com "N/A: <motivo>" nas outras. Cada "sim" cita teste com controle positivo, e o security review confere linha a linha.
-- [ ] Dado uma pasta com `.git` próprio dentro do workspace, registrada como gitlink (`update-index --cacheinfo 160000`) sem `.git/modules` e com filtro malicioso, quando o DevDeck roda status e diff, então nenhum marcador aparece. Controle positivo no mesmo teste: `git -C sub diff` puro cria o marcador.
+- [x] `_template.md` ganha a seção "Checklist de ameaça" (texto da Cybersecurity, abaixo). É obrigatória em história que toca git ou execução de processo, com "N/A: <motivo>" nas outras. Cada "sim" cita teste com controle positivo, e o security review confere linha a linha.
+- [ ] Dado uma pasta com `.git` próprio dentro do workspace, registrada como gitlink (`update-index --cacheinfo 160000`) sem `.git/modules` e com filtro malicioso, quando o DevDeck roda status e diff, então nenhum marcador aparece. Controle positivo no mesmo teste: `git -C sub diff` puro cria o marcador. — fora da v0.6.0: T38 em andamento em outra sessão
 
 Texto da seção para o template:
 
@@ -105,9 +105,9 @@ Cada linha "sim" cita teste com controle positivo. O security review confere lin
 
 ### H06.7 — Outros erros do Claude legíveis · Should · P
 *Mesmo classificador e mesmo `redactPatterns` da H06.3, feito junto com ela.*
-- [ ] `rate_limit` (429): "Limite de uso do Claude atingido. Tente de novo em alguns minutos." · `overloaded` (529): "O Claude está sobrecarregado agora. Tente de novo em instantes." · `billing_error`: "Os créditos da sua chave da API acabaram." · sem rede (`api_retry` com `error_status: null` ou `ENOTFOUND`/`ECONNREFUSED`): "Sem conexão com o Claude. Confira a internet."
-- [ ] Nenhum desses ganha "tentar de novo" automático.
-- [ ] Se o spike não confirmar o enum, volta para Could.
+- [x] `rate_limit` (429): "Limite de uso do Claude atingido. Tente de novo em alguns minutos." · `overloaded` (529): "O Claude está sobrecarregado agora. Tente de novo em instantes." · `billing_error`: "Os créditos da sua chave da API acabaram." · sem rede (`api_retry` com `error_status: null` ou `ENOTFOUND`/`ECONNREFUSED`): "Sem conexão com o Claude. Confira a internet."
+- [x] Nenhum desses ganha "tentar de novo" automático.
+- [x] Se o spike não confirmar o enum, volta para Could. (Spike T01 confirmou o enum; cards provados no E2E `auth-error`.)
 
 ### H06.10 — Lista branca de tools do agente · Must · P+ (entrou em 2026-11-25, achado do fechamento da Sprint 05)
 *Como dev, quero que o agente do chat só tenha as tools que o card de aprovação sabe mostrar, para não aprovar às cegas uma ação fora do workspace.*
@@ -165,6 +165,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 - **Baixa:** sem prova automática para OAuth expirada real, pausa com hover e nativa sem foco. Ficam no roteiro manual da sprint.
 
 ## Pendências com o usuário
+- T26: roteiro manual com a sessão OAuth realmente expirada no app instalado (quando acontecer). Também: diálogos nativos no tema claro e lista branca de tools no app instalado (H06.10).
 - Ruleset da `main`: tornar o job `db` obrigatório no primeiro run verde (ação de admin). Até lá a H06.6 fica aberta.
 - ~~Aprovar a correção de `.claude/agents/ux-designer.md`~~ e ~~citar `src/shared/lib/` no `CLAUDE.md`~~: aprovados em 2026-11-24 (T49).
 
@@ -222,7 +223,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T23 · H06.3 · Regressão em `turns.test.ts`: falha de autenticação não conta | Back | feito |
 | T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | feito |
 | T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | feito |
-| T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |
+| T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | pendência com o usuário, pós-release (exige sessão OAuth expirada real) |
 | T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | feito (paleta validada por contrast.test; revisão da UX) |
 | T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. | Back | feito |
 | T29 · H06.1 · `theme` em `AppSettings`, `z.enum` no `settingsPatch`, normalização em `store.ts` (inválido → `system`, padrão por instalação) +… | Back | feito |
@@ -233,8 +234,8 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T34 · H06.1 · `DiffView.tsx`: `+`/`-` no texto acessível e contraste AA no claro | Front | feito |
 | T35 · H06.1 · `tests/e2e/theme.e2e.mjs`: troca, persistência após reiniciar, `getBackgroundColor()`, axe nos dois temas (8 abas, paleta, ajuda, aprovação, Git pausado) e capturas 1280×720. Diálogo nativo no tema fica no roteiro manual. Dep. T30–T34 | QA | feito |
 | T36 · H06.1 · READMEs EN/PT sem "tema escuro apenas", com captura do claro. Emenda ao ADR-014. Dep. T35 | Front + TL | feito |
-| T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | a fazer |
-| T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | a fazer |
+| T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | feito (seção já no `_template.md`) |
+| T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | fora da v0.6.0: em andamento em outra sessão (`git-exec.test.ts` sem commit) |
 | T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | feito (porta 55322: o Windows reserva 53952–54451) |
 | T40 · H06.6 · Job `db` no `ci.yml`: `curl` + `sha256sum -c` (hash citado do arquivo oficial), `supabase db start`, `supabase test db`, `contents: read`, `persist-credentials: false`, sem secret. Duração registrada | DevOps | adiada (comunidade depois) |
 | T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | adiada (comunidade depois) |
@@ -243,11 +244,11 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T44 · H06.5 · Criar a camada `views` em `index.css` (`tokens, legacy, base, shell, views`) e a catraca de linhas do legado no `css-layers.test.ts` | Front | feito |
 | T45 · H06.5 · Migrar o `views.css` por área (uma tarefa e um commit por aba), com escopo e sem `!important`, capturas antes e depois nos dois temas e axe. Timebox M. Dep. T44, T35 | Front + QA | feito |
 | T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | feito |
-| T47 · H06.8 · "Alternar tema" na paleta (`commands.ts`), passando pelo mesmo `settings.set` | Front | a fazer |
-| T48 · H06.9 · Sino na `StatusBar.tsx` lendo o `historico` do reducer, com "Limpar (só desta sessão)" | Front + UX | a fazer |
+| T47 · H06.8 · "Alternar tema" na paleta (`commands.ts`), passando pelo mesmo `settings.set` | Front | → Sprint 07 (Could) |
+| T48 · H06.9 · Sino na `StatusBar.tsx` lendo o `historico` do reducer, com "Limpar (só desta sessão)" | Front + UX | → Sprint 07 (Could) |
 | T49 · processo · Corrigir o accent em `.claude/agents/ux-designer.md` e citar `src/shared/lib/` no `CLAUDE.md` (aprovados pelo usuário em 2026-11-24) | TL | feito |
-| T50 · entrega · `CHANGELOG.md` 0.6.0, versão no `package.json`, QA, security review e retro da sprint | TL + QA + Sec | a fazer |
-| T51 · entrega · `npm run typecheck`, `npm test`, `npm run build` e `npm run test:e2e` verdes | TL | a fazer |
+| T50 · entrega · `CHANGELOG.md` 0.6.0, versão no `package.json`, QA, security review e retro da sprint | TL + QA + Sec | feito |
+| T51 · entrega · `npm run typecheck`, `npm test`, `npm run build` e `npm run test:e2e` verdes | TL | feito |
 
 Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-06/spike-t01.md`](sprint-06/spike-t01.md).
 
@@ -259,9 +260,13 @@ Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-0
 | H06.10 | ✅ unit + integração no CI + live local | alta do debate (hook de deny) atendida; média do review (`permissionMode` de agente) mitigada |
 
 ## Entregas
-- …
+- v0.6.0: tema claro (Sistema/Escuro/Claro), notificações tipadas com fila e conquista própria, erros do Claude legíveis (autenticação, limite, sobrecarga, créditos) sem vazar segredo, lista branca de tools do agente com trava em runtime e conectores do claude.ai desligados (H06.10), instância única, pilha de notificações abaixo do cabeçalho, migração do CSS legado (1.634 → 799 linhas, sem mudança visual comprovada).
+- E2E novos: tema, erros do Claude, notificações; integração com o SDK real (`agent-tools`); ferramenta de diff de estilo computado (`style-snapshot.mjs`).
+- ADR-022 (comando sempre pede aprovação) e emendas ao ADR-014 (tema claro, camada views) e ao ADR-022 (lista branca).
+- Processo enxuto: modelo por papel, brief, trilha rápida, sprint em painel + ata + qa.
+- Fora: H06.6 e toda a comunidade (decisão do usuário); T38 (outra sessão); T47/T48 (Could) → Sprint 07.
 
 ## Retro
-- **Funcionou:**
-- **Melhorar:** (2026-11-25, antes do fim da sprint) custo de tokens do processo: os 8 papéis rodavam no modelo da sessão e reliam a sprint inteira (44 KB) e `decisions.md` (20 KB) a cada chamada; achado pequeno passava pelo rito completo.
-- **Ações:** (aplicadas em 2026-11-25, aprovadas pelo usuário) `model:` por papel (Opus para TL e Sec, Sonnet para os demais); brief em vez de releitura; trilha rápida; sprint dividida em painel + `ata.md` + `qa.md`; índice de ADRs; parecer ≤ 120 palavras; E2E antes de computer-use; allowlist de comandos de leitura em `.claude/settings.json`. Medir na Sprint 07 se o custo por história caiu.
+- **Funcionou:** E2E e testes com controle positivo acharam bugs reais antes do usuário: `.thinking` ilegível (1,9:1) nos dois temas, rótulo "Sistema" errado, pilha cobrindo o cabeçalho, `.ach.locked` e `.changes-diff` que mudariam com a migração. O diff de estilo computado provou "sem mudança visual" melhor e mais barato que capturas. Trilha rápida e brief: revisões de 12–30 mil tokens por papel (antes, cada papel relia ~45 KB de sprint). Medir antes de decidir (SDK real, init sem login, `mcp_server.source`) evitou debate às cegas.
+- **Melhorar:** escape de regex/template literal dentro de `node -e` e heredoc quebrou arquivos 4 vezes nesta sprint (mesma lição da Sprint 05): código com `\`, crase ou `${}` só por Edit/Write ou script em arquivo. Um `sed` amplo demais trocou uma regra que não era alvo (pego no diff). Critérios da H06.2/H06.3 ficaram sem marcar até o fechamento; marcar ao terminar cada tarefa. (2026-11-25, antes do fim da sprint) custo de tokens do processo: os 8 papéis rodavam no modelo da sessão e reliam a sprint inteira (44 KB) e `decisions.md` (20 KB) a cada chamada; achado pequeno passava pelo rito completo.
+- **Ações:** Sprint 07: testes de componente para os parciais da H06.2/H06.3; T26 quando a sessão expirar; regra no `squad.md`: "mover CSS de camada exige `style-snapshot` zerado". (Processo, aplicadas em 2026-11-25, aprovadas pelo usuário) `model:` por papel (Opus para TL e Sec, Sonnet para os demais); brief em vez de releitura; trilha rápida; sprint dividida em painel + `ata.md` + `qa.md`; índice de ADRs; parecer ≤ 120 palavras; E2E antes de computer-use; allowlist de comandos de leitura em `.claude/settings.json`. Medir na Sprint 07 se o custo por história caiu.

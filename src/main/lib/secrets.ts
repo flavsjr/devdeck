@@ -247,6 +247,11 @@ export function redact(message: string, secrets: (string | undefined)[]): string
 const RE_ANTHROPIC_KEY = /sk-ant-[\w-]+/g
 /** `Authorization: Bearer <token>`. O valor para em espaço ou aspas para não engolir o JSON em volta. */
 const RE_AUTH_SCHEME = /\b(Bearer)(\s+)[^\s"'`]+/gi
+/**
+ * `Authorization: Basic <valor>` e `Authorization: token <valor>` (security review da Sprint 06). Só depois de
+ * `Authorization`: "token" solto é palavra comum ("the token is invalid") e não pode ser mascarado.
+ */
+const RE_AUTH_HEADER_OTHER = /\b(Authorization["']?\s*[:=]\s*["']?(?:Basic|token))(\s+)[^\s"'`]+/gi
 /** JWT: três partes base64url, a primeira começando por `eyJ` (`{"`). */
 const RE_JWT = /\beyJ[\w-]+\.[\w-]+\.[\w-]+/g
 /** `x-api-key: <valor>`, `"x-api-key":"<valor>"`, `api_key=<valor>`. */
@@ -263,6 +268,7 @@ export function redactPatterns(text: string, apiKey?: string | null): string {
   out = out.replace(RE_ANTHROPIC_KEY, MASK)
   out = out.replace(RE_JWT, MASK)
   out = out.replace(RE_AUTH_SCHEME, (_m, scheme: string, sp: string) => `${scheme}${sp}${MASK}`)
+  out = out.replace(RE_AUTH_HEADER_OTHER, (_m, head: string, sp: string) => `${head}${sp}${MASK}`)
   out = out.replace(RE_API_KEY_FIELD, (_m, name: string, sep: string) => `${name}${sep}${MASK}`)
   out = out.replace(RE_SECRET_QUERY, (_m, lead: string, name: string) => `${lead}${name}=${MASK}`)
   return out

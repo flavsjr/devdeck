@@ -273,6 +273,14 @@ describe('redactPatterns / redactAll (H06.3)', () => {
     expect(redactPatterns(`{"authorization":"bearer ${BEARER}","x":1}`)).toBe(`{"authorization":"bearer ${MASK}","x":1}`)
   })
 
+  it('Authorization com Basic ou token também é mascarado; "token" solto no texto não (security review da Sprint 06)', () => {
+    const basic = ['dXNlcjpz', 'ZW5oYQ=='].join('')
+    expect(redactPatterns(`Authorization: Basic ${basic}`)).toBe(`Authorization: Basic ${MASK}`)
+    expect(redactPatterns(`authorization: token ${BEARER}`)).toBe(`authorization: token ${MASK}`)
+    expect(redactPatterns(`{"Authorization":"token ${BEARER}"}`)).toBe(`{"Authorization":"token ${MASK}"}`)
+    expect(redactPatterns('the token is invalid')).toBe('the token is invalid')
+  })
+
   it('JWT solto', () => {
     expect(redactPatterns(`id_token inválido: ${JWT} (exp)`)).toBe(`id_token inválido: ${MASK} (exp)`)
   })

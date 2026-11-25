@@ -1,6 +1,8 @@
 # Sprint 06 — QA e security review
 
 ## QA
+
+**Fechamento (2026-11-25):** QA conferiu os critérios abertos da H06.2/H06.3 contra os testes (901 unitários do main/renderer): 16 provados e marcados; 9 parciais (cobertos só por E2E, sem teste de componente, ou manuais) ficam anotados na história → Sprint 07. Code review do TL na H06.5: aprovado; `.meter.thin` ganhou escopo (`.ach`) e o `css-layers.test` passou a barrar seletor da views começando por classe do shell (controle: o seletor antigo falha).
 <evidência = comando + linha que prova, ou caminho do print em `sprint-06/`>
 
 | Caso | Resultado | Evidência |
@@ -34,5 +36,9 @@
 ## Security review
 | Severidade | Onde | Achado | Mitigação |
 |---|---|---|---|
+| baixa | `mcp.ts` teste do servidor | Mensagem crua do servidor MCP só mascarava os valores exatos de env/headers | ✅ `redactAll` (valores + padrões) |
+| baixa | `lib/secrets.ts` `redactPatterns` | `Authorization: Basic …` e `Authorization: token …` passavam | ✅ padrão novo só após `Authorization` (`token` solto no texto continua); teste |
+| baixa | `providers.ts` GitHub GraphQL | Texto de erro de terceiro ia para a UI sem `redactPatterns` | ✅ aplicado |
+| — | fechamento (2026-11-25) | Security review do diff do main/preload/shared da sprint: sem bloqueante | redação em todos os caminhos de erro do agente, `help:open` por enum, tema por `z.enum` e mapa fixo, lembrete só id+título |
 | média | `agentPolicy.ts` `policyFor` | Agente de projeto pode declarar `permissionMode` (acceptEdits/bypassPermissions) e o Edit/Write do subagente passar sem card | ✅ Medido sem brecha no SDK 0.3.330; defesa em profundidade: `acceptEdits` → ask, outros modos fora de default/plan → deny; unit + live. Variação da mitigação proposta (deny em tudo): ask no acceptEdits mantém agentes legítimos funcionando com card |
 | — | `agentPolicy.ts` lista | Risco do TL: sem `ToolSearch`, MCP grande inalcançável | ✅ Descartado: 120 tools MCP chegam direto e são chamadas |

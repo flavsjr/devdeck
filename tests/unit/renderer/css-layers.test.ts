@@ -75,6 +75,17 @@ describe('camadas CSS (H05.9, H06.5)', () => {
     expect(VIEWS_SHELL_SHARED.filter((c) => !shared.includes(c)), 'tire da lista VIEWS_SHELL_SHARED').toEqual([])
   })
 
+  it('seletor da views não começa por classe do shell (escopo da aba primeiro)', () => {
+    const shell = shellClasses()
+    const css = read('views.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const seletores = [...css.matchAll(/([^{}@]+)\{/g)].flatMap((m) => m[1].split(',')).map((s) => s.trim()).filter(Boolean)
+    const ruins = seletores.filter((s) => {
+      const primeira = /^\.([a-zA-Z][\w-]*)/.exec(s)?.[1]
+      return primeira !== undefined && shell.has(primeira)
+    })
+    expect(ruins, 'na views, comece pelo escopo da aba (ex.: .ach .meter.thin)').toEqual([])
+  })
+
   it('views não usa !important', () => {
     expect(read('views.css')).not.toMatch(/!important/)
   })

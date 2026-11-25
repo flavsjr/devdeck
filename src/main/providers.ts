@@ -3,6 +3,7 @@ import type { ProviderId, ProviderStats } from '@shared/types'
 import { dayKey, startOfDayAgo } from './lib/dates'
 import { WINDOW_DAYS, countLanguages } from './lib/streak'
 import { HttpStatusError, MensagemUsuario, falhaComContexto } from './lib/userError'
+import { redactPatterns } from './lib/secrets'
 
 const PROVIDER_NAMES: Record<ProviderId, string> = { github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' }
 
@@ -78,7 +79,9 @@ async function fetchGitHub(token: string): Promise<ProviderStats> {
     { method: 'POST', body: JSON.stringify({ query: GH_QUERY, variables: { from: sinceDate().toISOString(), to: new Date().toISOString() } }) }
   )
   if (data.errors?.length || !data.data) {
-    throw new MensagemUsuario(data.errors?.length ? `O GitHub recusou a consulta: ${data.errors.map((e) => e.message).join('; ').slice(0, 300)}` : 'Resposta vazia do GitHub.')
+    // Texto de terceiro vai para a interface: sem token em formato conhecido (security review da Sprint 06).
+    const detalhe = redactPatterns(data.errors?.map((e) => e.message).join('; ') ?? '').slice(0, 300)
+    throw new MensagemUsuario(data.errors?.length ? `O GitHub recusou a consulta: ${detalhe}` : 'Resposta vazia do GitHub.')
   }
   const v = data.data.viewer
   const cc = v.contributionsCollection

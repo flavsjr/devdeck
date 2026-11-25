@@ -1,7 +1,7 @@
 {
   "name": "devdeck",
   "productName": "DevDeck",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "DevDeck: cockpit local do dev — vibe coding com Claude Agent SDK, MCPs, diff com aprovação, custos, perfil com métricas git e conquistas, agenda e comunidade.",
   "license": "MIT",
   "main": "./out/main/index.js",

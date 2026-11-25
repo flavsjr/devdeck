@@ -4,6 +4,8 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-25 · Sprint 06
+
 ### Adicionado
 - **Tema claro**: em *Configurações → Aparência*, escolha Sistema, Escuro ou Claro. Troca na hora, sem recarregar, fica salva e, em "Sistema", acompanha o Windows com o app aberto. Contraste AA conferido por teste nos dois temas.
 
@@ -19,6 +21,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Abrir o DevDeck de novo criava uma segunda instância sobre os mesmos dados (risco de corromper chats e configurações); agora a janela que já está aberta vem para a frente.
 
 ### Segurança
+- Mensagens de erro de servidor MCP e do GitHub passam pela redação por padrão (tokens Bearer, Basic, chaves, JWT), além dos valores exatos já mascarados.
 - **O agente do chat só tem as ferramentas que o card de aprovação sabe mostrar**: ler, buscar, editar, escrever, rodar comando (Bash/PowerShell), busca na web e subagente. Saíram ferramentas como agendamento, gatilho remoto e publicação de plugin, e os conectores da sua conta do claude.ai deixam de aparecer no chat do DevDeck. Ferramenta fora da lista é negada mesmo que o Claude Code a ofereça (ADR-022, emenda).
 - `minimatch` das ferramentas de empacotamento atualizado para 11.x (GHSA-g3hv-75wg-m249, negação de serviço por padrão de glob). Não muda o app instalado.
 
@@ -143,7 +146,8 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Custos e métricas: por turno, sessão, dia, mês e modelo; teto diário e por sessão; uso de contexto.
 - Modo Flow: embed do Spotify e timer de foco 25/5.
 
-[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/flavsjr/devdeck/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/flavsjr/devdeck/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/flavsjr/devdeck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/flavsjr/devdeck/compare/v0.2.0...v0.3.0

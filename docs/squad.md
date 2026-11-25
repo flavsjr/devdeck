@@ -46,6 +46,7 @@ Cada subagente começa do zero e paga para reler tudo. Regras para o orquestrado
 - **Arquivos da sprint:** `sprint-NN.md` é o painel vivo (objetivo, histórias, trilha rápida, tarefas, riscos, pendências, entregas, retro). Ata do debate em `sprint-NN/ata.md`, QA e security review em `sprint-NN/qa.md`, evidências (prints, JSON do axe) em `sprint-NN/`. Sprints fechadas são histórico: ninguém lê sem motivo.
 - **Escrita curta:** parecer ≤ 120 palavras; célula da tabela de tarefas em uma linha (o detalhe vai no commit, no teste ou no ADR); evidência é comando + linha que prova, não saída inteira.
 - **Prova barata primeiro:** teste unitário, integração ou E2E scriptado antes de computer-use. Computer-use só no roteiro final, com captura em escala reduzida.
+- **CSS que muda de camada:** só entra com `tests/e2e/style-snapshot.mjs` sem diferença entre o build anterior e o novo (ADR-014, emenda H06.5). Mudança visual intencional aparece no diff e é citada no commit.
 - **Paralelo só quando independente:** pareceres do debate em paralelo; implementação de Front e Back em paralelo só sem arquivo em comum.
 
 ## Quem participa do debate
