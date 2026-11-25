@@ -5,6 +5,7 @@ import { basename, join } from 'node:path'
 import { app } from 'electron'
 import { makePatch, previewEdit, revertText } from './lib/edit'
 import { alwaysEligible, pathArgsOf, toolScope } from './lib/toolpath'
+import { ALWAYS_ASK_TOOLS, DISALLOWED_TOOLS, alwaysAskHooks } from './lib/askHook'
 import { countsAsTurn } from './lib/turns'
 import { ROTULO_ERRO_AGENTE, agentErrorDetail, pumpErrorItem, redactResultErrors, redactedError, stderrLogArgs, type AgentErrorParts } from './lib/agentRedact'
 import { classifyAgentError } from './lib/agentErrors'
@@ -345,6 +346,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     mcpServers: toSdkMcpServers(mcpServers),
     permissionMode: 'default',
     canUseTool: makeCanUseTool(ls),
+    // Sem isto o Claude Code libera comando "só-leitura" (ex.: `git status`) sem chamar o canUseTool (ADR-022).
+    hooks: alwaysAskHooks(),
+    disallowedTools: [...DISALLOWED_TOOLS],
     includePartialMessages: true,
     settingSources,
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
@@ -616,7 +620,7 @@ function makeCanUseTool(ls: LiveSession): CanUseTool {
       })
     }
 
-    if (toolName === 'Bash') {
+    if (ALWAYS_ASK_TOOLS.has(toolName)) {
       return ask(ls, opts, input, {
         kind: 'command',
         toolName,

@@ -4,7 +4,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
-## [0.5.0] — 2026-11-24 · Sprint 05
+## [0.5.0] — 2026-11-25 · Sprint 05
 
 ### Adicionado
 - **Instalador para Windows** (`DevDeck-Setup-0.5.0.exe`): por usuário, sem pedir admin nem UAC, com o ícone novo, atalhos no Menu Iniciar e na área de trabalho. Atualizar por cima e desinstalar mantêm `%APPDATA%\DevDeck`. Sem atualização automática.
@@ -36,6 +36,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - O git do DevDeck e do agente nunca entram em submódulos (a config do submódulo não é conferida) e nunca sobem acima da pasta aberta: abrir uma subpasta de um repositório não usa o git do pai.
 - App instalado com fuses do Electron (sem `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect`; integridade do asar; só carrega do asar), SDK do Claude conferido por SHA-256 no build e switches de depuração remota recusados.
 - Denúncia de conta com menos de 72 h é registrada mas não oculta post.
+- **Todo comando do agente pede aprovação**, inclusive os que o Claude Code considera só-leitura (`git status`, `ls`): antes esses rodavam sem card. Vale para Bash e PowerShell; a ferramenta Monitor (comando em segundo plano) saiu do chat (ADR-022).
 
 ## [0.4.0] — 2026-11-23 · Sprint 04
 
