@@ -1,0 +1,7 @@
+# Config mínima do Supabase CLI só para testes locais/CI (H06.6, T39).
+# Sem project_id real: nada aqui aponta para o projeto hospedado.
+project_id = "devdeck-local"
+
+[db]
+port = 55322
+shadow_port = 55320
