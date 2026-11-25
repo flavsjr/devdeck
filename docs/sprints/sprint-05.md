@@ -1,6 +1,6 @@
 # Sprint 05 — Distribuição segura
 
-**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** pendências fechadas em 2026-11-25; falta a tag `v0.5.0` (aprovação do usuário)
+**Período:** 2026-11-23 → 2026-12-07 · **Versão alvo:** v0.5.0 · **Status:** pendências fechadas e tag `v0.5.0` criada em 2026-11-25; release em rascunho aguardando o Publish (usuário)
 
 ## Objetivo
 Distribuir o DevDeck como instalador Windows verificável, sem que abrir um repositório recebido pronto execute código pelo git.
@@ -224,6 +224,7 @@ Agente `cybersecurity` no HEAD `eeb7a1a`; revalidação em `a75207f`.
 1. ✅ Roteiro manual da H05.7 no app instalado (lista abaixo), fechado em 2026-11-25 com a build do dry run. Itens sem verificação possível viraram risco aceito (NVDA, teclado ABNT2 físico, MCP/ICS com credencial real).
 2. ✅ (agente, 2026-11-25) `supabase test db` local (CLI 3.4.0, `postgres:17.12.0.002`, `supabase/config.toml` mínimo sem `project_id` real; porta 55322 porque o Windows reserva 53952–54451): migrations 0001 e 0002 aplicadas, `0002_rate_limit.sql` **10/10 ok**.
 3. ✅ Dry run do `release.yml` (`workflow_dispatch` na `main` `3be44a1`, [run 45611684787](https://github.com/flavsjr/devdeck/actions/runs/45611684787)): `build (windows)` verde em 6,5 min com artefato `installer` (238 MB); `release (draft)` pulado, como esperado fora de tag. `DevDeck-Setup-0.5.0.exe` do artefato: SHA-256 `e1372e00e5a69665ca391a4663f392aa52c636ed4fb43ccbbc9a715a6026c221` (é a build usada no roteiro manual restante). Ruleset de tag ✅ (usuário, 2026-11-25; conferido pela API): "Proteção de tags" ativo em `refs/tags/v*` com `creation`, `update`, `deletion` e `non_fast_forward`; bypass só para o papel admin.
+4. ✅ Tag e release (2026-11-25): tag `v0.5.0` em `b81b9f8` (main com o fix do ADR-022, PR #5), criada com aprovação do usuário. [Run 45631405457](https://github.com/flavsjr/devdeck/actions/runs/45631405457) verde: pre-release em rascunho "DevDeck v0.5.0 — distribuição segura" com `DevDeck-Setup-0.5.0.exe` (SHA-256 `bc2adfcb77582deecc81d77bb0699006f9fd1fa16f0c45ffce8f93f19bd1dbb3`), `SHA256SUMS.txt` e attestation de procedência. [VirusTotal](https://www.virustotal.com/gui/file/bc2adfcb77582deecc81d77bb0699006f9fd1fa16f0c45ffce8f93f19bd1dbb3) (usuário, 2026-11-25): **1/56**, só CTX `Exe.unknown.generic` (heurística genérica, esperada em NSIS sem assinatura); demais engines sem detecção. Falso positivo aceito: hash confere com o build atestado do CI.
 
 ### Roteiro manual (H05.7)
 1. Hash dos dados antes: `Get-ChildItem $env:APPDATA\DevDeck -Recurse -File | Get-FileHash | Sort Path > antes.txt`.
