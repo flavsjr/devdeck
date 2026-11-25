@@ -208,6 +208,11 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 - Ruleset da `main`: tornar o job `db` obrigatório no primeiro run verde (ação de admin). Até lá a H06.6 fica aberta.
 - ~~Aprovar a correção de `.claude/agents/ux-designer.md`~~ e ~~citar `src/shared/lib/` no `CLAUDE.md`~~: aprovados em 2026-11-24 (T49).
 
+## Achados do fechamento da Sprint 05 (2026-11-25) — levar ao PO e à Cybersecurity
+- **Revisar o 1º risco aceito acima:** com `permissionMode: 'default'`, o Claude Code libera Bash só-leitura (`git status`, `ls`) sem chamar `canUseTool`. Visto no app instalado: `git status` pelo Bash do agente rodou sem card. A mitigação "Bash sempre pede aprovação" não vale para esses comandos. Caminho provável: hook `PreToolUse` no SDK forçando `ask` para Bash ou regra de permissão explícita.
+- **Instância única:** sem `app.requestSingleInstanceLock()`; abrir o DevDeck de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck` (corrida nos JSON do store). Corrigir com foco na janela existente em `second-instance`.
+- **Env restrito não é sandbox:** sem confiança, o agente ofereceu rodar git "sem essa variável". Um `env -u GIT_DIR git …` depende só da aprovação do Bash; o card precisa deixar claro quando o comando mexe em `GIT_*`.
+
 ## Backlog para a Sprint 07
 - "Ver no chat" abrindo a sessão do erro quando ela não é a ativa (`navegar` com `sessionId` UUID): exige TL e Sec.
 
@@ -254,7 +259,7 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T36 · H06.1 · READMEs EN/PT sem "tema escuro apenas", com captura do claro. Emenda ao ADR-014. Dep. T35 | Front + TL | a fazer |
 | T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | a fazer |
 | T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | a fazer |
-| T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | a fazer |
+| T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | feito (porta 55322: o Windows reserva 53952–54451) |
 | T40 · H06.6 · Job `db` no `ci.yml`: `curl` + `sha256sum -c` (hash citado do arquivo oficial), `supabase db start`, `supabase test db`, `contents: read`, `persist-credentials: false`, sem secret. Duração registrada | DevOps | a fazer |
 | T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | a fazer |
 | T42 · H06.6 · Controle positivo num branch descartável com o link do run vermelho no PR. Emenda ao ADR-010. Dep. T40 | DevOps + TL | a fazer |
