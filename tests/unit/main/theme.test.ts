@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { THEME_BG, THEME_PREFS, resolveTheme, themeBg } from '../../../src/main/lib/theme'
-import { parseTokens, resolveColor } from '../../../src/renderer/src/lib/contrast'
+import { resolveColor, themeTokens } from '../../../src/renderer/src/lib/contrast'
 
 describe('resolveTheme', () => {
   it.each(THEME_PREFS)('valor válido "%s" passa, exista ou não o settings', (pref) => {
@@ -35,38 +35,16 @@ describe('themeBg', () => {
 })
 
 // THEME_BG precisa ser igual ao --bg de cada tema no tokens.css; senão a janela pisca numa cor e o CSS pinta outra.
-const css = readFileSync(resolve(__dirname, '../../../src/renderer/src/styles/tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-const LIGHT_MEDIA = /@media\s*\(\s*prefers-color-scheme\s*:\s*light\s*\)\s*\{/
-
-/** Separa o bloco `@media (prefers-color-scheme: light) { … }` (chaves balanceadas) do resto do CSS. */
-function splitLight(src: string): { dark: string; light: string | null } {
-  const m = LIGHT_MEDIA.exec(src)
-  if (!m) return { dark: src, light: null }
-  const open = m.index + m[0].length
-  let depth = 1
-  let i = open
-  for (; i < src.length && depth > 0; i++) {
-    if (src[i] === '{') depth++
-    else if (src[i] === '}') depth--
-  }
-  if (depth !== 0) throw new Error('Bloco @media (prefers-color-scheme: light) sem fechar no tokens.css')
-  return { dark: src.slice(0, m.index) + src.slice(i), light: src.slice(open, i - 1) }
-}
-
-const { dark, light } = splitLight(css)
-const darkTokens = parseTokens(dark)
+const { dark, light } = themeTokens(readFileSync(resolve(__dirname, '../../../src/renderer/src/styles/tokens.css'), 'utf8'))
 const hexToRgba = (hex: string): ReturnType<typeof resolveColor> => resolveColor('--x', { '--x': hex })
 
 describe('THEME_BG × tokens.css', () => {
   it('escuro: THEME_BG.dark é o --bg do bloco escuro (primitivos resolvidos)', () => {
-    expect(resolveColor('--bg', darkTokens)).toEqual(hexToRgba(THEME_BG.dark))
+    expect(resolveColor('--bg', dark)).toEqual(hexToRgba(THEME_BG.dark))
   })
 
-  // O bloco claro chega na T31 (Front). Enquanto o tokens.css não tiver
-  // `@media (prefers-color-scheme: light)`, este teste é pulado; quando tiver, passa a conferir sozinho.
-  // O claro herda os primitivos do :root e redefine os semânticos, então resolve com os dois juntos.
-  it.skipIf(light === null)('claro: THEME_BG.light é o --bg do bloco claro (primitivos resolvidos)', () => {
-    const lightTokens = { ...darkTokens, ...parseTokens(light ?? '') }
-    expect(resolveColor('--bg', lightTokens)).toEqual(hexToRgba(THEME_BG.light))
+  it('claro: THEME_BG.light é o --bg do bloco claro (primitivos resolvidos)', () => {
+    expect(light).not.toBeNull()
+    expect(resolveColor('--bg', light!)).toEqual(hexToRgba(THEME_BG.light))
   })
 })

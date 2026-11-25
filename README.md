@@ -8,6 +8,8 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 
 ![DevDeck with the command palette open](docs/sprints/sprint-04/depois/chat-palette.png)
 
+![DevDeck in the light theme with an approval pending](docs/sprints/sprint-06/tema-claro/11-aprovacao.png)
+
 ## Features
 
 | Area | What you get |
@@ -22,11 +24,11 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Community** | Articles and code snippets on Supabase, with likes, comments and reports. Access is enforced by row-level security. |
 | **Flow** | Spotify embed and a 25/5 focus timer. |
 | **Keyboard first** | `Ctrl+K` command palette (tabs, chats, actions, fuzzy search), `Ctrl+1–8` to switch tabs, `Ctrl+N` new chat, `Ctrl+L` focus the prompt, `Ctrl+B` / `Ctrl+Alt+B` toggle the side panels, `Ctrl+/` or `F1` lists every shortcut. Approve or reject the focused change with `Alt+A` / `Alt+R`. |
-| **Layout** | "Indigo Night" dark theme built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
+| **Layout** | "Indigo Night" theme in dark and light (or follow Windows), built on design tokens (AA contrast checked by tests), collapsible sidebar, resizable and collapsible right panel that stays open while an approval is pending. |
 
 ## Install (Windows)
 
-Download `DevDeck-Setup-<version>.exe` and `SHA256SUMS.txt` from the [Releases](https://github.com/flavsjr/devdeck/releases) page. The installer is per-user: no admin rights and no UAC prompt. Your data stays in `%APPDATA%\DevDeck` and is kept on update and uninstall. There is no auto-update, and this version ships the dark theme only.
+Download `DevDeck-Setup-<version>.exe` and `SHA256SUMS.txt` from the [Releases](https://github.com/flavsjr/devdeck/releases) page. The installer is per-user: no admin rights and no UAC prompt. Your data stays in `%APPDATA%\DevDeck` and is kept on update and uninstall. There is no auto-update.
 
 **Windows may say "Windows protected your PC".** The installer is not code-signed yet. Before clicking *More info → Run anyway*, check the hash:
 

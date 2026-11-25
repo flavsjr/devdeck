@@ -8,6 +8,8 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 
 ![DevDeck com a paleta de comandos aberta](docs/sprints/sprint-04/depois/chat-palette.png)
 
+![DevDeck no tema claro com uma aprovação pendente](docs/sprints/sprint-06/tema-claro/11-aprovacao.png)
+
 ## Funcionalidades
 
 | Área | O que tem |
@@ -22,11 +24,11 @@ Stack: Electron 45 · electron-vite 6 · React 19 · TypeScript · zustand · Cl
 | **Comunidade** | Artigos e snippets no Supabase, com curtidas, comentários e denúncias. O acesso é controlado por row-level security. |
 | **Flow** | Embed do Spotify e timer de foco 25/5. |
 | **Teclado primeiro** | Paleta de comandos `Ctrl+K` (abas, chats e ações, com busca aproximada), `Ctrl+1–8` troca de aba, `Ctrl+N` novo chat, `Ctrl+L` foca a mensagem, `Ctrl+B` / `Ctrl+Alt+B` mostram e ocultam os painéis, `Ctrl+/` ou `F1` lista todos os atalhos. Aprove ou rejeite a alteração focada com `Alt+A` / `Alt+R`. |
-| **Layout** | Tema escuro "Índigo Noturno" com design tokens (contraste AA conferido por teste), barra lateral recolhível e painel direito redimensionável e recolhível, que fica aberto enquanto houver aprovação pendente. |
+| **Layout** | Tema "Índigo Noturno" escuro e claro (ou seguindo o Windows), com design tokens (contraste AA conferido por teste), barra lateral recolhível e painel direito redimensionável e recolhível, que fica aberto enquanto houver aprovação pendente. |
 
 ## Instalar (Windows)
 
-Baixe `DevDeck-Setup-<versão>.exe` e `SHA256SUMS.txt` na página de [Releases](https://github.com/flavsjr/devdeck/releases). O instalador é por usuário: não pede admin nem mostra UAC. Seus dados ficam em `%APPDATA%\DevDeck` e são mantidos ao atualizar e ao desinstalar. Não há atualização automática, e esta versão tem só o tema escuro.
+Baixe `DevDeck-Setup-<versão>.exe` e `SHA256SUMS.txt` na página de [Releases](https://github.com/flavsjr/devdeck/releases). O instalador é por usuário: não pede admin nem mostra UAC. Seus dados ficam em `%APPDATA%\DevDeck` e são mantidos ao atualizar e ao desinstalar. Não há atualização automática.
 
 **O Windows pode avisar "O Windows protegeu o computador".** O instalador ainda não é assinado. Antes de clicar em *Mais informações → Executar assim mesmo*, confira o hash:
 

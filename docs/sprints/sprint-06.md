@@ -16,20 +16,20 @@ Fazer o DevDeck se comunicar com clareza (erro, aviso, sucesso e conquista disti
 
 ### H06.1 — Tema claro · Must · G
 *Como dev que trabalha em ambiente claro ou cansa a vista com tema escuro, quero escolher entre Sistema, Escuro e Claro para usar o DevDeck o dia todo com conforto.*
-- [ ] Dado Configurações → Aparência, quando escolho "Sistema", "Escuro" ou "Claro", então o tema troca sem recarregar e a escolha persiste após reiniciar. O seletor é um `radiogroup` e "Sistema" mostra o tema efetivo ("Sistema (agora: Escuro)").
-- [ ] Dado "Sistema", quando o Windows troca de tema com o app aberto, então o DevDeck acompanha sem reiniciar.
-- [ ] Dado settings existente sem `theme`, quando o app abre, então o tema é Escuro; em instalação nova, Sistema.
-- [ ] Dado um valor de tema fora da lista vindo do renderer, quando chega ao main, então o `z.enum` recusa e o valor salvo não muda (teste em `validation`).
-- [ ] Dado `settings.json` com `theme` inválido, quando o main lê, então usa `system` sem lançar erro (teste).
-- [ ] Dado tema salvo, quando a janela é criada, então `getBackgroundColor()` é igual ao `--bg` desse tema (mapa fixo no main, nunca valor do renderer), e os diálogos nativos (confiança, git pausado) seguem `nativeTheme.themeSource`.
-- [ ] `styles/tokens.css` continua o único arquivo com cor literal: o tema claro redefine só semânticos (primitivos novos permitidos) e o `style-guard.test.ts` continua verde.
-- [ ] Accent índigo escuro (~`#3d4ed8`) com `--on-accent` branco no claro; anel de foco ≥ 3:1 contra `--bg` e `--bg-1`.
-- [ ] `contrast.test.ts` roda parametrizado nos dois temas: todo par de texto ≥ 4,5:1, UI e anel de foco ≥ 3:1; o caso "branco sobre accent" é invertido no claro; todo semântico do escuro existe no claro.
-- [ ] `--hover-tint`, `--shadow`, `--scrim` e a escala `--viz-heat-*` (invertida) têm versão clara. O embed do Spotify sai de `theme=0` fixo e segue o tema.
-- [ ] Diff no tema claro: adição e remoção distinguíveis sem depender de cor (sinal `+`/`-` também no texto acessível, não `aria-hidden`) e com contraste AA.
-- [ ] axe sem violações *serious*/*critical* nos dois temas, nas 8 abas, na paleta, na ajuda, no card de aprovação e em "Git pausado". Capturas do tema claro em 1280×720 em `docs/sprints/sprint-06/`.
-- [ ] Nenhuma regra nova em `@layer legacy`. Regra do legado que precisar mudar para o tema sai do legado, e a lista de exceções do `css-layers.test.ts` só encolhe.
-- [ ] READMEs EN/PT sem "tema escuro apenas nesta versão", com captura do tema claro. ADR-020 + emenda ao ADR-014.
+- [x] Dado Configurações → Aparência, quando escolho "Sistema", "Escuro" ou "Claro", então o tema troca sem recarregar e a escolha persiste após reiniciar. O seletor é um `radiogroup` e "Sistema" mostra o tema efetivo ("Sistema (agora: Escuro)").
+- [x] Dado "Sistema", quando o Windows troca de tema com o app aberto, então o DevDeck acompanha sem reiniciar.
+- [x] Dado settings existente sem `theme`, quando o app abre, então o tema é Escuro; em instalação nova, Sistema.
+- [x] Dado um valor de tema fora da lista vindo do renderer, quando chega ao main, então o `z.enum` recusa e o valor salvo não muda (teste em `validation`).
+- [x] Dado `settings.json` com `theme` inválido, quando o main lê, então usa `system` sem lançar erro (teste).
+- [x] Dado tema salvo, quando a janela é criada, então `getBackgroundColor()` é igual ao `--bg` desse tema (mapa fixo no main, nunca valor do renderer), e os diálogos nativos (confiança, git pausado) seguem `nativeTheme.themeSource`.
+- [x] `styles/tokens.css` continua o único arquivo com cor literal: o tema claro redefine só semânticos (primitivos novos permitidos) e o `style-guard.test.ts` continua verde.
+- [x] Accent índigo escuro (~`#3d4ed8`) com `--on-accent` branco no claro; anel de foco ≥ 3:1 contra `--bg` e `--bg-1`.
+- [x] `contrast.test.ts` roda parametrizado nos dois temas: todo par de texto ≥ 4,5:1, UI e anel de foco ≥ 3:1; o caso "branco sobre accent" é invertido no claro; todo semântico do escuro existe no claro.
+- [x] `--hover-tint`, `--shadow`, `--scrim` e a escala `--viz-heat-*` (invertida) têm versão clara. O embed do Spotify sai de `theme=0` fixo e segue o tema.
+- [x] Diff no tema claro: adição e remoção distinguíveis sem depender de cor (sinal `+`/`-` também no texto acessível, não `aria-hidden`) e com contraste AA.
+- [x] axe sem violações *serious*/*critical* nos dois temas, nas 8 abas, na paleta, na ajuda, no card de aprovação e em "Git pausado". Capturas do tema claro em 1280×720 em `docs/sprints/sprint-06/`.
+- [x] Nenhuma regra nova em `@layer legacy`. Regra do legado que precisar mudar para o tema sai do legado, e a lista de exceções do `css-layers.test.ts` só encolhe.
+- [x] READMEs EN/PT sem "tema escuro apenas nesta versão", com captura do tema claro. ADR-020 + emenda ao ADR-014.
 
 ### H06.2 — Sistema de notificações · Must · M
 *Como dev, quero distinguir de relance um erro de um aviso, de um sucesso e de uma conquista, e agir sobre eles, para não perder o que importa nem ler mensagem crua.*
@@ -220,16 +220,16 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T24 · H06.3 · `tests/e2e/auth-error.e2e.mjs`: card certo e nenhum valor falso na tela, no stdout/stderr do Electron nem no JSON da sessão no `--user-data-dir`. Dep. T14, T20 | QA | a fazer |
 | T25 · H06.2 · `tests/e2e/notifications.e2e.mjs`: 5 tipos por fluxo real (conquista pelo 1º turno no fake-api) + axe. Entra no `test:e2e` do `package.json`. Dep. T13, T14 | QA | a fazer |
 | T26 · H06.3 · Roteiro manual com a OAuth expirada real no app instalado, prints em `docs/sprints/sprint-06/` | QA | a fazer |
-| T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | a fazer |
+| T27 · H06.1 · Paleta clara: primitivos e semânticos, accent `#3d4ed8`, diff claro, `--viz-heat-*` invertida | UX | feito (paleta validada por contrast.test; revisão da UX) |
 | T28 · H06.1 · `src/main/lib/theme.ts` (`resolveTheme(raw, existia)` e mapa `THEME_BG`) + teste. | Back | feito |
 | T29 · H06.1 · `theme` em `AppSettings`, `z.enum` no `settingsPatch`, normalização em `store.ts` (inválido → `system`, padrão por instalação) +… | Back | feito |
 | T30 · H06.1 · `index.ts`: `nativeTheme.themeSource` antes de criar a janela e a cada troca, `backgroundColor` pelo mapa e `setBackgroundColor` no… | Back | feito |
-| T31 · H06.1 · `tokens.css` com `@media (prefers-color-scheme: light)`. `contrast.test.ts` parametrizado: todo semântico existe nos dois temas e o caso do accent é invertido. Dep. T27 | Front | a fazer |
-| T32 · H06.1 · Versões claras de `--hover-tint`, `--shadow`, `--scrim` e `--viz-heat-*`. Regras do legado afetadas saem do legado (catraca no `css-layers.test.ts`). Dep. T31 | Front | a fazer |
-| T33 · H06.1 · Aparência em `SettingsView.tsx`: `radiogroup` e "Sistema (agora: X)" por `matchMedia`. Embed do Spotify segue o tema. Dep. T29 | Front | a fazer |
-| T34 · H06.1 · `DiffView.tsx`: `+`/`-` no texto acessível e contraste AA no claro | Front | a fazer |
-| T35 · H06.1 · `tests/e2e/theme.e2e.mjs`: troca, persistência após reiniciar, `getBackgroundColor()`, axe nos dois temas (8 abas, paleta, ajuda, aprovação, Git pausado) e capturas 1280×720. Diálogo nativo no tema fica no roteiro manual. Dep. T30–T34 | QA | a fazer |
-| T36 · H06.1 · READMEs EN/PT sem "tema escuro apenas", com captura do claro. Emenda ao ADR-014. Dep. T35 | Front + TL | a fazer |
+| T31 · H06.1 · `tokens.css` com `@media (prefers-color-scheme: light)`. `contrast.test.ts` parametrizado: todo semântico existe nos dois temas e o caso do accent é invertido. Dep. T27 | Front | feito |
+| T32 · H06.1 · Versões claras de `--hover-tint`, `--shadow`, `--scrim` e `--viz-heat-*`. Regras do legado afetadas saem do legado (catraca no `css-layers.test.ts`). Dep. T31 | Front | feito |
+| T33 · H06.1 · Aparência em `SettingsView.tsx`: `radiogroup` e "Sistema (agora: X)" por `matchMedia`. Embed do Spotify segue o tema. Dep. T29 | Front | feito |
+| T34 · H06.1 · `DiffView.tsx`: `+`/`-` no texto acessível e contraste AA no claro | Front | feito |
+| T35 · H06.1 · `tests/e2e/theme.e2e.mjs`: troca, persistência após reiniciar, `getBackgroundColor()`, axe nos dois temas (8 abas, paleta, ajuda, aprovação, Git pausado) e capturas 1280×720. Diálogo nativo no tema fica no roteiro manual. Dep. T30–T34 | QA | feito |
+| T36 · H06.1 · READMEs EN/PT sem "tema escuro apenas", com captura do claro. Emenda ao ADR-014. Dep. T35 | Front + TL | feito |
 | T37 · H06.4 · Seção "Checklist de ameaça" em `docs/sprints/_template.md` | Sec | a fazer |
 | T38 · H06.4 · Caso gitlink sem `.git/modules` com filtro malicioso e controle positivo em `tests/integration/git-exec.test.ts` | Back + QA | a fazer |
 | T39 · H06.6 · `supabase/config.toml` mínimo (sem `project_id` real) | DevOps | feito (porta 55322: o Windows reserva 53952–54451) |
@@ -251,6 +251,7 @@ Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-0
 ## QA e security review (resumo de [`sprint-06/qa.md`](sprint-06/qa.md))
 | História | QA | Security |
 |---|---|---|
+| H06.1 | ✅ contrast.test nos dois temas + E2E `theme.e2e.mjs` (axe e capturas) | sem gatilho novo no renderer; main (T28–T30) já revisado |
 | H06.10 | ✅ unit + integração no CI + live local | alta do debate (hook de deny) atendida; média do review (`permissionMode` de agente) mitigada |
 
 ## Entregas

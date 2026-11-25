@@ -71,3 +71,8 @@ Movida da `sprint-06.md` em 2026-11-25 (processo novo, ver `docs/squad.md` → "
 - **QA:** unit extraindo as opções do `query()` para função pura; integração lendo `init.tools` (sai sem login → roda no CI, comparar como subconjunto); subagente só com turno do modelo → local.
 - **Decisão (PO):** hook de deny aceito agora (única trava se o SDK mudar). Teste com subagente local e opt-in, com evidência no `qa.md`; sem ele a história não fecha. Must, P+. `AskUserQuestion` com UI fica para a Sprint 07.
 - **Security review (2026-11-25):** média sobre `permissionMode` declarado por agente de projeto. Medido sem brecha; mitigação com variação (acceptEdits → ask, demais → deny) registrada no `qa.md`. Code review do TL: aprovado; risco do `ToolSearch` descartado por teste.
+
+### Decisões rápidas (build da H06.1, 2026-11-25)
+- Paleta clara (T27) desenhada já validada pelo `contrast.test` (a UX não roda contraste) e revisada pela UX depois; UX aprovou com ajustes.
+- Fundo do composer no claro fica para a H06.5 (regra do legado; mover agora aumentaria as exceções do `css-layers`).
+- "Sistema (agora: X)" só aparece com Sistema marcado: com Escuro/Claro forçado o renderer não enxerga o tema do Windows.

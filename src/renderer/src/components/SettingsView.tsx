@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppSettings, EffortLevel } from '@shared/types'
+import type { AppSettings, EffortLevel, ThemePref } from '@shared/types'
 import { errorText } from '@shared/lib/errorText'
 import { useStore } from '../store'
+import { useTemaClaro } from '../useColorScheme'
 
 const MODELS = [
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5 (padrão)' },
@@ -10,6 +11,11 @@ const MODELS = [
   { id: 'claude-fable-5-2', label: 'Claude Fable 5.2' }
 ]
 const EFFORTS: (EffortLevel | '')[] = ['', 'low', 'medium', 'high', 'xhigh', 'max']
+const TEMAS: { id: ThemePref; label: string }[] = [
+  { id: 'system', label: 'Sistema' },
+  { id: 'dark', label: 'Escuro' },
+  { id: 'light', label: 'Claro' }
+]
 
 export function SettingsView() {
   const settings = useStore((s) => s.settings)
@@ -20,6 +26,7 @@ export function SettingsView() {
   const [key, setKey] = useState('')
   const keyRef = useRef<HTMLInputElement>(null)
   const pronto = Boolean(settings)
+  const claro = useTemaClaro()
 
   // "Usar chave da API" / "Trocar chave" no card de erro do chat: foca o campo ao abrir a aba.
   useEffect(() => {
@@ -49,6 +56,22 @@ export function SettingsView() {
     <div className="view-pad settings">
       <div className="view-head">
         <h2>Configurações</h2>
+      </div>
+
+      <div className="card">
+        <div className="panel-title" id="aparencia-titulo">
+          Aparência
+        </div>
+        {/* H06.1: troca na hora (o main aplica o nativeTheme) e "Sistema" mostra o tema efetivo. */}
+        <div className="theme-choice" role="radiogroup" aria-labelledby="aparencia-titulo">
+          {TEMAS.map((t) => (
+            <label key={t.id} className="theme-option">
+              <input type="radio" name="tema" value={t.id} checked={settings.theme === t.id} onChange={() => void update({ theme: t.id })} />
+              {/* Com Escuro/Claro forçado, o renderer não vê o tema do Windows: o "agora" só aparece em Sistema. */}
+              {t.id === 'system' && settings.theme === 'system' ? `Sistema (agora: ${claro ? 'Claro' : 'Escuro'})` : t.label}
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="card">

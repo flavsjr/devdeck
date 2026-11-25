@@ -18,7 +18,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
 - ADR-011 — Instalador NSIS per-user
 - ADR-012 — Fronteira do IPC: origem + zod
 - ADR-013 — Confiança explícita em configurações de projeto
-- ADR-014 — Sistema de estilos: tokens em camadas
+- ADR-014 — Sistema de estilos: tokens em camadas (emenda H06.1: tema claro)
 - ADR-015 — Segredos de configuração cifrados e mascarados
 - ADR-016 — Atalhos no renderer, menu nulo em produção
 - ADR-017 — Dependências de UI
@@ -94,6 +94,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
 - **Contexto:** a paleta (terracota `#d97757` e creme) era a da marca Claude; cores literais espalhadas por ~1.700 linhas de CSS e em componentes.
 - **Decisão:** CSS puro com `@layer tokens, legacy, base, shell`. `styles/tokens.css` é o único arquivo com cor literal, em duas camadas (primitivos → semânticos), identidade "Índigo Noturno". O CSS antigo foi migrado para tokens e envolvido em `@layer legacy`; regras novas vencem pela ordem da camada, sem `!important`. Testes: guarda de cor literal e da paleta antiga, contraste WCAG AA dos pares usados (`lib/contrast`). Sem Tailwind nem CSS-in-JS.
 - **Consequências:** trocar de tema = trocar semânticos (tema claro na Sprint 06). Regra de `shell` que sobrescreve um seletor do legado precisa redeclarar as variantes (ex.: `.btn.primary`).
+- **Emenda (H06.1, 2026-11-25): tema claro.** O claro é um bloco `@media (prefers-color-scheme: light) { :root { … } }` no próprio `tokens.css`, que redefine só semânticos sobre primitivos novos (`--paper-*`, `--ink-*`, `--indigo-8/11`…). `themeTokens()` (`renderer/src/lib/contrast.ts`) separa os dois temas e o `contrast.test` roda todos os pares AA em cada um; outro teste exige que todo semântico do escuro exista no claro. No claro o accent é escuro e `--on-accent` é branco (invertido do escuro). Estilo novo vai no `shell` com nome de classe próprio (o `css-layers.test` barra reuso de classe do legado); regra do legado que muda com o tema sai do legado (ex.: `.thinking`). Em E2E com Playwright, `electron.launch` precisa de `colorScheme: null`: o padrão emula `light` e esconde a troca feita pelo `nativeTheme`.
 
 ## ADR-015 — Segredos de configuração cifrados e mascarados
 - **Contexto:** env/headers de MCP e o link ICS ficavam em texto puro no disco e voltavam inteiros ao renderer.

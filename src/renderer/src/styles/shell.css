@@ -921,3 +921,76 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Aparência nas Configurações (H06.1): três opções em linha, rádio nativo com a cor do accent. */
+@layer shell {
+  .theme-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--space) * 2);
+  }
+  .theme-option {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    min-height: 32px;
+    padding: 0 calc(var(--space) * 3);
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius);
+    background: var(--bg-2);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .theme-option:hover {
+    background: var(--hover-tint);
+  }
+  .theme-option:has(input:checked) {
+    border-color: var(--accent-line);
+    background: var(--accent-bg);
+  }
+  .theme-option input {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+}
+
+/* Diff (H06.1): o sinal +/− tem a cor do tipo, com contraste AA sobre o fundo da linha nos dois temas. */
+@layer shell {
+  .diff-sign-add {
+    color: var(--ok);
+  }
+  .diff-sign-del {
+    color: var(--bad);
+  }
+}
+
+/* "Claude está trabalhando…" (saiu do legado na H06.1): o texto fica com contraste AA o tempo todo;
+   quem pulsa é o ponto. Sem animação com prefers-reduced-motion (base.css). */
+@layer shell {
+  .thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--space) * 2);
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .thinking::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    animation: pulse 1.6s infinite;
+  }
+}
+
+/* Botão principal desabilitado (revisão da UX, H06.1): texto branco sobre accent a 50% ficava ilegível no
+   claro. Fundo neutro e texto --muted (≥ 4,5 sobre --bg-3 nos dois temas, conferido no contrast.test). */
+@layer shell {
+  .btn.primary:disabled {
+    background: var(--bg-3);
+    border-color: var(--line-2);
+    color: var(--muted);
+    opacity: 1;
+  }
+}

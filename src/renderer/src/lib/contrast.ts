@@ -10,6 +10,37 @@ export function parseTokens(css: string): Record<string, string> {
   return out
 }
 
+const LIGHT_MEDIA = /@media\s*\(\s*prefers-color-scheme\s*:\s*light\s*\)\s*\{/
+
+/**
+ * Separa o bloco `@media (prefers-color-scheme: light) { … }` (chaves balanceadas) do resto do CSS (H06.1).
+ * `light` é o CSS de dentro do bloco, ou null se não houver tema claro.
+ */
+export function splitLightBlock(css: string): { dark: string; light: string | null } {
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const m = LIGHT_MEDIA.exec(src)
+  if (!m) return { dark: src, light: null }
+  const open = m.index + m[0].length
+  let depth = 1
+  let i = open
+  for (; i < src.length && depth > 0; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}') depth--
+  }
+  if (depth !== 0) throw new Error('Bloco @media (prefers-color-scheme: light) sem fechar')
+  return { dark: src.slice(0, m.index) + src.slice(i), light: src.slice(open, i - 1) }
+}
+
+/**
+ * Tokens de cada tema: o claro herda os primitivos do :root e redefine os semânticos, então resolve com os
+ * dois juntos (claro por cima).
+ */
+export function themeTokens(css: string): { dark: Record<string, string>; light: Record<string, string> | null } {
+  const { dark, light } = splitLightBlock(css)
+  const darkTokens = parseTokens(dark)
+  return { dark: darkTokens, light: light === null ? null : { ...darkTokens, ...parseTokens(light) } }
+}
+
 function parseHex(hex: string): Rgba | null {
   const h = hex.replace('#', '')
   if (!/^([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(h)) return null
