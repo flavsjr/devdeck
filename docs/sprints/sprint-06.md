@@ -209,7 +209,12 @@ Assinatura de código · auto-update · hash do `claude.exe` em runtime (riscos 
 - ~~Aprovar a correção de `.claude/agents/ux-designer.md`~~ e ~~citar `src/shared/lib/` no `CLAUDE.md`~~: aprovados em 2026-11-24 (T49).
 
 ## Achados do fechamento da Sprint 05 (2026-11-25) — levar ao PO e à Cybersecurity
-- **Revisar o 1º risco aceito acima:** com `permissionMode: 'default'`, o Claude Code libera Bash só-leitura (`git status`, `ls`) sem chamar `canUseTool`. Visto no app instalado: `git status` pelo Bash do agente rodou sem card. A mitigação "Bash sempre pede aprovação" não vale para esses comandos. Caminho provável: hook `PreToolUse` no SDK forçando `ask` para Bash ou regra de permissão explícita.
+- ~~**Revisar o 1º risco aceito acima:** Bash só-leitura sem `canUseTool`~~ → corrigido antes da tag `v0.5.0` no branch `fix/bash-sempre-pede-aprovacao` (`77bb313`, ADR-022): hook `PreToolUse` `ask` para Bash/PowerShell e `Monitor` em `disallowedTools`. A mitigação do risco volta a valer.
+- **Pendências não bloqueantes da revisão de Cybersecurity do fix (2026-11-25):**
+  - **Média:** trocar a lista negra por lista branca (`tools: [...]` só com o que o card sabe mostrar) e conferir o `tools` do `system/init` em teste. `Workflow`, `CronCreate`, `EnterWorktree` e `Agent` com `isolation: "worktree"` executam código e não foram conferidas.
+  - **Baixa:** teste de integração com o SDK real contando chamadas do `canUseTool` para `git status` (Bash, PowerShell, Monitor), para pegar atualização do SDK sem hook.
+  - **Baixa:** teste do `decide()` recusando "Sempre" para PowerShell no main; `NO_PATH` em `toolpath.ts` cita `Task`, mas o nome atual da tool é `Agent` (mais restritivo, sem risco).
+  - **Baixa:** em workspace confiado, hook `PermissionRequest` ou `disableAllHooks` do projeto podem transformar o `ask` em `allow`; ambos só entram com confiança (ADR-013). Registrar como risco aceito.
 - **Instância única:** sem `app.requestSingleInstanceLock()`; abrir o DevDeck de novo cria outra instância sobre o mesmo `%APPDATA%\DevDeck` (corrida nos JSON do store). Corrigir com foco na janela existente em `second-instance`.
 - **Env restrito não é sandbox:** sem confiança, o agente ofereceu rodar git "sem essa variável". Um `env -u GIT_DIR git …` depende só da aprovação do Bash; o card precisa deixar claro quando o comando mexe em `GIT_*`.
 
