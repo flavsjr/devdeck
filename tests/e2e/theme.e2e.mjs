@@ -76,6 +76,13 @@ const winBg = (app) => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllW
 const cssBg = (win) => win.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toLowerCase())
 const blur = (win) => win.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined))
 const axe = async (win, selector) => {
+  // Notificação entrando (ex.: "Erro no chat" do agente sem rede no CI) está com opacidade parcial: o contraste
+  // medido no meio da animação é falso. Espera as animações da pilha terminarem (mesmo ajuste da T25).
+  await win
+    .waitForFunction(() => (document.querySelector('.notify-stack')?.getAnimations({ subtree: true }) ?? []).every((a) => a.playState !== 'running'), null, {
+      timeout: 5000
+    })
+    .catch(() => {})
   if (!(await win.evaluate(() => Boolean(window.axe)))) await win.evaluate(AXE)
   return win.evaluate(async (sel) => {
     const r = await window.axe.run(sel, { runOnly: ['wcag2a', 'wcag2aa'] })
