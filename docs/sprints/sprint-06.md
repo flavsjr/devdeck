@@ -177,7 +177,7 @@ Debate completo em [`sprint-06/ata.md`](sprint-06/ata.md).
 | Item | Dono | Gatilho de segurança | Status |
 |---|---|---|---|
 | Instância única: `requestSingleInstanceLock` + foco na janela em `second-instance` | Back | sim (store em disco) | ✅ 2026-11-25. Teste `singleInstance.test.ts`; no `pack:win`, 2ª instância no mesmo userData sai com 0 e outra pasta abre. TL aprovado; Sec sem achados |
-| `minimatch` ≥ 11.0.1 (Dependabot #1) | DevOps | sim (dependência de build) | ✅ 2026-11-25. `overrides` só na faixa afetada → 11.0.9; `pack:win` com fuses ok. TL aprovado; Sec sem achados. Falta: `npm ci` + dry run do `release.yml` no CI após push. Build de mac (`@electron/universal`) não verificado |
+| `minimatch` ≥ 11.0.1 (Dependabot #1) | DevOps | sim (dependência de build) | ✅ 2026-11-25. `overrides` só na faixa afetada → 11.0.9; `pack:win` com fuses ok. TL aprovado; Sec sem achados. CI com `npm ci` verde ([run 45652772146](https://github.com/flavsjr/devdeck/actions/runs/45652772146)) e dry run do `release.yml` verde em 6,5 min com artefato `installer` ([run 45652794525](https://github.com/flavsjr/devdeck/actions/runs/45652794525)). Build de mac (`@electron/universal`) não verificado |
 | Lista branca de tools do agente (`tools: [...]`) | Back | sim | avaliar: se precisar emendar o ADR-022, vira história |
 
 ## Tarefas (Tech Lead)
