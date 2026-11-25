@@ -1,6 +1,7 @@
 /*
  * Ordem das camadas (ADR-014): a última vence, independentemente da especificidade.
- * tokens → legacy (CSS herdado, já em tokens) → base (tipo, foco, movimento) → shell (layout e componentes novos).
+ * tokens → legacy (CSS herdado, já em tokens) → base (tipo, foco, movimento) → shell (layout e componentes novos)
+ * → views (estilo por aba com escopo, migrado do legado na H06.5).
  * Este arquivo precisa ser o primeiro CSS importado (main.tsx).
  */
-@layer tokens, legacy, base, shell;
+@layer tokens, legacy, base, shell, views;

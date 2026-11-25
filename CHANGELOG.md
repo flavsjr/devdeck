@@ -7,6 +7,11 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 ### Adicionado
 - **Tema claro**: em *Configurações → Aparência*, escolha Sistema, Escuro ou Claro. Troca na hora, sem recarregar, fica salva e, em "Sistema", acompanha o Windows com o app aberto. Contraste AA conferido por teste nos dois temas.
 
+### Alterado
+- No tema claro, a caixa de mensagem do chat fica branca, destacada do fundo.
+- Processo do squad: modelo por papel, brief em vez de releitura, trilha rápida para achados pequenos, sprint dividida em painel, ata e QA (`docs/squad.md`).
+- CSS antigo migrado para camadas novas (perfil, conquistas, agenda, chat, painel direito, diff e flow), sem mudança visual comprovada por comparação do estilo computado de cada elemento nos dois temas.
+
 ### Corrigido
 - Uma notificação de erro (que fica até ser fechada) cobria os botões do topo das abas, como "Importar do Claude"; a pilha agora começa abaixo do cabeçalho.
 - "Claude está trabalhando…" piscava o texto até ficar ilegível (contraste abaixo de 3:1); agora o texto fica fixo e quem pulsa é um ponto ao lado.
@@ -16,9 +21,6 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 ### Segurança
 - **O agente do chat só tem as ferramentas que o card de aprovação sabe mostrar**: ler, buscar, editar, escrever, rodar comando (Bash/PowerShell), busca na web e subagente. Saíram ferramentas como agendamento, gatilho remoto e publicação de plugin, e os conectores da sua conta do claude.ai deixam de aparecer no chat do DevDeck. Ferramenta fora da lista é negada mesmo que o Claude Code a ofereça (ADR-022, emenda).
 - `minimatch` das ferramentas de empacotamento atualizado para 11.x (GHSA-g3hv-75wg-m249, negação de serviço por padrão de glob). Não muda o app instalado.
-
-### Alterado
-- Processo do squad: modelo por papel, brief em vez de releitura, trilha rápida para achados pequenos, sprint dividida em painel, ata e QA (`docs/squad.md`).
 
 ## [0.5.0] — 2026-11-25 · Sprint 05
 

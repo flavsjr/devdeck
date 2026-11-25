@@ -77,3 +77,8 @@ Movida da `sprint-06.md` em 2026-11-25 (processo novo, ver `docs/squad.md` → "
 - Fundo do composer no claro fica para a H06.5 (regra do legado; mover agora aumentaria as exceções do `css-layers`).
 - "Sistema (agora: X)" só aparece com Sistema marcado: com Escuro/Claro forçado o renderer não enxerga o tema do Windows.
 - **Escopo (usuário, 2026-11-25):** tudo relacionado à comunidade fica para depois; H06.6 sai da Sprint 06 (T39 feita fica).
+
+### Decisões rápidas (build da H06.5, 2026-11-25)
+- Prova de "sem mudança visual" por diff de estilo computado (mais forte e barato que comparar capturas no olho), com a base construída do commit anterior num worktree.
+- Componentes (chat, painel direito, diff, flow) vão para `components.css` na camada `shell`, não na `views`: não são abas.
+- Comunidade fica no legado (`community.css`): comunidade toda fica para depois.

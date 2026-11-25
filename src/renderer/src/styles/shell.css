@@ -522,20 +522,7 @@
   }
 }
 
-/* Conquista bloqueada: sem opacidade (derrubava o contraste do texto abaixo de 4,5:1). */
 @layer shell {
-  .ach.locked {
-    opacity: 1;
-    border-style: dashed;
-  }
-  .ach.locked .ach-icon {
-    opacity: 0.45;
-  }
-  .ach.locked .ach-title,
-  .ach.locked .ach-title span,
-  .ach.locked .small.muted {
-    color: var(--muted);
-  }
   .view-pad:focus-visible {
     outline-offset: -2px;
   }

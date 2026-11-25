@@ -68,6 +68,8 @@
     --fg-2: var(--slate-10);
     --muted: var(--slate-9);
     --hover-tint: color-mix(in srgb, var(--slate-12) 4%, transparent);
+    /* Campo de mensagem do chat: no escuro destaca com --bg-1; no claro, branco sobre o fundo (revisão da UX, H06.1). */
+    --composer-bg: var(--bg-1);
 
     /* ---------- semânticos: marca e estados ---------- */
     --accent: var(--indigo-9);
@@ -147,6 +149,7 @@
       --fg-2: var(--ink-10);
       --muted: var(--ink-9);
       --hover-tint: color-mix(in srgb, var(--ink-12) 5%, transparent);
+      --composer-bg: var(--paper-0);
 
       --accent: var(--indigo-8);
       --accent-2: var(--indigo-11);

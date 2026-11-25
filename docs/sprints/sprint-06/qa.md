@@ -5,6 +5,9 @@
 
 | Caso | Resultado | Evidência |
 |---|---|---|
+| H06.5 legado: 1.634 → **799** linhas (meta ≤ 835); views.css → `@layer views` (perfil, conquistas, agenda); chat, painel direito, diff e flow → `components.css` (`@layer shell`); comunidade fica no legado (`community.css`) | ✅ | `css-layers.test`: catraca `LEGACY_MAX_LINES = 799`, exceções shell×legado 44 → 32, views×shell só `meter`/`on` com escopo, views sem `!important` |
+| H06.5 sem mudança visual (2026-11-25): estilo computado de 4.762 elementos, CSS antigo (build do `c2beeb5` num worktree) × novo | ✅ zero diferenças | `node tests/e2e/style-snapshot.mjs base.json` / `novo.json` + `--diff`. Pegou e corrigiu: `.ach.locked` (shell perdia para a regra migrada) e `.changes-diff .diff-body` (perderia a especificidade) |
+| H06.5 ajuste da UX (fundo do composer no claro) | ✅ | token `--composer-bg`; o diff mostra só `textarea` do composer, só no claro (3 telas) |
 | H06.3/H06.7 E2E (T24, 2026-11-25): 401 com chave e Bearer falsos no corpo → "A chave da API foi recusada", um card por turno, axe sem serious/critical; 429/529/créditos → cards da H06.7 | ✅ | `node tests/e2e/auth-error.e2e.mjs` → "Erros do Claude: tudo ok" |
 | H06.3 E2E (T24): nenhum valor falso na tela/HTML (com "Detalhes técnicos" aberto), no stdout/stderr do Electron nem nos arquivos do `--user-data-dir` | ✅ | mesmo E2E; controle positivo: o servidor falso respondeu 401 com os valores no corpo |
 | H06.2 E2E (T25, 2026-11-25): conquista (1º turno no servidor falso), sucesso (salvar chave), aviso (nome de MCP inválido), info ("Nada novo para importar"), erro (MCP com `?token=`), axe na pilha a cada tipo; erro continua após 9 s | ✅ | `node tests/e2e/notifications.e2e.mjs` → "Notificações: tudo ok" (2 rodadas) |

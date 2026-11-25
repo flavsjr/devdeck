@@ -88,9 +88,9 @@ Cada linha "sim" cita teste com controle positivo. O security review confere lin
 
 ### H06.5 — Migração do `@layer legacy` por área · Should · G (timebox M)
 *Como mantenedor do DevDeck, quero tirar o CSS antigo da camada legada para que regra nova não seja sobrescrita sem aviso (bugs do `.btn`/`.meter`).*
-- [ ] Meta mínima: legado de 1.668 para ≤ 835 linhas (`views.css` inteiro + ~350 linhas do `app.css`), com catraca no `css-layers.test.ts`. Zerar a camada e tirá-la do `index.css` é extra, com emenda ao ADR-014.
-- [ ] Classes migradas com prefixo ou escopo, sem `!important`. A lista de exceções do `css-layers.test.ts` (47 hoje) encolhe a cada área.
-- [ ] Capturas do E2E antes e depois de cada área migrada, nos dois temas, comparadas manualmente (sem pixelmatch). axe continua sem violações.
+- [x] Meta mínima: legado de 1.668 para ≤ 835 linhas (`views.css` inteiro + ~350 linhas do `app.css`), com catraca no `css-layers.test.ts`. Zerar a camada e tirá-la do `index.css` é extra, com emenda ao ADR-014.
+- [x] Classes migradas com prefixo ou escopo, sem `!important`. A lista de exceções do `css-layers.test.ts` (47 hoje) encolhe a cada área.
+- [x] Capturas do E2E antes e depois de cada área migrada, nos dois temas, comparadas manualmente (sem pixelmatch). axe continua sem violações. **Feito com algo mais forte que capturas:** diff do estilo computado de 4.762 elementos (8 abas × 2 temas + paleta e ajuda, com chat, card de aprovação e diff abertos) entre o CSS antigo e o novo — zero diferenças (`tests/e2e/style-snapshot.mjs`).
 
 ### H06.6 — pgTAP no CI · Should · G · **fora da Sprint 06** (usuário, 2026-11-25: tudo da comunidade fica para depois)
 *Como mantenedor da comunidade, quero que os testes de RLS e de limite rodem no CI para que uma migration não abra um buraco sem ninguém ver.*
@@ -240,9 +240,9 @@ Fatos do código que entraram no desenho: `tests/unit/guard.test.ts` só vigia `
 | T41 · H06.6 · `supabase/tests/0001_community.sql` com `anon` e `authenticated` (é o corte interno). Dep. T40 | Back | adiada (comunidade depois) |
 | T42 · H06.6 · Controle positivo num branch descartável com o link do run vermelho no PR. Emenda ao ADR-010. Dep. T40 | DevOps + TL | adiada (comunidade depois) |
 | T43 · H06.6 · Usuário torna o `db` obrigatório no ruleset no 1º run verde, com a data registrada na ata. Dep. T40 | Usuário (admin) | adiada (comunidade depois) |
-| T44 · H06.5 · Criar a camada `views` em `index.css` (`tokens, legacy, base, shell, views`) e a catraca de linhas do legado no `css-layers.test.ts` | Front | a fazer |
-| T45 · H06.5 · Migrar o `views.css` por área (uma tarefa e um commit por aba), com escopo e sem `!important`, capturas antes e depois nos dois temas e axe. Timebox M. Dep. T44, T35 | Front + QA | a fazer |
-| T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | a fazer |
+| T44 · H06.5 · Criar a camada `views` em `index.css` (`tokens, legacy, base, shell, views`) e a catraca de linhas do legado no `css-layers.test.ts` | Front | feito |
+| T45 · H06.5 · Migrar o `views.css` por área (uma tarefa e um commit por aba), com escopo e sem `!important`, capturas antes e depois nos dois temas e axe. Timebox M. Dep. T44, T35 | Front + QA | feito |
+| T46 · H06.5 · ~350 linhas do `app.css` até chegar a ≤ 835. Zerar a camada é extra. Dep. T45 | Front | feito |
 | T47 · H06.8 · "Alternar tema" na paleta (`commands.ts`), passando pelo mesmo `settings.set` | Front | a fazer |
 | T48 · H06.9 · Sino na `StatusBar.tsx` lendo o `historico` do reducer, com "Limpar (só desta sessão)" | Front + UX | a fazer |
 | T49 · processo · Corrigir o accent em `.claude/agents/ux-designer.md` e citar `src/shared/lib/` no `CLAUDE.md` (aprovados pelo usuário em 2026-11-24) | TL | feito |
@@ -254,6 +254,7 @@ Resultado do spike T01 (mensagens reais do SDK por cenário de erro): [`sprint-0
 ## QA e security review (resumo de [`sprint-06/qa.md`](sprint-06/qa.md))
 | História | QA | Security |
 |---|---|---|
+| H06.5 | ✅ diff de estilo computado zerado + catraca no `css-layers.test` + E2E completos | sem gatilho |
 | H06.1 | ✅ contrast.test nos dois temas + E2E `theme.e2e.mjs` (axe e capturas) | sem gatilho novo no renderer; main (T28–T30) já revisado |
 | H06.10 | ✅ unit + integração no CI + live local | alta do debate (hook de deny) atendida; média do review (`permissionMode` de agente) mitigada |
 
