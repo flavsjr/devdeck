@@ -50,10 +50,54 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  release:
-    name: release (draft)
+  # VirusTotal (H07.5, D5 com o ajuste aceito pela Sec): único job com VT_API_KEY, no environment `release`
+  # (restrito a tags v*.*.*, não roda em PR nem em fork). Checkout esparso só do script, sem npm, sem token de
+  # escrita. Qualquer falha vira "scan pendente" nas notas e o release segue.
+  scan:
+    name: virustotal
     needs: build
     if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Upload (até 10 min) + polling (até 10 min) + lookup e folga.
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .nvmrc
+            scripts/vt-scan.mts
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: installer
+          path: in
+      - name: Scan no VirusTotal
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          shopt -s nullglob
+          exe=(in/DevDeck-Setup-*.exe)
+          if [ "${#exe[@]}" -ne 1 ]; then echo "esperado 1 instalador, achei ${#exe[@]}"; exit 1; fi
+          node scripts/vt-scan.mts "${exe[0]}" vt.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vt
+          path: vt.json
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: release (draft)
+    needs: [build, scan]
+    # Roda mesmo com o scan falhando (vira "scan pendente"); nunca sem o build.
+    if: github.event_name == 'push' && !cancelled() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Único job com escrita. Não roda npm nem código do repositório além do check-tag e do release-notes (sem dependências).
@@ -81,6 +125,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: node scripts/check-tag.mts "$TAG"
       # Antes de baixar e atestar: sem a seção da versão no CHANGELOG, falha cedo e não cria rascunho (TR1).
+      # As notas são refeitas com o VirusTotal depois do SHA256SUMS.
       - name: Notas do rascunho (CHANGELOG)
         id: notes
         env:
@@ -100,6 +145,19 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: out/DevDeck-Setup-*.exe
+      # Resultado do scan: dado não confiável, validado de novo pelo release-notes (sha igual ao do SHA256SUMS,
+      # contagens inteiras). Sem o artifact, as notas dizem "scan pendente".
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: vt
+          path: out/vt
+      - name: Notas com o VirusTotal
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          sha=$(cut -d' ' -f1 out/SHA256SUMS.txt)
+          node scripts/release-notes.mts "$TAG" out/NOTES.md out/vt/vt.json "$sha"
       # Notas por arquivo (nada do CHANGELOG passa pelo shell). Pre-release: 0.x ou tag com sufixo. Publicar segue manual.
       - name: Release em rascunho
         env:
