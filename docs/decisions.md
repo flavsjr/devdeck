@@ -23,7 +23,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
 - ADR-016 — Atalhos no renderer, menu nulo em produção
 - ADR-017 — Dependências de UI
 - ADR-018 — Git sem executar código do repositório antes da confiança (emendas v0.6.1: submódulos; H07.3: bloqueio, hooks, tempo limite)
-- ADR-019 — Release em rascunho com checksum e procedência
+- ADR-019 — Release em rascunho com checksum e procedência (emenda TR1: notas do CHANGELOG e pre-release)
 - ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
 - ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados
 - ADR-022 — Comando do agente sempre passa pelo card de aprovação (emenda H06.10: lista branca de tools)
@@ -122,6 +122,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
 ## ADR-019 — Release em rascunho com checksum e procedência
 - **Decisão:** `release.yml` só por tag `v*.*.*` (e `workflow_dispatch` como dry run sem release), `permissions: {}` no topo. Job `build` (Windows, só leitura, sem cache) confere tag = versão (`scripts/check-tag.mts`), roda `npm ci`, typecheck, testes e `dist:win` (afterPack + verify-fuses) e sobe o instalador como artefato. Job `release` (Ubuntu, sem npm) é o único com `contents: write`, `id-token: write` e `attestations: write`: gera `SHA256SUMS.txt`, emite a attestation de build (`actions/attest-build-provenance` fixada por SHA) e cria o release **rascunho** com `gh release create --draft --verify-tag`. Publicar é manual, depois de conferir hash, attestation e VirusTotal. O CI ganha um job `package` (fora de PR) com `pack:win` para pegar quebra de empacotamento antes da tag.
 - **Consequências:** nenhum código de terceiros roda com token de escrita. Sem assinatura de código; procedência por `gh attestation verify`. Tag só com aprovação explícita do usuário (dispara o workflow).
+- **Emenda (TR1, Sprint 07): notas e pre-release no CI.** O job `release` roda `scripts/release-notes.mts` (sem dependências, no sparse-checkout com o `CHANGELOG.md`) antes de baixar e atestar o instalador: extrai a seção `## [X.Y.Z]` da tag para `out/NOTES.md` e o `gh release create` usa `--notes-file` (nada do CHANGELOG passa pelo shell). Sem a seção, ou com ela vazia, o job falha e não há rascunho. `--prerelease` quando a tag é `v0.*` ou tem sufixo, pela saída `prerelease` do script. Publicar continua manual, com aprovação.
 
 ## ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
 - **Status:** decidido na Sprint 06 (H06.1, H06.2).

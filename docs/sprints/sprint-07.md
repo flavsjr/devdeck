@@ -91,7 +91,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 ## Trilha rápida (sem debate, ver `docs/squad.md`)
 | Item | Dono | Gatilho de segurança | Status |
 |---|---|---|---|
-| TR1 — `release.yml` marca pre-release e preenche as notas a partir do CHANGELOG (publicar continua manual) | DevOps | sim (release) → Sec revisa | ⏳ |
+| TR1 — `release.yml` marca pre-release e preenche as notas a partir do CHANGELOG (publicar continua manual) | DevOps | sim (release) → Sec revisa | ✅ (aguarda PR) |
 | TR2 — commit do teste T38 (vai junto com a H07.3) | Back | não | ✅ |
 | T47 "Alternar tema" na paleta; T48 sino com histórico — só se sobrar folga | Front | não | ⏳ |
 
@@ -110,7 +110,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ⏳ |
 | T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ⏳ |
 | T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ⏳ |
-| T59 TR1: `scripts/extract-changelog.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ⏳ |
+| T59 TR1: `scripts/release-notes.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ✅ |
 | T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ⏳ |
 | T61 Emendas ADR-018 (D2–D4), ADR-019 (D5–D6), ADR-014 (D7); CHANGELOG 0.7.0; READMEs | TL | ⏳ |
 
