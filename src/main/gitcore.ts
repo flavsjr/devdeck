@@ -52,9 +52,9 @@ const readText = (p: string): string | null => {
 /** Assinatura barata (lstat) dos arquivos que entram no resumo: muda → reavaliar. */
 export function gitSignature(root: string): string {
   const g = join(root, '.git')
-  return ['', 'config', 'info/attributes', 'commondir', 'worktrees', 'config.worktree']
-    .map((rel) => {
-      const st = lst(rel ? join(g, rel) : g)
+  return [...['', 'config', 'info/attributes', 'commondir', 'worktrees', 'config.worktree'].map((rel) => (rel ? join(g, rel) : g)), join(root, '.gitmodules')]
+    .map((p) => {
+      const st = lst(p)
       return st ? `${st.mode}:${st.size}:${st.mtimeMs}:${st.ino}` : '-'
     })
     .join('|')
@@ -86,20 +86,28 @@ export async function inspectRepo(root: string, binary: string, outsideDir: stri
   const g = join(root, '.git')
   const configFile = join(g, 'config')
   const configText = shape.dotGit === 'dir' && !shape.configNotFile ? readText(configFile) : null
-  let configList: string | null = null
-  if (configText !== null) {
+  const list = async (file: string): Promise<string | null> => {
     try {
-      configList = (await exec(binary, inspectArgs(configFile), outsideDir, inspectEnv(baseEnv, process.platform, emptyGlobalConfig))).toString('utf8')
+      return (await exec(binary, inspectArgs(file), outsideDir, inspectEnv(baseEnv, process.platform, emptyGlobalConfig))).toString('utf8')
     } catch {
-      configList = null
+      return null
     }
   }
+  const configList = configText !== null ? await list(configFile) : null
+  // `.gitmodules` (hotfix v0.6.1): o `ignore` por submódulo vence a config forçada do agente.
+  const modulesFile = join(root, '.gitmodules')
+  const modulesSt = lst(modulesFile)
+  const gitmodules = !modulesSt ? 'missing' : modulesSt.isFile() ? 'file' : 'other'
+  const gitmodulesText = gitmodules === 'file' ? readText(modulesFile) : null
   return summarizeGitConfig({
     shape,
     configList,
     configText,
     attributesText: shape.dotGit === 'dir' ? readText(join(g, 'info', 'attributes')) : null,
-    dotGitFileText: shape.dotGit === 'file' ? readText(g) : null
+    dotGitFileText: shape.dotGit === 'file' ? readText(g) : null,
+    gitmodules,
+    gitmodulesText,
+    gitmodulesList: gitmodulesText !== null ? await list(modulesFile) : null
   })
 }
 

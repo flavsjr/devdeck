@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { headBlob, inspectRepo, restoreFile, runGit, statusOf, type GitContext } from '../../src/main/gitcore'
-import { pickGitBinary } from '../../src/main/lib/gitproc'
+import { gitSignature, headBlob, inspectRepo, restoreFile, runGit, statusOf, type GitContext } from '../../src/main/gitcore'
+import { agentEnv, pickGitBinary } from '../../src/main/lib/gitproc'
 
 // H05.1 / B3 com git real: nenhum comando configurado no repositório roda pelo DevDeck sem confiança,
 // e hooks/fsmonitor não rodam nem com confiança. Controle positivo: o mesmo fixture com git puro
@@ -193,6 +193,129 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     expect(bin).not.toBeNull()
     expect(bin!.toLowerCase().startsWith(repo.toLowerCase())).toBe(false)
   })
+
+  // ---------- Hotfix v0.6.1: git do agente/SDK e submódulos ----------
+  // O SDK roda `git status` sozinho no início da sessão, com o env de `agentEnv` (sem `--ignore-submodules`).
+
+  /** git como o agente roda: env de `agentEnv` com o git liberado, sem config global/sistema do usuário. */
+  function agentGit(args: string[], submodules: string[]): void {
+    const env = { ...agentEnv(rawEnv, process.platform, repo, true, join(base, 'no-git'), submodules), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(base, 'empty.gitconfig') }
+    execFileSync(GIT!, args, { cwd: repo, env: env as NodeJS.ProcessEnv, windowsHide: true, stdio: 'ignore' })
+  }
+  let tick = 1
+  /** mtime novo no futuro: o próximo status precisa reler o arquivo (passa pelo filtro clean). */
+  const touchFuture = (file: string): void => {
+    const t = new Date(Date.now() + 3_600_000 + tick++ * 60_000)
+    utimesSync(file, t, t)
+  }
+  const resetMarks = (): void => {
+    rmSync(markers, { recursive: true, force: true })
+    mkdirSync(markers)
+  }
+  /** Repositório filho com `b.txt`, usado como submódulo. */
+  function makeChild(dir: string, initArgs: string[] = []): void {
+    raw(['init', '-q', '-b', 'main', ...initArgs, dir], base)
+    writeFileSync(join(dir, 'b.txt'), 'filho\n')
+    raw(['add', 'b.txt'], dir)
+    raw(['commit', '-q', '-m', 'filho'], dir)
+  }
+  /** Repo com submódulo `lib` e filtro só na config do submódulo (`.git/modules/lib/config`). */
+  function makeSubmoduleRepo(): string {
+    const child = join(base, 'child')
+    makeChild(child)
+    makeRepo({}, '')
+    raw(['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', fwd(child), 'lib'])
+    raw(['commit', '-q', '-m', 'submodulo'])
+    raw(['config', 'filter.evil.clean', hookCmd('clean')], join(repo, 'lib'))
+    writeFileSync(join(repo, 'lib', '.gitattributes'), '* filter=evil\n')
+    return join(repo, 'lib', 'b.txt')
+  }
+
+  for (const where of ['.gitmodules', '.git/config do pai'] as const) {
+    it(`submódulo com ignore=none (${where}): gate pausa, agente com ignore=all forçado não entra; sem a correção entra`, async () => {
+      const file = makeSubmoduleRepo()
+      if (where === '.gitmodules') {
+        raw(['config', '--file', '.gitmodules', 'submodule.lib.ignore', 'none'])
+        raw(['commit', '-q', '-am', 'ignore none'])
+      } else raw(['config', 'submodule.lib.ignore', 'none'])
+      resetMarks()
+
+      const s = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+      expect(s.risky).toBe(true)
+      expect(s.reasons.some((r) => r.startsWith('submodule.lib.ignore'))).toBe(true)
+      expect(s.submodules).toEqual(['lib'])
+
+      // Mesmo confiado: o git do agente (status e diff) não entra no submódulo.
+      touchFuture(file)
+      agentGit(['status', '--porcelain'], s.submodules)
+      touchFuture(file)
+      agentGit(['diff'], s.submodules)
+      await statusOf(ctx())
+      expect(marks()).toEqual([])
+
+      // Controle positivo: o env da v0.6.0 (só diff.ignoreSubmodules=all) entra e roda o filtro.
+      touchFuture(file)
+      agentGit(['status', '--porcelain'], [])
+      expect(marks()).toContain('clean')
+    })
+  }
+
+  it('.gitmodules sem ignore: não pausa e o agente não entra no submódulo', async () => {
+    const file = makeSubmoduleRepo()
+    resetMarks()
+    const s = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+    expect(s).toMatchObject({ risky: false, submodules: ['lib'] })
+    touchFuture(file)
+    agentGit(['status', '--porcelain'], s.submodules)
+    expect(marks()).toEqual([])
+    // Controle positivo: git puro entra.
+    touchFuture(file)
+    raw(['status'])
+    expect(marks()).toContain('clean')
+  })
+
+  it('.gitmodules alterado muda a assinatura e o hash do gate', async () => {
+    makeSubmoduleRepo()
+    const before = { sig: gitSignature(repo), hash: (await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).hash }
+    writeFileSync(join(repo, '.gitmodules'), `${readFileSync(join(repo, '.gitmodules'), 'utf8')}\tignore = none\n`)
+    touchFuture(join(repo, '.gitmodules'))
+    expect(gitSignature(repo)).not.toBe(before.sig)
+    const after = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+    expect(after.hash).not.toBe(before.hash)
+    expect(after.risky).toBe(true)
+  })
+
+  for (const kind of ['embutido (gitlink sem .gitmodules)', 'embutido com .git apontando para fora (gitdir:)'] as const) {
+    it(`repositório ${kind}: DevDeck e agente não entram; git puro dentro dele roda o filtro`, async () => {
+      makeRepo({}, '')
+      const sub = join(repo, 'vendor')
+      const external = join(base, 'fora', 'vendor.git')
+      mkdirSync(join(base, 'fora'))
+      makeChild(sub, kind.includes('gitdir') ? [`--separate-git-dir=${fwd(external)}`] : [])
+      raw(['-c', 'advice.addEmbeddedRepo=false', 'add', 'vendor'])
+      raw(['commit', '-q', '-m', 'embutido'])
+      expect(raw(['ls-files', '-s', 'vendor']).startsWith('160000')).toBe(true)
+      expect(existsSync(join(repo, '.gitmodules'))).toBe(false)
+      raw(['config', 'filter.evil.clean', hookCmd('clean')], sub)
+      writeFileSync(join(sub, '.gitattributes'), '* filter=evil\n')
+      resetMarks()
+
+      const s = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+      expect(s).toMatchObject({ risky: false, submodules: [] })
+      touchFuture(join(sub, 'b.txt'))
+      agentGit(['status', '--porcelain'], s.submodules)
+      touchFuture(join(sub, 'b.txt'))
+      agentGit(['diff'], s.submodules)
+      await statusOf(ctx())
+      expect(await headBlob(ctx(), 'a.txt')).toBe('linha 1\n')
+      expect(marks()).toEqual([])
+
+      // Controle positivo: git puro dentro do repositório embutido roda o filtro dele.
+      touchFuture(join(sub, 'b.txt'))
+      raw(['status'], sub)
+      expect(marks()).toContain('clean')
+    })
+  }
 
   it('.git como arquivo gitdir: é arriscado sem rodar git', async () => {
     makeRepo({}, '')

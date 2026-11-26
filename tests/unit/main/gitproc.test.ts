@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentEnv, forcedConfigEnv, gitArgs, gitEnv, inspectArgs, inspectEnv, parseStatusZ, pickGitBinary, safePathEntries } from '../../../src/main/lib/gitproc'
+import { agentEnv, FORCED_GIT_CONFIG, forcedConfigEnv, gitArgs, gitEnv, inspectArgs, inspectEnv, parseStatusZ, pickGitBinary, safePathEntries, submoduleIgnoreConfig } from '../../../src/main/lib/gitproc'
 
 describe('pickGitBinary / safePathEntries (git plantado no workspace)', () => {
   const root = 'C:\\repo'
@@ -68,6 +68,16 @@ describe('gitEnv / inspectEnv / agentEnv', () => {
     const paused = agentEnv(base, 'win32', 'C:\\w\\repo', false, 'C:\\app\\no-git')
     expect(paused).toMatchObject({ GIT_DIR: 'C:\\app\\no-git', GIT_CEILING_DIRECTORIES: 'C:\\w' })
     expect(paused.GIT_CONFIG_PARAMETERS).toBeUndefined()
+  })
+  it('agente: cada submódulo conhecido recebe ignore=all depois da config forçada (hotfix v0.6.1)', () => {
+    const env = agentEnv(base, 'win32', 'C:\\w\\repo', true, 'x', ['lib', 'a.b'])
+    const n = FORCED_GIT_CONFIG.length
+    expect(env.GIT_CONFIG_COUNT).toBe(String(n + 2))
+    expect([env[`GIT_CONFIG_KEY_${n}`], env[`GIT_CONFIG_VALUE_${n}`]]).toEqual(['submodule.lib.ignore', 'all'])
+    expect([env[`GIT_CONFIG_KEY_${n + 1}`], env[`GIT_CONFIG_VALUE_${n + 1}`]]).toEqual(['submodule.a.b.ignore', 'all'])
+    // Sem submódulo: igual à v0.6.0.
+    expect(agentEnv(base, 'win32', 'C:\\w\\repo', true, 'x')).toMatchObject(forcedConfigEnv())
+    expect(submoduleIgnoreConfig([])).toEqual([])
   })
 })
 

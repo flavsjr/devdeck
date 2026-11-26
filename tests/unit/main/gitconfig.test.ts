@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { clipMiddle, describeGitRisk, isAllowedGitKey, parseConfigList, splitKey, summarizeGitConfig, type GitConfigInput } from '../../../src/main/lib/gitconfig'
+import { clipMiddle, describeGitRisk, isAllowedGitKey, MAX_SUBMODULES, parseConfigList, splitKey, summarizeGitConfig, type GitConfigInput } from '../../../src/main/lib/gitconfig'
 
 const z = (...entries: string[]): string => entries.map((e) => `${e}\0`).join('')
 
@@ -121,11 +122,65 @@ describe('summarizeGitConfig', () => {
     const a = summarizeGitConfig(input({ shape: { dotGit: 'file' }, dotGitFileText: 'gitdir: a' })).hash
     expect(summarizeGitConfig(input({ shape: { dotGit: 'file' }, dotGitFileText: 'gitdir: b' })).hash).not.toBe(a)
   })
+  it('sem .gitmodules o hash continua o da v0.6.0 (confiança gravada vale)', () => {
+    const sha = (t: string | null | undefined): string => createHash('sha256').update(t ?? '<ausente>').digest('hex')
+    const i = input()
+    const v060 = sha(JSON.stringify([['.git', 'dir', sha(undefined)], ['config', sha(i.configText)], ['info/attributes', sha(null)]]))
+    expect(summarizeGitConfig(i).hash).toBe(v060)
+    expect(summarizeGitConfig(input({ gitmodules: 'missing' })).hash).toBe(v060)
+  })
   it('muitas chaves arriscadas: lista cortada', () => {
     const many = z(...Array.from({ length: 40 }, (_, i) => `alias.a${i}\n!x`))
     const s = summarizeGitConfig(input({ configList: many }))
     expect(s.reasons).toHaveLength(31)
     expect(s.reasons[30]).toContain('mais 10')
+  })
+})
+
+describe('summarizeGitConfig: submódulos (hotfix v0.6.1)', () => {
+  const MODS = z('submodule.lib.path\nlib', 'submodule.lib.url\nhttps://github.com/x/lib.git')
+  const mods = (list: string | null, text = '[submodule "lib"]\n'): Partial<GitConfigInput> => ({ gitmodules: 'file', gitmodulesList: list, gitmodulesText: text })
+
+  it('.gitmodules comum: não pausa, mas o nome vai para o agente', () => {
+    const s = summarizeGitConfig(input(mods(MODS)))
+    expect(s).toMatchObject({ risky: false, submodules: ['lib'] })
+  })
+  it('ignore diferente de all no .gitmodules pausa e mostra a chave com a origem', () => {
+    for (const v of ['none', 'untracked', 'dirty', 'NONE', '']) {
+      const s = summarizeGitConfig(input(mods(MODS + z(`submodule.lib.ignore\n${v}`))))
+      expect(s.risky, v).toBe(true)
+      expect(s.reasons[0]).toContain('submodule.lib.ignore')
+      expect(s.reasons[0]).toContain('(.gitmodules)')
+      expect(s.submodules).toEqual(['lib'])
+    }
+    // Controle: ignore=all (em qualquer caixa) não pausa.
+    expect(summarizeGitConfig(input(mods(MODS + z('submodule.lib.ignore\nALL')))).risky).toBe(false)
+  })
+  it('submodule.<nome>.ignore no .git/config do pai pausa (fora da lista) e o nome vai para o agente', () => {
+    const s = summarizeGitConfig(input({ configList: CLEAN + z('submodule.vendor.ignore\nnone', 'submodule.vendor.active\ntrue') }))
+    expect(s.risky).toBe(true)
+    expect(s.reasons.some((r) => r.startsWith('submodule.vendor.ignore'))).toBe(true)
+    expect(s.submodules).toEqual(['vendor'])
+  })
+  it('nomes do .gitmodules e do pai juntos, sem repetir, subseção como veio (com pontos e maiúsculas)', () => {
+    const s = summarizeGitConfig(input({ ...mods(z('submodule.Lib.v2.path\nlib', 'submodule.b.path\nb')), configList: CLEAN + z('submodule.Lib.v2.url\nx', 'submodule.c.url\ny') }))
+    expect(s.submodules.sort()).toEqual(['Lib.v2', 'b', 'c'])
+  })
+  it('.gitmodules ilegível ou que não é arquivo comum: pausa (falha fechada)', () => {
+    expect(summarizeGitConfig(input(mods(null))).risky).toBe(true)
+    expect(summarizeGitConfig(input(mods('lixo'))).risky).toBe(true)
+    expect(summarizeGitConfig(input({ gitmodules: 'other' })).risky).toBe(true)
+  })
+  it('submódulos demais: pausa e manda no máximo o teto', () => {
+    const many = z(...Array.from({ length: MAX_SUBMODULES + 1 }, (_, i) => `submodule.m${i}.path\nm${i}`))
+    const s = summarizeGitConfig(input(mods(many)))
+    expect(s.risky).toBe(true)
+    expect(s.submodules).toHaveLength(MAX_SUBMODULES)
+  })
+  it('hash muda quando o .gitmodules muda (mudança na sessão pede confiança de novo)', () => {
+    const a = summarizeGitConfig(input(mods(MODS + z('submodule.lib.ignore\nnone'), 'a'))).hash
+    expect(summarizeGitConfig(input(mods(MODS + z('submodule.lib.ignore\nnone'), 'b'))).hash).not.toBe(a)
+    expect(summarizeGitConfig(input(mods(MODS, 'a'))).hash).not.toBe(summarizeGitConfig(input()).hash)
   })
 })
 

@@ -101,6 +101,8 @@ export interface WorkspaceDecision {
   settingSources: SettingSource[]
   /** Git do workspace liberado (limpo ou confiado). Falso → o agente recebe env sem repositório. */
   gitAllowed: boolean
+  /** Submódulos vistos pelo gate: o agente recebe `submodule.<nome>.ignore=all` para cada um (hotfix v0.6.1). */
+  submodules: string[]
 }
 
 /**
@@ -121,7 +123,8 @@ export async function decideWorkspace(cwd: string, loadProject: boolean): Promis
   const askGit = Boolean(gate && !gate.allowed && !gate.declined)
   const askProject = !projectOk
 
-  if (!askProject && !askGit) return { settingSources: loadProject && projectOk ? ['project'] : [], gitAllowed: Boolean(gate?.allowed) || !gate }
+  const submodules = gate?.summary.submodules ?? []
+  if (!askProject && !askGit) return { settingSources: loadProject && projectOk ? ['project'] : [], gitAllowed: Boolean(gate?.allowed) || !gate, submodules }
 
   const both = askProject && askGit
   const response = await showDialog({
@@ -149,5 +152,5 @@ export async function decideWorkspace(cwd: string, loadProject: boolean): Promis
   // Com overflow a confiança vale só desta vez: não dá para saber se o conteúdo muda depois.
   if (ok && askProject && summary && !summary.overflow) trustWorkspace(root, summary.hash)
   const projectLoaded = loadProject && (projectOk || ok)
-  return { settingSources: projectLoaded ? ['project'] : [], gitAllowed: !gate || gate.allowed || (askGit && ok) }
+  return { settingSources: projectLoaded ? ['project'] : [], gitAllowed: !gate || gate.allowed || (askGit && ok), submodules }
 }

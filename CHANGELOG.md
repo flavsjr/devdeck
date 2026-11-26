@@ -4,6 +4,11 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-11-25 · hotfix (Sprint 07, H07.1)
+
+### Segurança
+- **Submódulo com `ignore=none` não executa mais código ao abrir o chat.** Um repositório recebido pronto (zip, pasta copiada) com um submódulo marcado `ignore = none` no `.gitmodules` e um filtro na configuração do submódulo fazia o `git status` do Claude Code rodar esse filtro sem nenhum diálogo, nas v0.5.0 e v0.6.0. Agora o DevDeck lê o `.gitmodules` antes de liberar o git: `ignore` diferente de `all` deixa o git pausado até você confiar, e o git do agente nunca entra nos submódulos conhecidos, nem com o repositório confiado (ADR-018, emenda). Repositórios sem submódulo continuam confiados como antes.
+
 ## [0.6.0] — 2026-11-25 · Sprint 06
 
 ### Adicionado

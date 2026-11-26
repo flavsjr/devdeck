@@ -66,6 +66,7 @@ export interface GitGate {
 
 export async function gitGate(root: string): Promise<GitGate> {
   // Sem .git na raiz: nada a decidir e nenhum processo (nem a busca do binário: quem não tem git não recebe aviso).
+  // O teto (GIT_CEILING_DIRECTORIES) impede o git do agente de achar repositório acima: `.gitmodules` solto não importa.
   if (readGitShape(root).dotGit === 'missing') {
     return { summary: summarizeGitConfig({ shape: { dotGit: 'missing' }, configList: null, configText: null, attributesText: null }), allowed: true, declined: false }
   }
