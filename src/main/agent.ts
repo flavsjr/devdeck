@@ -331,8 +331,9 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
 
   let settingSources: SettingSource[] = []
   let gitAllowed = false
+  let submodules: string[] = []
   try {
-    ;({ settingSources, gitAllowed } = await decideWorkspace(s.meta.cwd, settings.loadProjectSettings))
+    ;({ settingSources, gitAllowed, submodules } = await decideWorkspace(s.meta.cwd, settings.loadProjectSettings))
   } catch (err) {
     live.delete(ls.id)
     // Vira mensagem de IPC: só o texto redigido (H06.3).
@@ -354,7 +355,8 @@ async function startLive(s: StoredSession): Promise<LiveSession> {
     systemPrompt: { type: 'preset', preset: 'claude_code', append: settings.appendSystemPrompt || undefined },
     resume: s.meta.claudeSessionId,
     // Sem GIT_* herdado; com o git pausado, o git que o Claude Code rodar não acha repositório (H05.1).
-    env: { ...agentEnv(process.env, process.platform, s.meta.cwd, gitAllowed, noGitDir()), ...(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {}) },
+    // Cada submódulo com `ignore=all` forçado: o `git status` do próprio SDK não entra nele (hotfix v0.6.1).
+    env: { ...agentEnv(process.env, process.platform, s.meta.cwd, gitAllowed, noGitDir(), submodules), ...(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {}) },
     // env/headers de MCP pelo stdin, não pela linha de comando (legível por outros usuários da máquina).
     mcpServersDelivery: 'initialize',
     // stderr do Claude Code pode ecoar chave/token: redigido antes do console (H06.3).

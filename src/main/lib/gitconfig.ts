@@ -95,6 +95,16 @@ export interface GitConfigInput {
   attributesText: string | null
   /** Conteúdo do arquivo `.git` quando ele é arquivo (`gitdir: …`). */
   dotGitFileText?: string | null
+  /**
+   * `.gitmodules` que o git usaria (hotfix v0.6.1): ausente, arquivo comum na raiz, outro tipo (link… ou blob
+   * que não deu para resolver) ou `blob` — sem o arquivo na árvore, o git lê o do index e depois o do HEAD.
+   * Ausente no input = `missing`.
+   */
+  gitmodules?: 'missing' | 'file' | 'other' | 'blob'
+  /** Saída de `git config --file|--blob … --list -z --no-includes`; null = não deu para ler. */
+  gitmodulesList?: string | null
+  /** Conteúdo cru do `.gitmodules` (arquivo) ou `<onde> <oid>` (blob), para o hash. */
+  gitmodulesText?: string | null
 }
 
 export interface GitRiskSummary {
@@ -108,7 +118,19 @@ export interface GitRiskSummary {
    */
   sessionOnly: boolean
   hash: string
+  /**
+   * Nomes de submódulo vistos no `.gitmodules` e em `submodule.<nome>.*` do `.git/config`. O agente recebe
+   * `submodule.<nome>.ignore=all` para cada um: `ignore` por nome vence o `diff.ignoreSubmodules=all`
+   * forçado, e o git entraria no submódulo e rodaria o filtro dele (hotfix v0.6.1, ADR-018).
+   */
+  submodules: string[]
 }
+
+/** Teto de submódulos com `ignore` forçado no env do agente; acima disso o git pausa. */
+export const MAX_SUBMODULES = 200
+
+/** Nome de submódulo que dá para mandar por `GIT_CONFIG_KEY_n` sem ambiguidade. */
+const SAFE_SUBMODULE_NAME = /^[^\u0000-\u001f\u007f]{1,255}$/
 
 const sha = (text: string | null | undefined): string =>
   createHash('sha256')
@@ -123,9 +145,9 @@ export function clipMiddle(text: string, max = 60): string {
   return `${clean.slice(0, half)}…${clean.slice(clean.length - half)}`
 }
 
-function describeEntry(e: GitConfigEntry): string {
+function describeEntry(e: GitConfigEntry, origin = '.git/config'): string {
   const { section, name } = splitKey(e.key)
-  const shown = `${clip(e.key, 80)}${e.value === null ? '' : ` = "${clipMiddle(e.value)}"`}  (.git/config)`
+  const shown = `${clip(e.key, 80)}${e.value === null ? '' : ` = "${clipMiddle(e.value)}"`}  (${origin})`
   return section === 'filter' && splitKey(e.key).sub?.toLowerCase() === 'lfs' && ['clean', 'smudge', 'process', 'required'].includes(name)
     ? `${shown} — comum em repositórios com Git LFS`
     : shown
@@ -135,15 +157,36 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
   const { shape } = input
   const reasons: string[] = []
   let sessionOnly = false
-  const hash = sha(
-    JSON.stringify([
-      ['.git', shape.dotGit, sha(input.dotGitFileText)],
-      ['config', sha(input.configText)],
-      ['info/attributes', sha(input.attributesText)]
-    ])
-  )
+  const submodules = new Set<string>()
+  const gitmodules = input.gitmodules ?? 'missing'
+  const parts: unknown[] = [
+    ['.git', shape.dotGit, sha(input.dotGitFileText)],
+    ['config', sha(input.configText)],
+    ['info/attributes', sha(input.attributesText)]
+  ]
+  // Só entra no hash quando existe: repositório sem submódulo mantém a confiança já gravada.
+  if (gitmodules !== 'missing') parts.push(['.gitmodules', gitmodules, sha(input.gitmodulesText)])
+  const hash = sha(JSON.stringify(parts))
 
-  if (shape.dotGit === 'missing') return { isRepo: false, risky: false, reasons, sessionOnly, hash }
+  if (shape.dotGit === 'missing') return { isRepo: false, risky: false, reasons, sessionOnly, hash, submodules: [] }
+
+  const noteSubmodule = (e: GitConfigEntry): void => {
+    const { section, sub } = splitKey(e.key)
+    if (section === 'submodule' && sub !== null) submodules.add(sub)
+  }
+
+  if (gitmodules === 'other') reasons.push('O .gitmodules é um link, um tipo especial de arquivo ou não pôde ser localizado no repositório: o DevDeck não consegue conferir os submódulos.')
+  else if (gitmodules === 'file' || gitmodules === 'blob') {
+    const origin = gitmodules === 'file' ? '.gitmodules' : '.gitmodules no index/HEAD'
+    const entries = input.gitmodulesList == null ? null : parseConfigList(input.gitmodulesList)
+    if (entries === null) reasons.push(`O ${origin} não pôde ser lido pelo git: o DevDeck não consegue conferir os submódulos.`)
+    else
+      for (const e of entries) {
+        noteSubmodule(e)
+        // `ignore` diferente de `all` faz o git entrar no submódulo e rodar filtros da config dele, que o DevDeck não mostra.
+        if (splitKey(e.key).name === 'ignore' && (e.value ?? '').trim().toLowerCase() !== 'all') reasons.push(`${describeEntry(e, origin)} — o git entraria no submódulo e rodaria a configuração dele`)
+      }
+  }
 
   if (shape.dotGit !== 'dir') {
     sessionOnly = true
@@ -165,6 +208,7 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
       const entries = input.configList === null ? null : parseConfigList(input.configList)
       if (entries === null) reasons.push('O .git/config não pôde ser lido pelo git: o DevDeck não consegue conferir o conteúdo.')
       else {
+        entries.forEach(noteSubmodule)
         const risky = entries.filter((e) => !isAllowedGitKey(e.key))
         // include/includeIf trazem outro arquivo, fora do hash: confiar vale só nesta execução.
         if (risky.some((e) => /^include(if)?$/.test(splitKey(e.key).section))) sessionOnly = true
@@ -173,7 +217,10 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
       }
     }
   }
-  return { isRepo: true, risky: reasons.length > 0, reasons, sessionOnly, hash }
+  const names = [...submodules]
+  if (names.length > MAX_SUBMODULES || names.some((n) => !SAFE_SUBMODULE_NAME.test(n)))
+    reasons.push(`Submódulos demais ou com nome fora do padrão (${names.length}): o DevDeck não consegue impedir o git de entrar neles.`)
+  return { isRepo: true, risky: reasons.length > 0, reasons, sessionOnly, hash, submodules: names.filter((n) => SAFE_SUBMODULE_NAME.test(n)).slice(0, MAX_SUBMODULES) }
 }
 
 /** Bloco do diálogo nativo de confiança. */
