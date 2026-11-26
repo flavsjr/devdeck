@@ -1,13 +1,13 @@
-# Sprint 07 — <tema a definir no planning>
+# Sprint 07 — Pontas soltas de qualidade e segurança
 
-**Período:** 2026-11-25 → a definir · **Versão alvo:** v0.7.0 · **Status:** planejamento pendente (H07.1 já entregue como hotfix v0.6.1)
+**Período:** 2026-11-25 → a definir · **Versão alvo:** v0.7.0 · **Status:** planejada, em execução (H07.1 já entregue como hotfix v0.6.1)
 
 > Painel vivo da sprint. Ata em `sprint-07/ata.md` (modelo `_template-ata.md`); QA e security review em `sprint-07/qa.md`; evidências em `sprint-07/`. Regras de tamanho em `docs/squad.md` → "Economia de contexto".
 >
 > Criado em 2026-11-26 a partir do modelo. O achado da H07.1 saiu do debate da Sprint 07 feito no outro computador, que não foi registrado aqui: se houver ata ou planning de lá, juntar em `sprint-07/ata.md`.
 
 ## Objetivo
-<a definir no planning (PO)>
+Fechar a dívida de teste e segurança da v0.6.x, tirar do caminho o trabalho repetido do release e fazer o "Ver no chat" abrir a sessão certa.
 
 ## Histórias (PO)
 
@@ -21,15 +21,60 @@
 
 Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/devdeck/pull/9) e `sprint-07/qa.md`.
 
+### H07.2 — Testes de componente dos parciais da H06.2/H06.3 · Must · M
+*Como mantenedor, quero os critérios que ficaram parciais na Sprint 06 cobertos por teste, para não regredirem sem ninguém ver.*
+- [ ] Botão de fechar da notificação: alvo ≥ 24 px, `role` correto e foco visível/recuperado ao fechar.
+- [ ] Com `prefers-reduced-motion`, nenhuma animação na pilha.
+- [ ] Lembrete com "Abrir na agenda" abre a aba Agenda.
+- [ ] Erro do chat: um único toast; "Copiar detalhes" copia; "Tentar de novo" fica desabilitado sem mexer no composer.
+
+### H07.3 — Endurecer a inspeção do git · Must · M
+*Como dev que abre repositório de terceiros, quero que a inspeção de confiança feche os casos de borda restantes, para não rodar código do repositório sem diálogo.*
+- [ ] T38: repositório embutido (gitlink sem `.git/modules`) com controle positivo — teste já escrito, entra no commit desta história (TR2).
+- [ ] `GIT_NO_LAZY_FETCH=1` também no env do agente.
+- [ ] Inspeção que estoura o timeout termina e reporta erro (sem confiar por padrão).
+- [ ] `core.worktree` e `include.path` que resolvem (realpath, também caminho relativo) para fora do repositório **ou** para dentro do workspace editável são recusados, testados com git real nas duas direções (D3).
+- [ ] Dado um zip com `.git/hooks/pre-commit`, o gate recusa e lista o hook; hooks `.sample` não contam (D2).
+
+### H07.4 — "Ver no chat" abre a sessão do erro · Should · M
+*Como dev com várias sessões, quero que "Ver no chat" leve à sessão onde o erro aconteceu, para não procurar à mão.*
+- [ ] Seleciona a sessão do erro e rola até a mensagem.
+- [ ] `sessionId` que não é UUID ou não existe é recusado, com aviso.
+- [ ] Erro da sessão ativa mantém o comportamento atual.
+
+### H07.5 — VirusTotal no CI · Should · M (só com o secret criado pelo usuário)
+*Como mantenedor, quero o resultado do VirusTotal já nas notas do rascunho, para publicar sem subir o arquivo à mão.*
+- [ ] Link e resultado do scan nas notas do rascunho.
+- [ ] Sem chave ou com a API fora: notas dizem "scan pendente" e o release segue.
+- [ ] A chave nunca aparece em log; o secret só existe num job restrito, que não roda em PR de fork: environment `release` restrito a tags `v*.*.*` (D5).
+- [ ] As notas avisam que a amostra enviada ao VirusTotal fica pública.
+
+### H07.6 — UI para `AskUserQuestion` · Could · G → Sprint 08
+Fica para a Sprint 08 (tamanho G e precisa de UX).
+
 ## Convocação (PO)
 | História | Dono | Envolvidos | Por quê |
 |---|---|---|---|
 | H07.1 | Back | TL, Sec, QA | execução de processo (git) e confiança no workspace |
+| H07.2 | QA | Front, TL | testes de componente no renderer |
+| H07.3 | Back | Sec, QA, TL | execução de processo (git) e confiança no workspace |
+| H07.4 | Front | TL, Sec, QA | navegação por id vindo de evento (IPC/validação) |
+| H07.5 | DevOps | Sec, TL | secret no CI e release |
+| TR1 | DevOps | TL, Sec (revisão) | `release.yml` é gatilho de segurança |
 
-**Não convocados (sem tarefa nesta sprint):** a definir no planning.
+**Não convocados (sem tarefa nesta sprint):** UX (H07.6 foi para a Sprint 08).
+
+**Ordem de corte:** T47/T48 → H07.5 → H07.4 → parte da H07.2. H07.3 e TR1 não saem.
 
 ## Decisões (resumo da ata)
 - **H07.1 (2026-11-25, outro computador):** saiu como hotfix antes do planning por ser execução de código sem diálogo nas v0.5.0/v0.6.0.
+- **D1:** H07.2 por E2E (estender `notifications.e2e.mjs`) + unit da regra pura; sem jsdom (candidata futura com ADR).
+- **D2:** hook não-`.sample` em `.git/hooks` vira risco no gate (achado médio da Sec) → H07.3.
+- **D3:** `core.worktree`/`include.path` recusados para fora do repo **e** para dentro do workspace editável.
+- **D4:** `GIT_NO_LAZY_FETCH` no agente: risco aceito (`git log -p` em partial clone).
+- **D5:** VT em job próprio, sem checkout, `permissions: {}`, environment `release`; lookup por hash antes do upload; falha → "scan pendente".
+- **D6:** pre-release para `v0.*` ou sufixo; notas do CHANGELOG via `--notes-file`; sem seção → job falha.
+- **D7:** H07.4 com ação nova `abrirSessao`, `isUuid` em `src/shared/lib/ids.ts`, fallback para o fim da lista.
 
 ## Candidatas para o planning (backlog)
 <o PO prioriza; itens herdados da Sprint 06 e do hotfix>
@@ -46,20 +91,38 @@ Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/de
 ## Trilha rápida (sem debate, ver `docs/squad.md`)
 | Item | Dono | Gatilho de segurança | Status |
 |---|---|---|---|
+| TR1 — `release.yml` marca pre-release e preenche as notas a partir do CHANGELOG (publicar continua manual) | DevOps | sim (release) → Sec revisa | ⏳ |
+| TR2 — commit do teste T38 (vai junto com a H07.3) | Back | não | ⏳ |
+| T47 "Alternar tema" na paleta; T48 sino com histórico — só se sobrar folga | Front | não | ⏳ |
 
 ## Tarefas (Tech Lead)
 <uma linha por célula; detalhe no commit, no teste ou no ADR>
 
 | Tarefa | Papel | Status |
 |---|---|---|
+| T49 H07.3: `GIT_NO_LAZY_FETCH=1` em `agentEnv` (`gitproc.ts`) + unit | Back | ⏳ |
+| T50 H07.3: timeout injetável em `exec`/`execCode` (`gitcore.ts`), motivo "tempo esgotado", teste com binário fake | Back | ⏳ |
+| T51 H07.3: `core.worktree`/`include.path` fora do repo ou dentro do workspace → risco (`gitconfig.ts`), unit + git real | Back | ⏳ |
+| T52 H07.3: hook não-`.sample` em `.git/hooks` → risco no gate + teste | Back | ⏳ |
+| T53 H07.3 (TR2): commit do T38 (gitlink) em `git-exec.test.ts` | Back | ⏳ |
+| T54 H07.4: `isUuid` em `src/shared/lib/ids.ts` + ação `abrirSessao` na notificação de erro + unit | Front | ⏳ |
+| T55 H07.4: abrir sessão, `data-item-id` + scroll (fallback fim), aviso de recusa, sessão ativa igual | Front | ⏳ |
+| T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ⏳ |
+| T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ⏳ |
+| T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ⏳ |
+| T59 TR1: `scripts/extract-changelog.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ⏳ |
+| T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ⏳ |
+| T61 Emendas ADR-018 (D2–D4), ADR-019 (D5–D6), ADR-014 (D7); CHANGELOG 0.7.0; READMEs | TL | ⏳ |
 
 ## Riscos aceitos
-- …
+- D4: com `GIT_NO_LAZY_FETCH` no agente, `git log -p` pode falhar em partial clone.
+- D5: o instalador enviado ao VirusTotal fica público (projeto é aberto).
 
 ## Pendências com o usuário
 - T26: roteiro manual com a sessão OAuth realmente expirada no app instalado.
 - Diálogos nativos no tema claro e lista branca de tools no app instalado (H06.10).
 - Ata/planning da Sprint 07 feito no outro computador, se existir.
+- H07.5: criar no GitHub o environment `release` (restrito a tags `v*.*.*`) e o secret `VT_API_KEY` com a chave da sua conta VirusTotal. Sem isso a H07.5 fica em "scan pendente".
 
 ## QA e security review (resumo de [`sprint-07/qa.md`](sprint-07/qa.md))
 | História | QA | Security |
