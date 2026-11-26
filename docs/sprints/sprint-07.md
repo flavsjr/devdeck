@@ -21,12 +21,12 @@ Fechar a dívida de teste e segurança da v0.6.x, tirar do caminho o trabalho re
 
 Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/devdeck/pull/9) e `sprint-07/qa.md`.
 
-### H07.2 — Testes de componente dos parciais da H06.2/H06.3 · Must · M
+### H07.2 — Testes de componente dos parciais da H06.2/H06.3 · Must · M · ✅ pronta (aguarda PR)
 *Como mantenedor, quero os critérios que ficaram parciais na Sprint 06 cobertos por teste, para não regredirem sem ninguém ver.*
-- [ ] Botão de fechar da notificação: alvo ≥ 24 px, `role` correto e foco visível/recuperado ao fechar.
-- [ ] Com `prefers-reduced-motion`, nenhuma animação na pilha.
-- [ ] Lembrete com "Abrir na agenda" abre a aba Agenda.
-- [ ] Erro do chat: um único toast; "Copiar detalhes" copia; "Tentar de novo" fica desabilitado sem mexer no composer.
+- [x] Botão de fechar da notificação: alvo ≥ 24 px, `role` correto e foco visível/recuperado ao fechar.
+- [x] Com `prefers-reduced-motion`, nenhuma animação na pilha.
+- [x] Lembrete com "Abrir na agenda" abre a aba Agenda.
+- [x] Erro do chat: um único toast; "Copiar detalhes" copia; "Tentar de novo" fica desabilitado sem mexer no composer. (No fluxo real o botão sai do card antigo durante o turno; o E2E prova "nenhum disponível".)
 
 ### H07.3 — Endurecer a inspeção do git · Must · M · ✅ pronta (aguarda PR)
 *Como dev que abre repositório de terceiros, quero que a inspeção de confiança feche os casos de borda restantes, para não rodar código do repositório sem diálogo.*
@@ -107,9 +107,9 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | T53 H07.3 (TR2): commit do T38 (gitlink) em `git-exec.test.ts` | Back | ✅ |
 | T54 H07.4: `isUuid` em `src/shared/lib/ids.ts` + ação `abrirSessao` na notificação de erro + unit | Front | ⏳ |
 | T55 H07.4: abrir sessão, `data-item-id` + scroll (fallback fim), aviso de recusa, sessão ativa igual | Front | ⏳ |
-| T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ⏳ |
-| T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ⏳ |
-| T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ⏳ |
+| T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ✅ |
+| T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ✅ |
+| T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ✅ |
 | T59 TR1: `scripts/release-notes.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ✅ |
 | T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ⏳ |
 | T61 Emendas ADR-018 (D2–D4), ADR-019 (D5–D6), ADR-014 (D7); CHANGELOG 0.7.0; READMEs | TL | ⏳ |

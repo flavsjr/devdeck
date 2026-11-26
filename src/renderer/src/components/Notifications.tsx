@@ -264,11 +264,11 @@ function Cartao({ n, alerta, despachar, now, onFechar, onAgir }: CartaoProps): R
         mensagem
       )}
       {n.acao && (
-        <button type="button" className="btn sm notify-action" onClick={onAgir}>
+        <button type="button" className="btn sm notify-action" data-testid="notify-action" onClick={onAgir}>
           {rotuloAcao(n.acao)}
         </button>
       )}
-      <button type="button" className="notify-close" aria-label={ROTULO_FECHAR} title={ROTULO_FECHAR} onClick={onFechar}>
+      <button type="button" className="notify-close" data-testid="notify-close" aria-label={ROTULO_FECHAR} title={ROTULO_FECHAR} onClick={onFechar}>
         <IconX size={14} />
       </button>
     </div>

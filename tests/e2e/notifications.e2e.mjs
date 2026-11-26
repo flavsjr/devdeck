@@ -4,6 +4,12 @@
 // - aviso: servidor MCP com nome inválido;
 // - erro: servidor MCP HTTP com ?token= na URL (o main recusa);
 // - info: "Importar do Claude" sem nada novo (HOME, USERPROFILE e APPDATA apontam para pastas vazias).
+// H07.2 (T57/T58), parciais da Sprint 06:
+// - fechar: alvo ≥ 24 px, role/nome, foco visível pelo teclado e recuperado ao fechar; notificação não rouba o foco;
+// - prefers-reduced-motion: nenhuma animação na pilha (controle: sem ele, o cartão anima);
+// - lembrete real da agenda (evento salvo pelo window.deck) → toast "Abrir na agenda" → aba Agenda;
+// - erro do chat (401 do servidor falso): só o card com o chat na tela; "Copiar detalhes" copia o mesmo texto;
+//   "Tentar de novo" só por clique, indisponível durante o turno, composer intacto; em outra aba, um único toast.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -123,6 +129,185 @@ try {
   // Erro não some sozinho (os outros tipos somem no prazo).
   await win.waitForTimeout(9000)
   check(await cartao('erro').isVisible(), 'erro continua na tela depois de 9 s, até o usuário fechar')
+
+  // ================= H07.2 (T57/T58): parciais da H06.2/H06.3 =================
+  const pilha = win.locator('.notify-stack')
+  const focoFora = () =>
+    win.evaluate(() => {
+      const a = document.activeElement
+      return Boolean(a && a !== document.body && !document.querySelector('.notify-stack')?.contains(a))
+    })
+
+  // ---------- fechar: role, nome, alvo ≥ 24 px, foco visível e recuperado ----------
+  const caixaFechar = await cartao('erro').getByTestId('notify-close').boundingBox()
+  check(
+    Boolean(caixaFechar && caixaFechar.width >= 24 && caixaFechar.height >= 24),
+    `fechar: alvo ≥ 24 × 24 px (${caixaFechar ? `${caixaFechar.width} × ${caixaFechar.height}` : 'sem caixa'})`
+  )
+  check(
+    (await pilha.getByRole('button', { name: 'Fechar notificação' }).count()) === (await pilha.getByTestId('notify-close').count()),
+    'fechar: role="button" com nome "Fechar notificação" em todos os cartões'
+  )
+  check(await focoFora(), 'notificação nova não rouba o foco (ficou fora da pilha, sem cair no <body>)')
+  // Entra na pilha pelo teclado (Tab). A origem é o último elemento focado FORA da pilha antes de
+  // entrar nela (o relatedTarget que o componente guarda), gravada só enquanto o foco está fora.
+  await importar.focus()
+  let noFechar = false
+  for (let i = 0; i < 120 && !noFechar; i++) {
+    await win.evaluate(() => {
+      const a = document.activeElement
+      if (!document.querySelector('.notify-stack')?.contains(a)) window.__focoAntes = a
+    })
+    await win.keyboard.press('Tab')
+    noFechar = await win.evaluate(() => document.activeElement?.getAttribute('data-testid') === 'notify-close')
+  }
+  check(noFechar, 'fechar: alcançável pelo Tab')
+  if (noFechar) {
+    const visivel = await win.evaluate(() => {
+      const el = document.activeElement
+      const st = getComputedStyle(el)
+      return el.matches(':focus-visible') && st.outlineStyle !== 'none' && parseFloat(st.outlineWidth) > 0
+    })
+    check(visivel, 'fechar: foco visível (:focus-visible com contorno) vindo do teclado')
+    const antes = await pilha.getByTestId('notify-close').count()
+    await win.keyboard.press('Enter')
+    await waitFor(async () => (await pilha.getByTestId('notify-close').count()) < antes, 5000)
+    const volta = await win.evaluate(() => {
+      const a = document.activeElement
+      const pilhaEl = document.querySelector('.notify-stack')
+      if (pilhaEl?.querySelector('[data-testid="notify-close"]')) return pilhaEl.contains(a) ? 'vizinha' : 'fora'
+      return a === window.__focoAntes && a !== document.body ? 'origem' : 'perdido'
+    })
+    check(volta === 'origem' || volta === 'vizinha', `fechar pelo teclado: foco vai para a vizinha ou volta para a origem, nunca para o <body> (${volta})`)
+  }
+  // Limpa a pilha para os próximos blocos.
+  for (let i = 0; i < 10 && (await pilha.getByTestId('notify-close').count()) > 0; i++) await pilha.getByTestId('notify-close').first().click()
+
+  // ---------- prefers-reduced-motion: sem animação na pilha ----------
+  const animacaoDoInfo = async () => {
+    await importar.click()
+    const c = cartao('info')
+    await c.waitFor({ state: 'visible', timeout: 5000 })
+    const r = await c.evaluate((el) => ({
+      nome: getComputedStyle(el).animationName,
+      rodando: (document.querySelector('.notify-stack')?.getAnimations({ subtree: true }) ?? []).length
+    }))
+    await c.getByTestId('notify-close').click()
+    await win.locator('.notify-card.notify-info').waitFor({ state: 'detached', timeout: 5000 })
+    return r
+  }
+  const comMovimento = await animacaoDoInfo()
+  check(comMovimento.nome === 'notify-entrada', `controle: sem reduced-motion o cartão anima a entrada (${comMovimento.nome})`)
+  await win.emulateMedia({ reducedMotion: 'reduce' })
+  const semMovimento = await animacaoDoInfo()
+  check(
+    semMovimento.nome === 'none' && semMovimento.rodando === 0,
+    `reduced-motion: nenhuma animação na pilha (${semMovimento.nome}, ${semMovimento.rodando} rodando)`
+  )
+  await win.emulateMedia({ reducedMotion: null })
+
+  // ---------- lembrete da agenda: toast info com "Abrir na agenda" ----------
+  // O main só manda o toast com a janela em foco (senão vai a notificação nativa). A janela do E2E pode
+  // não ter foco no SO: força isFocused() desta instância, só no processo de teste.
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const w of BrowserWindow.getAllWindows()) w.isFocused = () => true
+  })
+  const tituloLembrete = 'Daily <img src=x onerror=alert(1)>'
+  await win.evaluate(async (title) => {
+    const d = new Date(Date.now() + 3 * 60_000)
+    const p = (n) => String(n).padStart(2, '0')
+    const start = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+    await window.deck.agenda.save({ id: '', title, start, durationMin: 15, recurrence: { kind: 'none' }, remindMin: 10, kind: 'meeting' })
+  }, tituloLembrete)
+  const lembrete = cartao('info')
+  // O agendador confere a cada 30 s.
+  const chegou = await waitFor(async () => ((await lembrete.textContent()) ?? '').includes(`Lembrete da agenda: ${tituloLembrete}`), 45000)
+  check(chegou, 'lembrete com a janela em foco: toast info "Lembrete da agenda: …"')
+  if (chegou) {
+    check((await lembrete.locator('img').count()) === 0, 'título do lembrete renderizado como texto (sem <img> no cartão)')
+    const abrir = lembrete.getByTestId('notify-action')
+    check(((await abrir.textContent()) ?? '').trim() === 'Abrir na agenda', 'lembrete: ação "Abrir na agenda"')
+    await abrir.click()
+    check(await waitFor(() => win.locator('.view-pad.agenda').isVisible(), 5000), '"Abrir na agenda" abre a aba Agenda')
+    check(await waitFor(async () => (await win.locator('.notify-card.notify-info').count()) === 0, 5000), 'o toast fecha depois da ação')
+  }
+
+  // ---------- erro do chat: card sem toast, "Copiar detalhes", "Tentar de novo" ----------
+  await goView(1)
+  const caixaChat = win.getByRole('textbox', { name: 'Mensagem para o Claude' })
+  const livre = () => waitFor(async () => (await caixaChat.isEnabled()) && !(await win.getByText('Claude está trabalhando…').isVisible()))
+  const toastsDoChat = () => win.locator('.notify-card.notify-erro', { hasText: 'Erro no chat' })
+  const ultimoErro = () => win.locator('.agent-error').last()
+  const pedidos = () => api.hits.filter((h) => h.path === '/v1/messages').length
+  api.setCenario('auth401')
+  await livre()
+  const cardsAntes = await win.locator('.agent-error').count()
+  await caixaChat.fill('falha no chat')
+  await caixaChat.press('Enter')
+  check(await waitFor(async () => (await win.locator('.agent-error').count()) > cardsAntes), 'erro no chat: card do turno aparece')
+  await livre()
+  await win.waitForTimeout(1500)
+  check((await toastsDoChat().count()) === 0, 'erro com o chat na tela: só o card, nenhum toast "Erro no chat"')
+
+  // Copiar detalhes: o mesmo texto do <pre>. Guarda e devolve a área de transferência de quem roda o teste.
+  const CONTROLE_CLIP = 'controle-e2e-h07.2'
+  const lerClip = () => app.evaluate(({ clipboard }) => clipboard.readText())
+  const clipOriginal = await lerClip()
+  try {
+    await app.evaluate(({ clipboard }, t) => clipboard.writeText(t), CONTROLE_CLIP)
+    await ultimoErro().getByRole('button', { name: 'Detalhes técnicos' }).click()
+    const detalhe = ((await ultimoErro().locator('pre.agent-error-detail').textContent()) ?? '').trim()
+    await ultimoErro().getByRole('button', { name: 'Copiar detalhes' }).click()
+    const copiado = await waitFor(async () => (await lerClip()) !== CONTROLE_CLIP, 5000)
+    // O clipboard do Windows guarda quebra de linha como CRLF: compara só depois de normalizar.
+    const clip = (await lerClip()).replace(/\r\n/g, '\n').trim()
+    check(copiado && detalhe.length > 0 && clip === detalhe, `"Copiar detalhes" copia o mesmo texto de "Detalhes técnicos" (${clip.length} = ${detalhe.length} caracteres)`)
+    check(await waitFor(() => cartao('sucesso').filter({ hasText: 'Detalhes copiados.' }).isVisible(), 5000), '"Copiar detalhes": toast "Detalhes copiados."')
+  } finally {
+    await app.evaluate(({ clipboard }, t) => clipboard.writeText(t), clipOriginal)
+  }
+
+  // Tentar de novo: nunca sozinho; durante o turno não fica disponível; o rascunho do composer fica.
+  const RASCUNHO = 'rascunho que não pode sumir'
+  await caixaChat.fill(RASCUNHO)
+  const p0 = pedidos()
+  await win.waitForTimeout(3000)
+  check(pedidos() === p0, '"Tentar de novo" não reenvia sozinho (nenhum pedido em 3 s)')
+  api.setAtraso(4000)
+  await ultimoErro().getByRole('button', { name: 'Tentar de novo' }).click()
+  check(await waitFor(() => win.getByText('Claude está trabalhando…').isVisible(), 5000), 'controle: o clique em "Tentar de novo" começou um turno')
+  // No fluxo real o main grava a mensagem reenviada antes do busy: o card antigo deixa de ser do último
+  // turno e o botão sai (o aria-disabled do componente é defesa extra, não alcançável por aqui).
+  const disponiveis = await win
+    .locator('.agent-error')
+    .getByRole('button', { name: 'Tentar de novo' })
+    .evaluateAll((els) => els.filter((el) => el.getAttribute('aria-disabled') !== 'true').length)
+  const cardsNoTurno = await win.locator('.agent-error').count()
+  check(cardsNoTurno > 0 && disponiveis === 0, `durante o turno, ${cardsNoTurno} card(s) de erro na tela e nenhum "Tentar de novo" disponível (${disponiveis})`)
+  check((await caixaChat.inputValue()) === RASCUNHO, 'durante o turno, o rascunho do composer fica intacto')
+  await livre()
+  check(pedidos() > p0, 'controle: "Tentar de novo" reenviou a mensagem ao servidor falso')
+  check(
+    await waitFor(async () => (await ultimoErro().getByRole('button', { name: 'Tentar de novo' }).getAttribute('aria-disabled')) === null, 20000),
+    'controle: terminado o turno, o card novo volta a oferecer "Tentar de novo" disponível'
+  )
+  check((await caixaChat.inputValue()) === RASCUNHO, 'depois do turno, o rascunho do composer continua intacto')
+
+  // Em outra aba: um único toast "Erro no chat" com "Ver no chat", mesmo com o fim do turno chegando duas vezes.
+  await caixaChat.fill('erro em outra aba')
+  await caixaChat.press('Enter')
+  await goView(5)
+  check(await waitFor(() => toastsDoChat().first().isVisible(), 20000), 'erro em outra aba: toast "Erro no chat: …"')
+  await win.waitForTimeout(2500)
+  check((await toastsDoChat().count()) === 1, `erro em outra aba: um único toast (${await toastsDoChat().count()})`)
+  const verNoChat = toastsDoChat().first().getByTestId('notify-action')
+  check(((await verNoChat.textContent()) ?? '').trim() === 'Ver no chat', 'toast do erro: ação "Ver no chat"')
+  await verNoChat.click()
+  check(await waitFor(() => caixaChat.isVisible(), 5000), '"Ver no chat" volta para o chat')
+  await goView(5)
+  await win.waitForTimeout(1500)
+  check((await toastsDoChat().count()) === 0, 'erro já visto não vira toast de novo ao trocar de aba')
+  api.setAtraso(0)
 } catch (err) {
   failures++
   console.error(err)
