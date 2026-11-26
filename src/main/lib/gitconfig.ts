@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { posix, win32 } from 'node:path'
 import { clip } from './trust'
 
 // Confiança no git do workspace (Sprint 05, H05.1 / B3). Puro: quem chama lê os arquivos e roda
@@ -75,6 +76,73 @@ export function isAllowedGitKey(key: string): boolean {
   return WITH_SUB[section]?.has(name) ?? false
 }
 
+// ---------- Caminhos da config (H07.3) ----------
+
+/** Chaves cujo valor é um caminho que muda o que o git lê ou grava: `core.worktree`, `include.path`, `includeIf.<cond>.path`. */
+export function isPathKey(key: string): boolean {
+  const { section, sub, name } = splitKey(key)
+  if (section === 'core') return sub === null && name === 'worktree'
+  return name === 'path' && ((section === 'include' && sub === null) || (section === 'includeif' && sub !== null))
+}
+
+/**
+ * Caminho que o git usaria para o valor: `~`/`~/` vão para a home; relativo é a partir do `.git` (o git resolve
+ * `core.worktree` e `include.path` a partir da pasta do arquivo de config, que é o `.git`). Sem tocar no disco.
+ * Forma que o DevDeck não sabe resolver como o git (`%(prefix)/`, `~usuario/`, `:(optional)`, `C:x` relativo ao
+ * drive) → null, que o chamador trata como fora do repositório (security review da H07.3).
+ */
+export function resolveGitPathValue(value: string, gitDir: string, home: string, platform: NodeJS.Platform): string | null {
+  const P = platform === 'win32' ? win32 : posix
+  if (value === '~') return P.resolve(home)
+  if (value.startsWith('~/') || (platform === 'win32' && value.startsWith('~\\'))) return P.resolve(home, value.slice(2))
+  if (value === '' || value.startsWith('~') || value.startsWith('%(') || value.startsWith(':(')) return null
+  if (platform === 'win32' && /^[A-Za-z]:(?![\\/])/.test(value)) return null
+  return P.resolve(gitDir, value)
+}
+
+export type GitPathWhere = 'root' | 'git' | 'workspace' | 'outside'
+
+/** Onde fica `target` (já com realpath) em relação à raiz e ao `.git` (também com realpath). */
+export function classifyGitPath(target: string, root: string, gitDir: string, platform: NodeJS.Platform): GitPathWhere {
+  const P = platform === 'win32' ? win32 : posix
+  const norm = (p: string): string => (platform === 'win32' ? P.resolve(p).toLowerCase() : P.resolve(p))
+  const inside = (base: string): boolean => {
+    const rel = P.relative(norm(base), norm(target))
+    return rel === '' || (!rel.startsWith('..') && !P.isAbsolute(rel))
+  }
+  if (norm(target) === norm(root)) return 'root'
+  if (inside(gitDir)) return 'git'
+  return inside(root) ? 'workspace' : 'outside'
+}
+
+export interface GitPathTarget {
+  key: string
+  value: string
+  where: GitPathWhere
+}
+
+/** Motivo de bloqueio do caminho, ou null quando ele não bloqueia. */
+function blockReason(t: GitPathTarget): string | null {
+  const shown = `${clip(t.key, 80)} = "${clipMiddle(t.value)}"  (.git/config)`
+  if (splitKey(t.key).section === 'core') {
+    if (t.where === 'root') return null
+    return `${shown} — move a pasta de trabalho do git para ${t.where === 'outside' ? 'fora do repositório' : 'outro lugar dentro dele'}: o git do agente leria e gravaria arquivos fora da raiz conferida`
+  }
+  if (t.where === 'git') return null
+  return t.where === 'outside'
+    ? `${shown} — traz configuração de um arquivo fora do repositório, que o DevDeck não confere`
+    : `${shown} — traz configuração de um arquivo do workspace, que o agente pode editar durante a sessão`
+}
+
+/** Hook em `.git/hooks` que o git rodaria (tudo menos `*.sample`). `text` null = não é arquivo comum. */
+export interface GitHook {
+  name: string
+  text: string | null
+}
+
+/** Teto de hooks listados no diálogo. */
+const MAX_HOOKS_SHOWN = 10
+
 /** Como o `.git` da raiz se apresenta (lido com lstat, sem seguir links). */
 export interface GitDirShape {
   /** `.git` na raiz: ausente, pasta, arquivo (`gitdir:`), link/junction ou outro tipo. */
@@ -105,6 +173,12 @@ export interface GitConfigInput {
   gitmodulesList?: string | null
   /** Conteúdo cru do `.gitmodules` (arquivo) ou `<onde> <oid>` (blob), para o hash. */
   gitmodulesText?: string | null
+  /** `core.worktree`/`include.path` do `.git/config` com o destino já classificado (H07.3). */
+  pathTargets?: GitPathTarget[]
+  /** Hooks de `.git/hooks` que não são `.sample` (H07.3). */
+  hooks?: GitHook[]
+  /** Alguma leitura da inspeção passou do tempo limite (H07.3). */
+  timedOut?: boolean
 }
 
 export interface GitRiskSummary {
@@ -117,6 +191,13 @@ export interface GitRiskSummary {
    * do app e não é gravada.
    */
   sessionOnly: boolean
+  /**
+   * Configuração que o DevDeck não aceita nem com confiança (H07.3): `core.worktree` fora da raiz, `include.path`
+   * fora do `.git`. O git fica pausado e o diálogo não oferece "Confiar".
+   */
+  blocked: boolean
+  /** A inspeção não terminou (tempo esgotado): o resultado não entra no cache e é refeito na próxima consulta. */
+  incomplete: boolean
   hash: string
   /**
    * Nomes de submódulo vistos no `.gitmodules` e em `submodule.<nome>.*` do `.git/config`. O agente recebe
@@ -164,11 +245,23 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
     ['config', sha(input.configText)],
     ['info/attributes', sha(input.attributesText)]
   ]
-  // Só entra no hash quando existe: repositório sem submódulo mantém a confiança já gravada.
+  const hooks = input.hooks ?? []
+  // Só entram no hash quando existem: repositório sem submódulo nem hook mantém a confiança já gravada.
   if (gitmodules !== 'missing') parts.push(['.gitmodules', gitmodules, sha(input.gitmodulesText)])
+  if (hooks.length > 0) parts.push(['hooks', hooks.map((h) => [h.name, h.text === null ? 'não-arquivo' : sha(h.text)]).sort()])
   const hash = sha(JSON.stringify(parts))
 
-  if (shape.dotGit === 'missing') return { isRepo: false, risky: false, reasons, sessionOnly, hash, submodules: [] }
+  if (shape.dotGit === 'missing') return { isRepo: false, risky: false, reasons, sessionOnly, blocked: false, incomplete: false, hash, submodules: [] }
+
+  // Bloqueio (H07.3) vem primeiro no diálogo: com ele, confiar não está disponível.
+  const blockedTargets = (input.pathTargets ?? []).map((t) => ({ t, reason: blockReason(t) })).filter((b) => b.reason !== null)
+  for (const b of blockedTargets) reasons.push(b.reason as string)
+  const blockedKeys = new Set(blockedTargets.map((b) => `${b.t.key}\n${b.t.value}`))
+
+  if (input.timedOut) {
+    sessionOnly = true
+    reasons.push('A inspeção do git passou do tempo limite: o DevDeck não conseguiu conferir a configuração. Ela é refeita na próxima vez que o git for usado ou o workspace abrir.')
+  }
 
   const noteSubmodule = (e: GitConfigEntry): void => {
     const { section, sub } = splitKey(e.key)
@@ -209,22 +302,50 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
       if (entries === null) reasons.push('O .git/config não pôde ser lido pelo git: o DevDeck não consegue conferir o conteúdo.')
       else {
         entries.forEach(noteSubmodule)
-        const risky = entries.filter((e) => !isAllowedGitKey(e.key))
+        // Os que já bloqueiam aparecem acima com o motivo específico.
+        const risky = entries.filter((e) => !isAllowedGitKey(e.key) && !blockedKeys.has(`${e.key}\n${e.value ?? ''}`))
         // include/includeIf trazem outro arquivo, fora do hash: confiar vale só nesta execução.
         if (risky.some((e) => /^include(if)?$/.test(splitKey(e.key).section))) sessionOnly = true
         for (const e of risky.slice(0, 30)) reasons.push(describeEntry(e))
         if (risky.length > 30) reasons.push(`… e mais ${risky.length - 30} configuração(ões)`)
       }
     }
+    // O DevDeck roda o git com core.hooksPath numa pasta vazia, mas o git do agente usa os hooks do repositório (H07.3).
+    // Link, pasta ou arquivo grande demais: o conteúdo não entra no hash, então a confiança vale só nesta execução.
+    if (hooks.some((h) => h.text === null)) sessionOnly = true
+    for (const h of hooks.slice(0, MAX_HOOKS_SHOWN))
+      reasons.push(`.git/hooks/${clip(h.name, 80)}${h.text === null ? ' (link, pasta ou arquivo grande demais para conferir)' : ''} — o git do agente rodaria este hook (commit, checkout, merge…)`)
+    if (hooks.length > MAX_HOOKS_SHOWN) reasons.push(`… e mais ${hooks.length - MAX_HOOKS_SHOWN} hook(s)`)
   }
   const names = [...submodules]
   if (names.length > MAX_SUBMODULES || names.some((n) => !SAFE_SUBMODULE_NAME.test(n)))
     reasons.push(`Submódulos demais ou com nome fora do padrão (${names.length}): o DevDeck não consegue impedir o git de entrar neles.`)
-  return { isRepo: true, risky: reasons.length > 0, reasons, sessionOnly, hash, submodules: names.filter((n) => SAFE_SUBMODULE_NAME.test(n)).slice(0, MAX_SUBMODULES) }
+  return {
+    isRepo: true,
+    risky: reasons.length > 0,
+    reasons,
+    sessionOnly,
+    // Inspeção incompleta não aceita confiança: o bloqueio dos caminhos nem foi avaliado (security review da H07.3).
+    blocked: blockedTargets.length > 0 || Boolean(input.timedOut),
+    incomplete: Boolean(input.timedOut),
+    hash,
+    submodules: names.filter((n) => SAFE_SUBMODULE_NAME.test(n)).slice(0, MAX_SUBMODULES)
+  }
+}
+
+/**
+ * Decisão do gate: limpo passa; bloqueado (H07.3) nunca passa; o resto passa com confiança da sessão ou com o
+ * hash gravado (este só quando a confiança pode ser gravada).
+ */
+export function gitAllowedBy(s: GitRiskSummary, trustedThisSession: boolean, trustedHash: string | null | undefined): boolean {
+  if (!s.risky) return true
+  if (s.blocked) return false
+  return trustedThisSession || (!s.sessionOnly && trustedHash === s.hash)
 }
 
 /** Bloco do diálogo nativo de confiança. */
 export function describeGitRisk(s: GitRiskSummary): string {
   if (!s.risky) return ''
-  return `Configurações do git que podem executar programas:\n${s.reasons.map((r) => `  • ${r}`).join('\n')}\n`
+  const head = s.blocked ? 'Configurações do git que o DevDeck não aceita (o git fica pausado neste workspace):' : 'Configurações do git que podem executar programas:'
+  return `${head}\n${s.reasons.map((r) => `  • ${r}`).join('\n')}\n`
 }

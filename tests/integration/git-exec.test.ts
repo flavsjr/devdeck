@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -132,11 +132,11 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     expect(marks()).toEqual([])
   })
 
-  it('config limpa com hook em .git/hooks: DevDeck não dispara; git puro dispara', async () => {
+  it('config limpa com hook em .git/hooks: pausa (git do agente rodaria, H07.3); DevDeck não dispara; git puro dispara', async () => {
     makeRepo({}, '')
     const hook = join(repo, '.git', 'hooks', 'post-index-change')
     writeFileSync(hook, `#!/bin/sh\n${hookCmd('hook')}\n`, { mode: 0o755 })
-    expect((await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).risky).toBe(false)
+    expect((await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).reasons).toEqual([expect.stringMatching(/^\.git\/hooks\/post-index-change — /)])
 
     writeFileSync(join(repo, 'a.txt'), 'mudou\n')
     await restoreFile(ctx(), 'a.txt')
@@ -170,6 +170,55 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
 
     // Controle positivo: git puro no repo principal entra no submódulo e roda o filtro.
     raw(['status'])
+    expect(marks()).toContain('clean')
+  })
+
+  it('repositório embutido (gitlink sem .git/modules nem .gitmodules) com filtro próprio: DevDeck não entra; git puro entra', async () => {
+    // H06.4 / T38: pasta com `.git` próprio dentro do workspace, registrada no índice do pai só como
+    // gitlink (modo 160000). Não há `.git/modules/sub` nem `.gitmodules`: a config do embutido fica em
+    // `sub/.git/config`, fora da inspeção do pai, e é lá que mora o filtro malicioso.
+    makeRepo({}, '')
+    const sub = join(repo, 'sub')
+    raw(['init', '-q', '-b', 'main', sub], base)
+    writeFileSync(join(sub, 'b.txt'), 'embutido\n')
+    raw(['add', 'b.txt'], sub)
+    raw(['commit', '-q', '-m', 'embutido'], sub)
+    const sha = raw(['rev-parse', 'HEAD'], sub).trim()
+    raw(['update-index', '--add', '--cacheinfo', `160000,${sha},sub`])
+    raw(['commit', '-q', '-m', 'gitlink'])
+    expect(raw(['ls-files', '-s', 'sub'])).toMatch(/^160000 /)
+    expect(existsSync(join(repo, '.git', 'modules'))).toBe(false)
+    expect(existsSync(join(repo, '.gitmodules'))).toBe(false)
+
+    raw(['config', 'filter.evil.clean', hookCmd('clean')], sub)
+    raw(['config', 'filter.evil.smudge', hookCmd('smudge')], sub)
+    raw(['config', 'diff.evil.textconv', hookCmd('textconv')], sub)
+    writeFileSync(join(sub, '.gitattributes'), '* filter=evil diff=evil\n')
+    // Mesmo conteúdo, mtime no futuro: quem olhar o embutido precisa reler b.txt pelo filtro clean.
+    const future = new Date(Date.now() + 3_600_000)
+    utimesSync(join(sub, 'b.txt'), future, future)
+
+    expect((await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).risky).toBe(false)
+    const st = await statusOf(ctx())
+    expect(st.branch).toBe('main')
+    expect(marks()).toEqual([])
+    expect(st.files.filter((f) => f.path.startsWith('sub'))).toEqual([]) // o gitlink nem é olhado
+    // Caminho de diff do app (gitDiff → headBlob): plumbing no pai, o objeto do embutido nem existe aqui.
+    expect(await headBlob(ctx(), 'sub/b.txt')).toBe('')
+    // Defesa em profundidade: mesmo um `git diff` porcelana pelo runGit (prefixo + env forçada) não entra.
+    await runGit(ctx(), ['diff'])
+    await runGit(ctx(), ['diff', 'HEAD'])
+    expect(marks()).toEqual([])
+
+    // Controle positivo 1: git puro no pai desce no repositório embutido e roda o filtro dele.
+    raw(['status'])
+    expect(marks()).toContain('clean')
+
+    // Controle positivo 2 (o da história): `git -C sub diff` puro dispara o filtro sozinho.
+    rmSync(markers, { recursive: true, force: true })
+    mkdirSync(markers)
+    utimesSync(join(sub, 'b.txt'), new Date(Date.now() + 7_200_000), new Date(Date.now() + 7_200_000))
+    raw(['-C', sub, 'diff'])
     expect(marks()).toContain('clean')
   })
 
@@ -388,5 +437,122 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     writeFileSync(join(wt, '.git'), `gitdir: ${fwd(real)}\n`)
     const s = await inspectRepo(wt, GIT!, base, join(base, 'empty.gitconfig'))
     expect(s).toMatchObject({ isRepo: true, risky: true, sessionOnly: true })
+  })
+})
+
+describe.skipIf(!GIT)('git real: endurecimento da inspeção (H07.3)', { timeout: 30_000 }, () => {
+  const inspect = (opts?: { timeoutMs?: number }, binary = GIT!) => inspectRepo(repo, binary, base, join(base, 'empty.gitconfig'), process.env, opts)
+  /** git como o agente roda (env do agente, git liberado). */
+  function agentOut(args: string[]): string {
+    const env = { ...agentEnv(rawEnv, process.platform, repo, true, join(base, 'no-git')), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(base, 'empty.gitconfig') }
+    return execFileSync(GIT!, ['-c', 'user.name=QA', '-c', 'user.email=qa@example.test', '-c', 'commit.gpgsign=false', ...args], { cwd: repo, env: env as NodeJS.ProcessEnv, encoding: 'utf8', windowsHide: true })
+  }
+  const real = (p: string): string => fwd(realpathSync.native(p)).toLowerCase()
+
+  it('core.worktree para fora do repositório (absoluto e relativo): bloqueia; o git do agente trabalharia lá', async () => {
+    const fora = join(base, 'fora')
+    mkdirSync(fora)
+    for (const value of [fwd(fora), '../../fora']) {
+      rmSync(repo, { recursive: true, force: true })
+      makeRepo({ 'core.worktree': value }, '')
+      const s = await inspect()
+      expect(s, value).toMatchObject({ risky: true, blocked: true })
+      expect(s.reasons[0]).toContain('fora do repositório')
+      // Controle positivo: o git do agente realmente usa a pasta de fora como árvore de trabalho.
+      expect(real(agentOut(['rev-parse', '--show-toplevel']).trim())).toBe(real(fora))
+    }
+  })
+
+  it('core.worktree numa subpasta do workspace bloqueia; na própria raiz só pede confiança', async () => {
+    makeRepo({ 'core.worktree': '../src' }, '')
+    mkdirSync(join(repo, 'src'))
+    expect(await inspect()).toMatchObject({ blocked: true })
+    raw(['config', 'core.worktree', '..'])
+    const s = await inspect()
+    expect(s).toMatchObject({ risky: true, blocked: false })
+    expect(s.reasons).toEqual(['core.worktree = ".."  (.git/config)'])
+  })
+
+  it('core.worktree por link/junction dentro do .git que hoje dá na raiz bloqueia (o alvo poderia ser trocado depois)', async () => {
+    makeRepo({}, '')
+    symlinkSync(repo, join(repo, '.git', 'wt'), 'junction')
+    raw(['config', 'core.worktree', 'wt'])
+    const s = await inspect()
+    expect(s).toMatchObject({ risky: true, blocked: true })
+    expect(s.reasons[0]).toContain('outro lugar dentro dele')
+  })
+
+  it('include.path por link pendente dentro do .git bloqueia como fora do repositório', async () => {
+    makeRepo({}, '')
+    const alvo = join(base, 'alvo')
+    mkdirSync(alvo)
+    symlinkSync(alvo, join(repo, '.git', 'lnk'), 'junction')
+    rmSync(alvo, { recursive: true, force: true })
+    raw(['config', 'include.path', 'lnk/x.inc'])
+    const s = await inspect()
+    expect(s).toMatchObject({ blocked: true })
+    expect(s.reasons[0]).toContain('fora do repositório')
+  })
+
+  it('include.path para arquivo do workspace ou de fora bloqueia; dentro do .git não; o git segue o include (controle)', async () => {
+    makeRepo({}, '')
+    writeFileSync(join(repo, 'cfg.inc'), `[core]\n\tfsmonitor = ${hookCmd('fsmonitor')}\n`)
+    raw(['config', 'include.path', '../cfg.inc'])
+    let s = await inspect()
+    expect(s).toMatchObject({ risky: true, blocked: true })
+    expect(s.reasons[0]).toContain('o agente pode editar')
+    // Controle positivo: o git puro lê a chave que veio do arquivo do workspace.
+    expect(raw(['config', '--get', 'core.fsmonitor'])).toContain('fsmonitor')
+
+    writeFileSync(join(base, 'fora.inc'), '[user]\n\tname = x\n')
+    raw(['config', '--unset', 'include.path'])
+    raw(['config', 'includeIf.onbranch:main.path', fwd(join(base, 'fora.inc'))])
+    s = await inspect()
+    expect(s).toMatchObject({ blocked: true })
+    expect(s.reasons[0]).toContain('fora do repositório')
+
+    raw(['config', '--unset', 'includeIf.onbranch:main.path'])
+    writeFileSync(join(repo, '.git', 'extra.inc'), '[user]\n\tname = x\n')
+    raw(['config', 'include.path', 'extra.inc'])
+    expect(await inspect()).toMatchObject({ risky: true, blocked: false, sessionOnly: true })
+  })
+
+  it('hook pre-commit em .git/hooks pausa e aparece; só .sample não; o git do agente rodaria o hook (controle)', async () => {
+    makeRepo({}, '')
+    expect(readdirSync(join(repo, '.git', 'hooks')).some((n) => n.endsWith('.sample'))).toBe(true)
+    expect(await inspect()).toMatchObject({ risky: false })
+    const sig = gitSignature(repo)
+    const hook = join(repo, '.git', 'hooks', 'pre-commit')
+    writeFileSync(hook, `#!/bin/sh\n${hookCmd('pre-commit')}\n`, { mode: 0o755 })
+    expect(gitSignature(repo)).not.toBe(sig)
+    const s = await inspect()
+    expect(s).toMatchObject({ risky: true, blocked: false })
+    expect(s.reasons.some((r) => r.startsWith('.git/hooks/pre-commit'))).toBe(true)
+    // Editar o hook no lugar muda assinatura e hash.
+    const before = { sig: gitSignature(repo), hash: s.hash }
+    writeFileSync(hook, `#!/bin/sh\n${hookCmd('pre-commit')} # outro\n`)
+    expect(gitSignature(repo)).not.toBe(before.sig)
+    expect((await inspect()).hash).not.toBe(before.hash)
+
+    // Controle positivo: com o git liberado, o commit do agente roda o hook do repositório.
+    writeFileSync(join(repo, 'a.txt'), 'linha 2\n')
+    agentOut(['commit', '-q', '-am', 'agente'])
+    expect(marks()).toContain('pre-commit')
+  })
+
+  it('inspeção que passa do tempo limite termina, pausa com motivo e fica incompleta; com tempo folgado não (controle)', async () => {
+    makeRepo({}, '')
+    // node como "git": nunca termina em 1 ms, então o execFile mata pelo tempo limite.
+    const t0 = Date.now()
+    const slow = await inspect({ timeoutMs: 1 }, process.execPath)
+    expect(Date.now() - t0).toBeLessThan(10_000)
+    expect(slow).toMatchObject({ risky: true, incomplete: true, sessionOnly: true })
+    expect(slow.reasons.some((r) => r.includes('tempo limite'))).toBe(true)
+    // Controle: o mesmo binário com tempo folgado falha por outro motivo, sem marcar tempo esgotado.
+    const fast = await inspect({ timeoutMs: 10_000 }, process.execPath)
+    expect(fast).toMatchObject({ risky: true, incomplete: false })
+    expect(fast.reasons.some((r) => r.includes('tempo limite'))).toBe(false)
+    // E com o git real e tempo padrão, o repositório limpo passa.
+    expect(await inspect()).toMatchObject({ risky: false, incomplete: false })
   })
 })

@@ -28,13 +28,13 @@ Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/de
 - [ ] Lembrete com "Abrir na agenda" abre a aba Agenda.
 - [ ] Erro do chat: um único toast; "Copiar detalhes" copia; "Tentar de novo" fica desabilitado sem mexer no composer.
 
-### H07.3 — Endurecer a inspeção do git · Must · M
+### H07.3 — Endurecer a inspeção do git · Must · M · ✅ pronta (aguarda PR)
 *Como dev que abre repositório de terceiros, quero que a inspeção de confiança feche os casos de borda restantes, para não rodar código do repositório sem diálogo.*
-- [ ] T38: repositório embutido (gitlink sem `.git/modules`) com controle positivo — teste já escrito, entra no commit desta história (TR2).
-- [ ] `GIT_NO_LAZY_FETCH=1` também no env do agente.
-- [ ] Inspeção que estoura o timeout termina e reporta erro (sem confiar por padrão).
-- [ ] `core.worktree` e `include.path` que resolvem (realpath, também caminho relativo) para fora do repositório **ou** para dentro do workspace editável são recusados, testados com git real nas duas direções (D3).
-- [ ] Dado um zip com `.git/hooks/pre-commit`, o gate recusa e lista o hook; hooks `.sample` não contam (D2).
+- [x] T38: repositório embutido (gitlink sem `.git/modules`) com controle positivo — teste já escrito, entra no commit desta história (TR2).
+- [x] `GIT_NO_LAZY_FETCH=1` também no env do agente.
+- [x] Inspeção que estoura o timeout termina e reporta erro (sem confiar por padrão).
+- [x] `core.worktree` e `include.path` que resolvem (realpath, também caminho relativo) para fora do repositório **ou** para dentro do workspace editável são recusados, testados com git real nas duas direções (D3).
+- [x] Dado um zip com `.git/hooks/pre-commit`, o gate recusa e lista o hook; hooks `.sample` não contam (D2).
 
 ### H07.4 — "Ver no chat" abre a sessão do erro · Should · M
 *Como dev com várias sessões, quero que "Ver no chat" leve à sessão onde o erro aconteceu, para não procurar à mão.*
@@ -92,7 +92,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | Item | Dono | Gatilho de segurança | Status |
 |---|---|---|---|
 | TR1 — `release.yml` marca pre-release e preenche as notas a partir do CHANGELOG (publicar continua manual) | DevOps | sim (release) → Sec revisa | ⏳ |
-| TR2 — commit do teste T38 (vai junto com a H07.3) | Back | não | ⏳ |
+| TR2 — commit do teste T38 (vai junto com a H07.3) | Back | não | ✅ |
 | T47 "Alternar tema" na paleta; T48 sino com histórico — só se sobrar folga | Front | não | ⏳ |
 
 ## Tarefas (Tech Lead)
@@ -100,11 +100,11 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 
 | Tarefa | Papel | Status |
 |---|---|---|
-| T49 H07.3: `GIT_NO_LAZY_FETCH=1` em `agentEnv` (`gitproc.ts`) + unit | Back | ⏳ |
-| T50 H07.3: timeout injetável em `exec`/`execCode` (`gitcore.ts`), motivo "tempo esgotado", teste com binário fake | Back | ⏳ |
-| T51 H07.3: `core.worktree`/`include.path` fora do repo ou dentro do workspace → risco (`gitconfig.ts`), unit + git real | Back | ⏳ |
-| T52 H07.3: hook não-`.sample` em `.git/hooks` → risco no gate + teste | Back | ⏳ |
-| T53 H07.3 (TR2): commit do T38 (gitlink) em `git-exec.test.ts` | Back | ⏳ |
+| T49 H07.3: `GIT_NO_LAZY_FETCH=1` em `agentEnv` (`gitproc.ts`) + unit | Back | ✅ |
+| T50 H07.3: timeout injetável em `exec`/`execCode` (`gitcore.ts`), motivo "tempo esgotado", teste com binário fake | Back | ✅ |
+| T51 H07.3: `core.worktree`/`include.path` fora do repo ou dentro do workspace → risco (`gitconfig.ts`), unit + git real | Back | ✅ |
+| T52 H07.3: hook não-`.sample` em `.git/hooks` → risco no gate + teste | Back | ✅ |
+| T53 H07.3 (TR2): commit do T38 (gitlink) em `git-exec.test.ts` | Back | ✅ |
 | T54 H07.4: `isUuid` em `src/shared/lib/ids.ts` + ação `abrirSessao` na notificação de erro + unit | Front | ⏳ |
 | T55 H07.4: abrir sessão, `data-item-id` + scroll (fallback fim), aviso de recusa, sessão ativa igual | Front | ⏳ |
 | T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ⏳ |
@@ -128,6 +128,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | História | QA | Security |
 |---|---|---|
 | H07.1 | ✅ integração com git real, com controle positivo | ✅ libera; 2 bypass achados e corrigidos no PR; 3 baixas → candidatas |
+| H07.3 | ✅ git real com controle positivo em cada caso | ✅ libera; 3 médias e 2 baixas corrigidas na história |
 
 ## Entregas
 - **v0.6.1 (hotfix, 2026-11-26):** tag `v0.6.1` em `de6f7a4` (merge do PR #9). [Run 45738700736](https://github.com/flavsjr/devdeck/actions/runs/45738700736) verde: `DevDeck-Setup-0.6.1.exe` (SHA-256 `6ae236039a2d2f7cf60c36807a39be2cfe86b1e4f5f697e02b54af98156bfeb2`), `SHA256SUMS.txt` e attestation. [VirusTotal](https://www.virustotal.com/gui/file/6ae236039a2d2f7cf60c36807a39be2cfe86b1e4f5f697e02b54af98156bfeb2): **0/55** (usuário, 2026-11-26). Notas do rascunho preenchidas a partir do CHANGELOG; publicado como pre-release em 2026-11-26 12:01 UTC, com aprovação do usuário.

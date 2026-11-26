@@ -57,7 +57,10 @@ describe('gitEnv / inspectEnv / agentEnv', () => {
   it('agente: sem GIT_* herdado; git pausado → GIT_DIR inexistente e teto no pai', () => {
     const ok = agentEnv(base, 'win32', 'C:\\w\\repo', true, 'C:\\app\\no-git')
     // Nada herdado: só a config forçada (não entrar em submódulo).
-    expect(Object.keys(ok).filter((k) => /^GIT_/i.test(k) && !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/.test(k))).toEqual(['GIT_CEILING_DIRECTORIES'])
+    expect(Object.keys(ok).filter((k) => /^GIT_/i.test(k) && !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/.test(k))).toEqual(['GIT_CEILING_DIRECTORIES', 'GIT_NO_LAZY_FETCH'])
+    // Partial clone já confiado: sem fetch sob demanda (H07.3), também com o git pausado.
+    expect(ok.GIT_NO_LAZY_FETCH).toBe('1')
+    expect(agentEnv({ ...base, GIT_NO_LAZY_FETCH: '0' }, 'win32', 'C:\\w\\repo', false, 'x').GIT_NO_LAZY_FETCH).toBe('1')
     // Subpasta de um repo: o git do agente não sobe até o .git do pai.
     expect(ok.GIT_CEILING_DIRECTORIES).toBe('C:\\w')
     expect(ok.GIT_DIR).toBeUndefined()

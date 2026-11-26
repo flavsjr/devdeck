@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { clipMiddle, describeGitRisk, isAllowedGitKey, MAX_SUBMODULES, parseConfigList, splitKey, summarizeGitConfig, type GitConfigInput } from '../../../src/main/lib/gitconfig'
+import { classifyGitPath, clipMiddle, describeGitRisk, gitAllowedBy, isAllowedGitKey, isPathKey, MAX_SUBMODULES, parseConfigList, resolveGitPathValue, splitKey, summarizeGitConfig, type GitConfigInput, type GitPathWhere } from '../../../src/main/lib/gitconfig'
 
 const z = (...entries: string[]): string => entries.map((e) => `${e}\0`).join('')
 
@@ -197,5 +197,122 @@ describe('clipMiddle', () => {
   it('corta no meio e tira caracteres de controle/bidi', () => {
     expect(clipMiddle('a'.repeat(30) + 'MEIO' + 'b'.repeat(30), 21)).toBe(`${'a'.repeat(10)}…${'b'.repeat(10)}`)
     expect(clipMiddle('ok\u202esim')).toBe('ok sim')
+  })
+})
+
+/** Caminho Windows escrito com `/` (evita escape de barra invertida no teste). */
+const W = (p: string): string => p.replace(/\//g, '\\')
+
+describe('caminhos da config: core.worktree e include.path (H07.3)', () => {
+  it('isPathKey: só worktree, include.path e includeIf.<cond>.path', () => {
+    expect(['core.worktree', 'include.path', 'includeif.gitdir:~/w/.path', 'INCLUDE.PATH'].every(isPathKey)).toBe(true)
+    expect(['core.hookspath', 'include.x.path', 'includeif.path', 'remote.o.path', 'core.x.worktree'].some(isPathKey)).toBe(false)
+  })
+  it('resolveGitPathValue: relativo a partir do .git, ~ vai para a home', () => {
+    expect(resolveGitPathValue('..', W('C:/w/repo/.git'), W('C:/Users/me'), 'win32')).toBe(W('C:/w/repo'))
+    expect(resolveGitPathValue('~/.gitconfig-w', W('C:/w/repo/.git'), W('C:/Users/me'), 'win32')).toBe(W('C:/Users/me/.gitconfig-w'))
+    expect(resolveGitPathValue('../src/x.inc', '/w/repo/.git', '/home/u', 'linux')).toBe('/w/repo/src/x.inc')
+    expect(resolveGitPathValue('~/.gitconfig-w', '/w/repo/.git', '/home/u', 'linux')).toBe('/home/u/.gitconfig-w')
+    expect(resolveGitPathValue('~', '/w/repo/.git', '/home/u', 'linux')).toBe('/home/u')
+    expect(resolveGitPathValue(W('D:/fora'), W('C:/w/repo/.git'), W('C:/Users/me'), 'win32')).toBe(W('D:/fora'))
+  })
+  it('resolveGitPathValue: formas que o DevDeck não resolve como o git → null (tratado como fora)', () => {
+    for (const v of ['%(prefix)/etc/x', '~outro/.gitconfig', ':(optional)x.inc', ''])
+      expect(resolveGitPathValue(v, '/w/repo/.git', '/home/u', 'linux'), v).toBeNull()
+    expect(resolveGitPathValue('C:x.inc', W('C:/w/repo/.git'), W('C:/Users/me'), 'win32')).toBeNull()
+    expect(resolveGitPathValue('C:x.inc', '/w/repo/.git', '/home/u', 'linux')).toBe('/w/repo/.git/C:x.inc')
+  })
+  it('classifyGitPath: raiz, .git, workspace e fora (Windows sem diferenciar maiúsculas; prefixo parecido é fora)', () => {
+    const c = (t: string): string => classifyGitPath(W(t), W('C:/w/repo'), W('C:/w/repo/.git'), 'win32')
+    expect(c('C:/W/Repo')).toBe('root')
+    expect(c('C:/w/repo/.git/extra.inc')).toBe('git')
+    expect(c('C:/w/repo/.git')).toBe('git')
+    expect(c('C:/w/repo/src')).toBe('workspace')
+    expect(c('C:/w/repo-irmao')).toBe('outside')
+    expect(c('C:/w')).toBe('outside')
+    expect(c('D:/w/repo')).toBe('outside')
+    expect(classifyGitPath('/w/Repo', '/w/repo', '/w/repo/.git', 'linux')).toBe('outside')
+  })
+  const worktree = (where: GitPathWhere, value = '../x'): GitConfigInput =>
+    input({ configList: CLEAN + z(`core.worktree\n${value}`), pathTargets: [{ key: 'core.worktree', value, where }] })
+  it('core.worktree fora da raiz bloqueia (fora do repo e subpasta), com motivo próprio e sem repetir a linha genérica', () => {
+    for (const where of ['outside', 'workspace', 'git'] as const) {
+      const s = summarizeGitConfig(worktree(where))
+      expect(s, where).toMatchObject({ risky: true, blocked: true })
+      expect(s.reasons, where).toHaveLength(1)
+      expect(s.reasons[0]).toContain('pasta de trabalho do git')
+    }
+    expect(summarizeGitConfig(worktree('outside')).reasons[0]).toContain('fora do repositório')
+    expect(describeGitRisk(summarizeGitConfig(worktree('outside')))).toContain('não aceita')
+  })
+  it('core.worktree na própria raiz não bloqueia (continua pedindo confiança como chave fora da lista)', () => {
+    const s = summarizeGitConfig(worktree('root', '..'))
+    expect(s).toMatchObject({ risky: true, blocked: false })
+    expect(s.reasons).toEqual(['core.worktree = ".."  (.git/config)'])
+  })
+  const include = (where: GitPathWhere, key = 'include.path'): GitConfigInput =>
+    input({ configList: CLEAN + z(`${key}\nx.inc`), pathTargets: [{ key, value: 'x.inc', where }] })
+  it('include.path para o workspace ou para fora bloqueia; dentro do .git só pede confiança desta execução', () => {
+    expect(summarizeGitConfig(include('workspace'))).toMatchObject({ blocked: true, risky: true })
+    expect(summarizeGitConfig(include('workspace')).reasons[0]).toContain('o agente pode editar')
+    expect(summarizeGitConfig(include('outside', 'includeif.onbranch:main.path')).reasons[0]).toContain('fora do repositório')
+    expect(summarizeGitConfig(include('root')).blocked).toBe(true)
+    expect(summarizeGitConfig(include('git'))).toMatchObject({ blocked: false, risky: true, sessionOnly: true })
+  })
+  it('sem caminho na config: blocked e incomplete falsos', () => {
+    expect(summarizeGitConfig(input())).toMatchObject({ blocked: false, incomplete: false })
+  })
+})
+
+describe('hooks e tempo limite (H07.3)', () => {
+  it('hook que não é .sample pausa e aparece com o nome; confiança gravável', () => {
+    const s = summarizeGitConfig(input({ hooks: [{ name: 'pre-commit', text: '#!/bin/sh\ncurl x' }] }))
+    expect(s).toMatchObject({ risky: true, blocked: false, sessionOnly: false })
+    expect(s.reasons[0]).toMatch(/^\.git\/hooks\/pre-commit — o git do agente rodaria/)
+  })
+  it('hook link/pasta/grande demais: conteúdo fora do hash, confiança só nesta execução', () => {
+    const s = summarizeGitConfig(input({ hooks: [{ name: 'pre-commit', text: 'a' }, { name: 'post-checkout', text: null }] }))
+    expect(s).toMatchObject({ risky: true, blocked: false, sessionOnly: true })
+    expect(s.reasons[1]).toContain('post-checkout (link, pasta ou arquivo grande demais para conferir)')
+  })
+  it('hash muda com o conteúdo do hook; sem hook continua o da v0.6.0', () => {
+    const base = summarizeGitConfig(input()).hash
+    expect(summarizeGitConfig(input({ hooks: [] })).hash).toBe(base)
+    const a = summarizeGitConfig(input({ hooks: [{ name: 'pre-commit', text: 'a' }] })).hash
+    expect(a).not.toBe(base)
+    expect(summarizeGitConfig(input({ hooks: [{ name: 'pre-commit', text: 'b' }] })).hash).not.toBe(a)
+  })
+  it('muitos hooks: lista cortada', () => {
+    const s = summarizeGitConfig(input({ hooks: Array.from({ length: 12 }, (_, i) => ({ name: `h${i}`, text: '' })) }))
+    expect(s.reasons).toHaveLength(11)
+    expect(s.reasons[10]).toContain('mais 2 hook')
+  })
+  it('tempo esgotado: pausa com motivo explícito, incompleto e sem aceitar confiança (os caminhos nem foram avaliados)', () => {
+    const s = summarizeGitConfig(input({ configList: null, timedOut: true }))
+    expect(s).toMatchObject({ risky: true, sessionOnly: true, incomplete: true, blocked: true })
+    expect(gitAllowedBy(s, true, s.hash)).toBe(false)
+    expect(s.reasons[0]).toContain('tempo limite')
+  })
+})
+
+describe('gitAllowedBy: decisão do gate (H07.3)', () => {
+  const risky = summarizeGitConfig(input({ configList: CLEAN + z('core.fsmonitor\nx') }))
+  const blocked = summarizeGitConfig(input({ configList: CLEAN + z('core.worktree\n/fora'), pathTargets: [{ key: 'core.worktree', value: '/fora', where: 'outside' }] }))
+  const session = summarizeGitConfig(input({ configList: CLEAN + z('include.path\nx.inc'), pathTargets: [{ key: 'include.path', value: 'x.inc', where: 'git' }] }))
+  it('limpo passa sem confiança', () => {
+    expect(gitAllowedBy(summarizeGitConfig(input()), false, null)).toBe(true)
+  })
+  it('arriscado passa com confiança da sessão ou hash gravado igual', () => {
+    expect(gitAllowedBy(risky, false, null)).toBe(false)
+    expect(gitAllowedBy(risky, true, null)).toBe(true)
+    expect(gitAllowedBy(risky, false, risky.hash)).toBe(true)
+    expect(gitAllowedBy(risky, false, 'outro')).toBe(false)
+  })
+  it('só nesta execução: hash gravado não vale', () => {
+    expect(gitAllowedBy(session, false, session.hash)).toBe(false)
+    expect(gitAllowedBy(session, true, null)).toBe(true)
+  })
+  it('bloqueado não passa com nenhuma confiança', () => {
+    expect(gitAllowedBy(blocked, true, blocked.hash)).toBe(false)
   })
 })

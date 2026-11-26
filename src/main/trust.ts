@@ -120,7 +120,8 @@ export async function decideWorkspace(cwd: string, loadProject: boolean): Promis
   } catch {
     gate = null // sem git instalado: nada a decidir; o agente segue sem repositório
   }
-  const askGit = Boolean(gate && !gate.allowed && !gate.declined)
+  // Bloqueado (H07.3) não pergunta: não há o que confiar; os motivos aparecem na aba Alterações.
+  const askGit = Boolean(gate && !gate.allowed && !gate.declined && !gate.summary.blocked)
   const askProject = !projectOk
 
   const submodules = gate?.summary.submodules ?? []
