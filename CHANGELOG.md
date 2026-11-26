@@ -4,6 +4,8 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-26 · Sprint 07
+
 ### Adicionado
 - **Sino na barra de status** com as últimas 20 notificações desta execução do app: mostra quantas você ainda não viu, a mais nova em cima, e tem "Limpar (só desta sessão)".
 - "Alternar tema" na paleta de comandos (`Ctrl+K`): troca entre claro e escuro e fica salvo como em *Configurações → Aparência*.
@@ -167,7 +169,9 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Custos e métricas: por turno, sessão, dia, mês e modelo; teto diário e por sessão; uso de contexto.
 - Modo Flow: embed do Spotify e timer de foco 25/5.
 
-[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/flavsjr/devdeck/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/flavsjr/devdeck/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/flavsjr/devdeck/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/flavsjr/devdeck/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/flavsjr/devdeck/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/flavsjr/devdeck/compare/v0.3.0...v0.4.0

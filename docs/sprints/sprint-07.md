@@ -1,6 +1,6 @@
 # Sprint 07 — Pontas soltas de qualidade e segurança
 
-**Período:** 2026-11-25 → a definir · **Versão alvo:** v0.7.0 · **Status:** planejada, em execução (H07.1 já entregue como hotfix v0.6.1)
+**Período:** 2026-11-25 → 2026-11-26 · **Versão alvo:** v0.7.0 · **Status:** fechada em 2026-11-26; tag `v0.7.0` aguarda aprovação do usuário (H07.1 saiu antes, como hotfix v0.6.1)
 
 > Painel vivo da sprint. Ata em `sprint-07/ata.md` (modelo `_template-ata.md`); QA e security review em `sprint-07/qa.md`; evidências em `sprint-07/`. Regras de tamanho em `docs/squad.md` → "Economia de contexto".
 >
@@ -112,7 +112,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ✅ |
 | T59 TR1: `scripts/release-notes.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ✅ |
 | T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ✅ |
-| T61 Emendas ADR-018 (D2–D4) ✅, ADR-019 (D5–D6) ✅, ADR-021 (D7; a ata dizia ADR-014) ✅; CHANGELOG 0.7.0; READMEs | TL | ⏳ |
+| T61 Emendas ADR-018 (D2–D4) ✅, ADR-019 (D5–D6) ✅, ADR-021 (D7; a ata dizia ADR-014) ✅; CHANGELOG 0.7.0 ✅; READMEs ✅ (a cada PR) | TL | ✅ |
 
 ## Riscos aceitos
 - D4: com `GIT_NO_LAZY_FETCH` no agente, `git log -p` pode falhar em partial clone.
@@ -129,11 +129,19 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 |---|---|---|
 | H07.1 | ✅ integração com git real, com controle positivo | ✅ libera; 2 bypass achados e corrigidos no PR; 3 baixas → candidatas |
 | H07.3 | ✅ git real com controle positivo em cada caso | ✅ libera; 3 médias e 2 baixas corrigidas na história |
+| TR1 | ✅ unit do script + CHANGELOG real | ✅ libera (notas por arquivo, sem shell) |
+| H07.2 | ✅ E2E (28 checagens novas) + unit da regra pura | — (sem gatilho) |
+| H07.4 | ✅ E2E com sessões A/B/C + unit | ✅ libera; 1 baixa aceita |
+| H07.5 | ✅ unit + servidor falso + guarda do workflow; prova real na tag | ✅ libera; desvio do D5 aceito com 5 condições, cumpridas |
+| T47/T48 | ✅ E2E de tema e de notificações, axe nos dois temas | — (sem gatilho) |
 
 ## Entregas
 - **v0.6.1 (hotfix, 2026-11-26):** tag `v0.6.1` em `de6f7a4` (merge do PR #9). [Run 45738700736](https://github.com/flavsjr/devdeck/actions/runs/45738700736) verde: `DevDeck-Setup-0.6.1.exe` (SHA-256 `6ae236039a2d2f7cf60c36807a39be2cfe86b1e4f5f697e02b54af98156bfeb2`), `SHA256SUMS.txt` e attestation. [VirusTotal](https://www.virustotal.com/gui/file/6ae236039a2d2f7cf60c36807a39be2cfe86b1e4f5f697e02b54af98156bfeb2): **0/55** (usuário, 2026-11-26). Notas do rascunho preenchidas a partir do CHANGELOG; publicado como pre-release em 2026-11-26 12:01 UTC, com aprovação do usuário.
 
+- **v0.7.0 (pronta, aguarda tag):** PRs #11–#17. Endurecimento do gate do git (hooks, `core.worktree`/`include.path`, timeout, lazy fetch no agente); "Ver no chat" abre a sessão do erro; sino com histórico; "Alternar tema" na paleta; release com notas do CHANGELOG, pre-release e VirusTotal nas notas; E2E dos parciais da Sprint 06. `npm test`: 2.060 passando. A tag `v0.7.0` dispara o release em rascunho e a primeira prova real do VirusTotal; publicar continua manual.
+- Fora: H07.6 (`AskUserQuestion` com UI) → Sprint 08; comunidade (decisão do usuário).
+
 ## Retro
-- **Funcionou:**
-- **Melhorar:**
-- **Ações:**
+- **Funcionou:** controle positivo em todo teste de segurança (git real, mutação no guarda do workflow, redirect visto pelo servidor) deu confiança sem computer-use. Consultar a Sec sobre o desenho antes de codar (H07.5) trocou um bash+jq não testável por um script com 23 testes, sem retrabalho. Os E2E acharam problemas reais: lista rolável sem foco no sino (axe), CRLF no clipboard do Windows, botão "Excluir" invisível sem hover. Custo por papel na Sprint 07: revisões de 9–32 mil tokens (brief em vez de releitura), contra ~45 KB de sprint relidos antes.
+- **Melhorar:** heredoc com aspas e barras invertidas falhou de novo (bash e escapes do Python); código com `\`, crase ou `${}` só por Edit/Write. O E2E do lembrete falhou 1 vez em 5 com espera de 45 s (agendador a cada 30 s). A ata do D7 citou o ADR errado (014 em vez de 021). O `theme.e2e.mjs` regrava as capturas da Sprint 06 a cada rodada e suja o diff.
+- **Ações (Sprint 08):** H07.6; observar o lembrete no E2E (diagnóstico já imprime); `theme.e2e.mjs` grava capturas só com variável de ambiente; conferir no rascunho da v0.7.0 o resultado do VirusTotal e o "scan pendente" quando faltar; pendências manuais (T26, diálogos nativos no tema claro, lista branca no app instalado).
