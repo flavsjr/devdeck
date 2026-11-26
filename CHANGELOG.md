@@ -10,6 +10,9 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - Inspeção do git que passa do tempo limite agora diz isso no diálogo, vale só nesta execução e é refeita na próxima abertura.
 - O git do agente não busca objetos sob demanda em partial clone (o fetch rodaria programas da configuração do repositório). Em partial clone, `git log -p` e `blame` podem falhar.
 
+### Alterado
+- O rascunho de release já sai com as notas desta seção do CHANGELOG e marcado como pre-release (versões 0.x ou com sufixo). Sem a seção da versão no CHANGELOG, o CI não cria o rascunho.
+
 ## [0.6.1] — 2026-11-25 · hotfix (Sprint 07, H07.1)
 
 ### Segurança
