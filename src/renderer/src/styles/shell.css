@@ -133,6 +133,87 @@
     color: var(--fg);
     background: var(--bg-2);
   }
+
+  /* ---------- sino do histórico (T48, components/NotificationBell.tsx) ----------
+   * Painel fixo acima do sino (a barra tem overflow: hidden). Cor do tipo só no ícone; o tipo vai em texto. */
+  .sb-bell-btn {
+    min-width: 24px;
+    justify-content: center;
+  }
+  .sb-badge {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .bell-panel {
+    position: fixed;
+    z-index: 45;
+    width: min(380px, calc(100vw - 16px));
+    max-height: min(460px, calc(100vh - 80px));
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+    color: var(--fg);
+    font-size: 12.5px;
+    white-space: normal;
+  }
+  .bell-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .bell-title {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .bell-empty {
+    margin: 0;
+    padding: 16px 12px;
+    color: var(--fg-2);
+  }
+  .bell-list {
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    overflow: auto;
+  }
+  .bell-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 12px;
+  }
+  .bell-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--notify-tipo);
+  }
+  .bell-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .bell-time {
+    flex: none;
+    color: var(--fg-2);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
   .sb-item.strong {
     color: var(--fg-2);
   }

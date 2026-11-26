@@ -36,6 +36,10 @@
 | H07.5: guarda do workflow — `VT_API_KEY` só no job `scan`, `environment: release`, `contents: read`, checkout esparso sem credencial, sem npm; release com `needs: [build, scan]` e build obrigatório; controle: `contents: write` no scan faz o guarda falhar | ✅ | `tests/unit/scripts/release-workflow.test.ts` |
 | H07.5: environment `release` no GitHub com política `tag:v*.*.*` e `VT_API_KEY` só nele (não no repositório) | ✅ | `gh api …/environments` e `…/secrets` (só nomes), 2026-11-26 |
 | H07.5: prova real (VT respondendo, rascunho com o link) | ⏳ | primeira tag da v0.7.0 |
+| T47: paleta "Alternar tema" no claro → escuro sem recarregar, `"dark"` no settings.json, de novo → claro, Aparência acompanha; regra `proximoTema` nunca devolve "system" | ✅ | `node tests/e2e/theme.e2e.mjs` → "Tema claro: tudo ok"; `tema.test.ts` (capturas da Sprint 06 regravadas pelo E2E foram restauradas) |
+| T48: sino com rótulo "Notificações, N não lidas" e badge (9+); abre o painel com foco no título; mais nova em cima, ≤ 20; abrir zera o badge; painel inteiro na janela; Esc fecha e devolve o foco; "Limpar (só desta sessão)" sem confirmação, foco no título, vazio sem botão; clique fora fecha | ✅ | `node tests/e2e/notifications.e2e.mjs` → "Notificações: tudo ok" |
+| T48: axe no painel nos dois temas; achado `scrollable-region-focusable` na lista → `tabIndex={0}` | ✅ | mesmo E2E (`emulateMedia` dark/light) |
+| T48: reducer `marcarLidas` (não volta no tempo, não mexe na pilha), `limparHistorico` (só o histórico), repetida volta a contar; textos (badge, rótulo, hora relativa, HH:mm:ss) | ✅ | `notificationBell.test.ts` (11 casos) |
 | E2E: lembrete da agenda falhou 1 vez em 5 rodadas com espera de 45 s (agendador a cada 30 s); espera subiu para 70 s e o teste imprime diagnóstico se falhar | ⚠️ observar | mesmo E2E |
 
 ## Roteiro manual

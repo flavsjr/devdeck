@@ -27,6 +27,7 @@ import {
   SendHorizontal,
   Settings,
   Square,
+  SunMoon,
   Pause,
   Trash2,
   TriangleAlert,
@@ -73,6 +74,7 @@ export const IconKeyboard = wrap(Keyboard)
 export const IconPanelLeft = wrap(PanelLeft)
 export const IconPanelRight = wrap(PanelRight)
 export const IconBell = wrap(Bell)
+export const IconTema = wrap(SunMoon)
 export const IconCpu = wrap(Cpu)
 export const IconPause = wrap(Pause)
 // Notificações (H06.2): um ícone por tipo.

@@ -90,6 +90,8 @@ export interface EstadoNotificacoes {
   conquistas: Notificacao[]
   /** Últimas LIMITE_HISTORICO notificações da sessão, da mais antiga para a mais nova. */
   historico: Notificacao[]
+  /** Sino (T48): o que chegou (`ultimaEm`) até este instante já foi visto ao abrir o histórico. */
+  lidasAte: number
   proximoId: number
 }
 
@@ -100,8 +102,10 @@ export type AcaoFila =
   | { type: 'expirar'; now: number }
   | { type: 'pausar'; id: string; now: number }
   | { type: 'retomar'; id: string; now: number }
+  | { type: 'marcarLidas'; now: number }
+  | { type: 'limparHistorico' }
 
-export const ESTADO_INICIAL: EstadoNotificacoes = { visiveis: [], errosRecolhidos: [], conquistas: [], historico: [], proximoId: 1 }
+export const ESTADO_INICIAL: EstadoNotificacoes = { visiveis: [], errosRecolhidos: [], conquistas: [], historico: [], lidasAte: 0, proximoId: 1 }
 
 function noHistorico(historico: Notificacao[], n: Notificacao): Notificacao[] {
   const i = historico.findIndex((h) => h.id === n.id)
@@ -232,6 +236,11 @@ export function notificacoesReducer(s: EstadoNotificacoes, a: AcaoFila): EstadoN
       if (visiveis.length === s.visiveis.length && semConquistaVencida === s) return s
       return promover({ ...semConquistaVencida, visiveis })
     }
+    case 'marcarLidas':
+      return a.now > s.lidasAte ? { ...s, lidasAte: a.now } : s
+    case 'limparHistorico':
+      // Só o histórico do sino: o que está na tela fica (sem confirmação, decisão do PO na H06.9).
+      return s.historico.length ? { ...s, historico: [] } : s
     case 'pausar':
     case 'retomar': {
       const f = a.type === 'pausar' ? pausar : retomar
@@ -329,4 +338,14 @@ export function destinoAbrirSessao(
  */
 export function alvoDoScroll(itemId: string | null, items: readonly { id: string }[]): { tipo: 'item'; itemId: string } | { tipo: 'fim' } {
   return itemId && items.some((i) => i.id === itemId) ? { tipo: 'item', itemId } : { tipo: 'fim' }
+}
+
+/** Sino (T48): quantas do histórico chegaram (ou repetiram) depois da última abertura do painel. */
+export function naoLidas(s: EstadoNotificacoes): number {
+  return s.historico.filter((n) => n.ultimaEm > s.lidasAte).length
+}
+
+/** Histórico para o painel do sino: mais nova em cima. */
+export function historicoRecente(s: EstadoNotificacoes): Notificacao[] {
+  return [...s.historico].reverse()
 }

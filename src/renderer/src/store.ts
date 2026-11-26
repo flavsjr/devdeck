@@ -17,6 +17,7 @@ import {
   type RetryOp
 } from './lib/notifications'
 import { textoConquista } from './lib/notificationText'
+import { proximoTema } from './lib/tema'
 import { mensagemParaRepetir } from './lib/agentErrorCard'
 
 export type { View }
@@ -65,6 +66,8 @@ interface State {
   init(): Promise<void>
   setView(v: View): void
   setSettings(s: AppSettings): void
+  /** "Alternar tema" da paleta (T47): grava pelo mesmo settings.update de Configurações (o main valida com z.enum). */
+  alternarTema(claroAgora: boolean): Promise<void>
   setUi(patch: Partial<UiPrefs>): void
   setPalette(open: boolean): void
   setHelp(open: boolean): void
@@ -192,6 +195,14 @@ export const useStore = create<State>((set, get) => ({
 
   setSettings(settings) {
     set({ settings })
+  },
+
+  async alternarTema(claroAgora) {
+    try {
+      set({ settings: await api().settings.update({ theme: proximoTema(claroAgora) }) })
+    } catch (err) {
+      get().notify(textoDe(err))
+    }
   },
 
   setUi(patch) {

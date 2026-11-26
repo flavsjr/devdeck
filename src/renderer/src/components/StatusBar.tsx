@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NotificationBell } from './NotificationBell'
 import type { ChatItem, Occurrence } from '@shared/types'
 import { useStore } from '../store'
 import { basename, tokens, usd } from '../format'
@@ -137,6 +138,7 @@ export function StatusBar() {
           </>
         )}
       </button>
+      <NotificationBell />
       <button className="sb-item" onClick={() => setPalette(true)} title={`Paleta de comandos (${keysFor('palette')})`} aria-label={`Paleta de comandos ${keysFor('palette')}`}>
         <IconCommand size={13} />
         <kbd>{keysFor('palette')}</kbd>

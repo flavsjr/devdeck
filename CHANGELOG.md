@@ -5,6 +5,8 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 ## [Unreleased]
 
 ### Adicionado
+- **Sino na barra de status** com as últimas 20 notificações desta execução do app: mostra quantas você ainda não viu, a mais nova em cima, e tem "Limpar (só desta sessão)".
+- "Alternar tema" na paleta de comandos (`Ctrl+K`): troca entre claro e escuro e fica salvo como em *Configurações → Aparência*.
 - **"Ver no chat" abre o chat certo.** O aviso de erro de um chat que não é o aberto agora leva àquele chat e mostra o card do erro na lista. Se o chat foi excluído, aparece um aviso e nada muda.
 
 ### Segurança
