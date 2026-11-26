@@ -14,6 +14,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 - O git do agente não busca objetos sob demanda em partial clone (o fetch rodaria programas da configuração do repositório). Em partial clone, `git log -p` e `blame` podem falhar.
 
 ### Alterado
+- O rascunho de release traz o resultado e o link do VirusTotal do instalador (ou "scan pendente", sem travar o release). O instalador enviado ao VirusTotal fica público lá.
 - O rascunho de release já sai com as notas desta seção do CHANGELOG e marcado como pre-release (versões 0.x ou com sufixo). Sem a seção da versão no CHANGELOG, o CI não cria o rascunho.
 - Os critérios de notificação que ficaram sem teste na v0.6.0 agora têm E2E: botão de fechar (tamanho, foco pelo teclado), movimento reduzido, lembrete "Abrir na agenda" e o erro do chat (um único aviso, "Copiar detalhes", "Tentar de novo" sem apagar o rascunho).
 

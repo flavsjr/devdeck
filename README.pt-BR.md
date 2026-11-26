@@ -42,6 +42,8 @@ O valor tem que ser igual à linha do instalador em `SHA256SUMS.txt` da mesma re
 gh attestation verify .\DevDeck-Setup-0.5.0.exe --repo flavsjr/devdeck
 ```
 
+As notas de cada release também trazem o link do relatório do instalador no VirusTotal (a partir da v0.7.0). O instalador enviado ao VirusTotal fica público lá.
+
 ## Rodar pelo código-fonte
 
 ```powershell

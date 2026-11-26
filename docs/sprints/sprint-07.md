@@ -42,12 +42,12 @@ Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/de
 - [x] `sessionId` que não é UUID ou não existe é recusado, com aviso.
 - [x] Erro da sessão ativa mantém o comportamento atual.
 
-### H07.5 — VirusTotal no CI · Should · M (só com o secret criado pelo usuário)
+### H07.5 — VirusTotal no CI · Should · M · ✅ pronta (aguarda PR; prova real na próxima tag)
 *Como mantenedor, quero o resultado do VirusTotal já nas notas do rascunho, para publicar sem subir o arquivo à mão.*
-- [ ] Link e resultado do scan nas notas do rascunho.
-- [ ] Sem chave ou com a API fora: notas dizem "scan pendente" e o release segue.
-- [ ] A chave nunca aparece em log; o secret só existe num job restrito, que não roda em PR de fork: environment `release` restrito a tags `v*.*.*` (D5).
-- [ ] As notas avisam que a amostra enviada ao VirusTotal fica pública.
+- [x] Link e resultado do scan nas notas do rascunho.
+- [x] Sem chave ou com a API fora: notas dizem "scan pendente" e o release segue.
+- [x] A chave nunca aparece em log; o secret só existe num job restrito, que não roda em PR de fork: environment `release` restrito a tags `v*.*.*` (D5).
+- [x] As notas avisam que a amostra enviada ao VirusTotal fica pública.
 
 ### H07.6 — UI para `AskUserQuestion` · Could · G → Sprint 08
 Fica para a Sprint 08 (tamanho G e precisa de UX).
@@ -111,7 +111,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ✅ |
 | T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ✅ |
 | T59 TR1: `scripts/release-notes.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ✅ |
-| T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ⏳ |
+| T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ✅ |
 | T61 Emendas ADR-018 (D2–D4) ✅, ADR-019 (D5–D6) ✅, ADR-021 (D7; a ata dizia ADR-014) ✅; CHANGELOG 0.7.0; READMEs | TL | ⏳ |
 
 ## Riscos aceitos
@@ -122,7 +122,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 - T26: roteiro manual com a sessão OAuth realmente expirada no app instalado.
 - Diálogos nativos no tema claro e lista branca de tools no app instalado (H06.10).
 - Ata/planning da Sprint 07 feito no outro computador, se existir.
-- H07.5: criar no GitHub o environment `release` (restrito a tags `v*.*.*`) e o secret `VT_API_KEY` com a chave da sua conta VirusTotal. Sem isso a H07.5 fica em "scan pendente".
+- ~~H07.5: environment `release` e secret `VT_API_KEY`~~ ✅ criados pelo usuário em 2026-11-26 (conferido pela API: política `tag:v*.*.*`, secret só no environment).
 
 ## QA e security review (resumo de [`sprint-07/qa.md`](sprint-07/qa.md))
 | História | QA | Security |

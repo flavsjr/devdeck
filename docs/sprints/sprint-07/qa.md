@@ -29,6 +29,13 @@
 | H07.4: `sessionId` não UUID (vazio, `s1`, `../x`, com espaço, número, null) recusado mesmo "existindo" na lista; UUID fora da lista → inexistente; `itemId` inválido só perde o alvo; item que sumiu → fim da lista | ✅ | `notifications.test.ts` — "\"Ver no chat\" de outra sessão (H07.4)"; `tests/unit/shared/ids.test.ts` |
 | H07.4: erro da sessão ativa em outra aba continua `navegar: chat` | ✅ | `notifications.test.ts` — "aviso do erro do turno (H07.2)" |
 | H07.4: TL aprova com ressalvas, todas aplicadas: o `seq` também protege a navegação (`openSession` com `vale`), `rolarPara` de outra sessão é descartado, falha do `load` mostra o erro real; `typecheck`, `npm test` (1.966), `build` | ✅ | local, 2026-11-26 |
+| H07.5: `vt-scan` — sem chave → pendente sem pedido; conhecido → só lookup; desconhecido → upload pelo `upload_url` + polling (60 s, depois 20 s; ≤ 28 consultas em 10 min); 429 no polling espera; 401/403/500/rede → "api", 429 → "cota"; id de análise ou stats estranhos → pendente | ✅ | `tests/unit/scripts/vt-scan.test.ts` |
+| H07.5: chave só no `x-apikey`, nunca na URL nem no log; `redirect: 'error'` em todo pedido; `upload_url` de outra origem (host parecido, http, `user@`) → pendente sem enviar o arquivo | ✅ | idem |
+| H07.5: servidor real em 127.0.0.1 — upload multipart com o arquivo; redirect recusado pelo fetch (servidor vê 1 pedido); resposta > 2 MiB → pendente | ✅ | `tests/integration/vt-scan.test.ts` |
+| H07.5: notas — "N de T" + link pelo sha do SHA256SUMS + aviso de amostra pública; pendente com motivo fechado; sha diferente, contagem não inteira, total zero, motivo desconhecido, vt.json ausente ou > 64 KiB → "ausente ou inválido"; nada de texto do VT entra | ✅ | `release-notes.test.ts` — "seção do VirusTotal (H07.5)" + smoke local do CLI |
+| H07.5: guarda do workflow — `VT_API_KEY` só no job `scan`, `environment: release`, `contents: read`, checkout esparso sem credencial, sem npm; release com `needs: [build, scan]` e build obrigatório; controle: `contents: write` no scan faz o guarda falhar | ✅ | `tests/unit/scripts/release-workflow.test.ts` |
+| H07.5: environment `release` no GitHub com política `tag:v*.*.*` e `VT_API_KEY` só nele (não no repositório) | ✅ | `gh api …/environments` e `…/secrets` (só nomes), 2026-11-26 |
+| H07.5: prova real (VT respondendo, rascunho com o link) | ⏳ | primeira tag da v0.7.0 |
 | E2E: lembrete da agenda falhou 1 vez em 5 rodadas com espera de 45 s (agendador a cada 30 s); espera subiu para 70 s e o teste imprime diagnóstico se falhar | ⚠️ observar | mesmo E2E |
 
 ## Roteiro manual
@@ -58,3 +65,7 @@ Veredito da Cybersecurity no PR #9: libera.
 Veredito da Cybersecurity na H07.3: libera (médias corrigidas na própria história).
 | — | H07.4 `abrirSessao` | Sec: libera. `sessionId` passa por `isUuid` + lista de sessões e o `agent:load` revalida com zod no main; `itemId` precisa ser UUID, existir em `items` e passa por `CSS.escape`; nenhuma ação nova aprova ou executa; nenhum canal IPC novo | — |
 | baixa | `abrirSessaoDoAviso` | `refreshSessions` a cada clique em sessão inexistente (leitura local) | aceito, sem ação |
+| — | H07.5 desenho | Ajuste do D5 ("sem checkout" → checkout esparso do script, testável): Sec aceita com 5 condições (contents: read; redirect: 'error'; origem exata do upload_url; base só por parâmetro; chave só do env, sem log sensível, teto de resposta) | ✅ cumpridas (review final) |
+| baixa | `release.yml` scan | pior caso upload 10 min + polling 10 min passava do `timeout-minutes: 20` (motivo viraria "inválido") | ✅ 30 min (também pedido da DevOps) |
+| baixa | `release-notes.mts` | `readFileSync` do vt.json sem teto | ✅ só lê até 64 KiB |
+| — | `vt-scan.mts` main | DevOps: falha local (hash/leitura) não gravava vt.json | ✅ grava pendente/api |
