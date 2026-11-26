@@ -58,8 +58,10 @@ describe('release-notes (TR1)', () => {
     expect(n).toContain(VERIFY_TEXT)
   })
 
-  it('CHANGELOG real tem a seção da versão publicada mais recente', () => {
+  it('CHANGELOG real tem a seção da versão do package.json (sem ela, a tag não gera rascunho)', () => {
     const real = readFileSync(resolve(__dirname, '../../../CHANGELOG.md'), 'utf8')
+    const { version } = JSON.parse(readFileSync(resolve(__dirname, '../../../package.json'), 'utf8')) as { version: string }
+    expect(changelogSection(real, version)).not.toBeNull()
     expect(changelogSection(real, '0.6.1')).not.toBeNull()
   })
 })
