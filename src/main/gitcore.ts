@@ -130,7 +130,7 @@ export async function inspectRepo(root: string, binary: string, outsideDir: stri
 
 /**
  * `.gitmodules` do index ou do HEAD, lido como blob: `rev-parse` e `config --blob` só leem o banco de objetos e
- * o index (sem filtro, hook nem atualização do index; fsmonitor desligado). cwd fora do workspace, `--git-dir`
+ * o index (sem filtro, hook nem atualização do index; fsmonitor desligado; sem lazy fetch nem protocolo remoto). cwd fora do workspace, `--git-dir`
  * explícito e config global/sistema vazia. Sem blob → null; erro que não é "não existe" → `other` (pausa).
  */
 async function gitmodulesBlob(
@@ -141,7 +141,8 @@ async function gitmodulesBlob(
   baseEnv: Record<string, string | undefined>
 ): Promise<{ gitmodules: 'blob' | 'other'; gitmodulesText: string | null; gitmodulesList: string | null } | null> {
   const env = inspectEnv(baseEnv, process.platform, emptyGlobalConfig)
-  const pre = ['--no-pager', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'safe.directory=*', `--git-dir=${join(root, '.git')}`]
+  // Sem lazy fetch (inspectEnv) e sem protocolo remoto: objeto ausente de partial clone falha em vez de buscar.
+  const pre = ['--no-pager', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never', '-c', 'safe.directory=*', `--git-dir=${join(root, '.git')}`]
   for (const spec of [':.gitmodules', 'HEAD:.gitmodules']) {
     const r = await execCode(binary, [...pre, 'rev-parse', '--verify', '--quiet', spec], outsideDir, env)
     if (r.code === 1) continue // não existe nesse lugar

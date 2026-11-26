@@ -288,6 +288,35 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     })
   }
 
+  it('partial clone com o blob do .gitmodules ausente: inspeção não faz lazy fetch (core.sshCommand não roda) e pausa', async () => {
+    makeRepo({}, '')
+    writeFileSync(join(base, 'ssh.js'), "require('fs').writeFileSync(require('path').join(process.argv[2], 'ssh'), 'x'); process.exit(1)\n")
+    writeFileSync(join(repo, '.gitmodules'), '[submodule "lib"]\n\tpath = lib\n\turl = https://example.test/lib.git\n')
+    raw(['add', '.gitmodules'])
+    const oid = raw(['rev-parse', ':.gitmodules']).trim()
+    rmSync(join(repo, '.gitmodules'))
+    rmSync(join(repo, '.git', 'objects', oid.slice(0, 2), oid.slice(2)))
+    raw(['config', 'core.repositoryformatversion', '1'])
+    raw(['config', 'extensions.partialClone', 'origin'])
+    raw(['config', 'remote.origin.url', 'ssh://example.test/x.git'])
+    raw(['config', 'remote.origin.promisor', 'true'])
+    raw(['config', 'core.sshCommand', `"${fwd(process.execPath)}" "${fwd(join(base, 'ssh.js'))}" "${fwd(markers)}"`])
+    resetMarks()
+
+    const s = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+    expect(s.risky).toBe(true)
+    expect(s.reasons.some((r) => r.includes('.gitmodules no index/HEAD'))).toBe(true)
+    expect(marks()).toEqual([])
+
+    // Controle positivo: git puro tenta buscar o objeto ausente e roda o core.sshCommand do repositório.
+    try {
+      raw(['cat-file', '-p', oid])
+    } catch {
+      // o fetch falha (ssh falso sai com 1)
+    }
+    expect(marks()).toContain('ssh')
+  })
+
   it('repositório sem commit e sem .gitmodules: blob ausente não pausa', async () => {
     raw(['init', '-q', '-b', 'main', repo], base)
     expect(await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).toMatchObject({ isRepo: true, risky: false, submodules: [] })

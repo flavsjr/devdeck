@@ -116,9 +116,13 @@ export function gitEnv(base: Env, platform: NodeJS.Platform, root: string): Reco
   }
 }
 
-/** Ambiente do `git config --file` que inspeciona o repositório: só o arquivo pedido é lido. */
+/**
+ * Ambiente da inspeção do repositório (`git config --file`, e `rev-parse`/`config --blob` do `.gitmodules`):
+ * só lê. `GIT_NO_LAZY_FETCH`: num partial clone, objeto ausente faria fetch e rodaria o `core.sshCommand` do
+ * repo antes da confiança (security review do hotfix v0.6.1).
+ */
 export function inspectEnv(base: Env, platform: NodeJS.Platform, emptyGlobalConfig: string): Record<string, string> {
-  return { ...pickEnv(base, platform, null), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: emptyGlobalConfig, GIT_TERMINAL_PROMPT: '0' }
+  return { ...pickEnv(base, platform, null), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: emptyGlobalConfig, GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' }
 }
 
 export function inspectArgs(configFile: string): string[] {
