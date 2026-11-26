@@ -128,3 +128,41 @@ export function vizinhaAoFechar(ordem: string[], id: string): string | null {
   if (i < 0) return null
   return ordem[i + 1] ?? ordem[i - 1] ?? null
 }
+
+// ---------- sino do histórico (T48; desenho do UX na Sprint 07) ----------
+
+export const ROTULO_PAINEL_HISTORICO = 'Histórico de notificações'
+export const ROTULO_LISTA_HISTORICO = 'Últimas 20 notificações da sessão'
+export const HISTORICO_VAZIO = 'Nenhuma notificação nesta sessão.'
+export const ROTULO_LIMPAR_HISTORICO = 'Limpar (só desta sessão)'
+
+/** Badge do sino: nada com 0; "9+" a partir de 10. */
+export function badgeNaoLidas(n: number): string | null {
+  if (n <= 0) return null
+  return n > 9 ? '9+' : String(n)
+}
+
+/** Rótulo acessível do sino: o número em texto (nunca só a cor do badge). */
+export function rotuloSino(n: number): string {
+  if (n <= 0) return 'Notificações'
+  return `Notificações, ${n} ${n === 1 ? 'não lida' : 'não lidas'}`
+}
+
+/** "agora", "há 3 min", "há 2 h", "há 1 dia" (relativo ao `now` injetado). */
+export function tempoRelativo(quando: number, now: number): string {
+  const s = Math.max(0, Math.floor((now - quando) / 1000))
+  if (s < 60) return 'agora'
+  const min = Math.floor(s / 60)
+  if (min < 60) return `há ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h} h`
+  const d = Math.floor(h / 24)
+  return `há ${d} ${d === 1 ? 'dia' : 'dias'}`
+}
+
+/** title da hora: HH:mm:ss local. */
+export function horaExata(quando: number): string {
+  const d = new Date(quando)
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}

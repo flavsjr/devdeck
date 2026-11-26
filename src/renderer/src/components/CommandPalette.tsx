@@ -5,7 +5,9 @@ import { fuzzyFilter } from '../lib/fuzzy'
 import { keysFor, type ShortcutAction } from '../lib/shortcuts'
 import { basename } from '../format'
 import { Modal } from './Modal'
-import { IconChat, IconFolder, IconKeyboard, IconPanelLeft, IconPanelRight, IconPlus, IconSearch } from './Icons'
+import { IconChat, IconFolder, IconKeyboard, IconPanelLeft, IconPanelRight, IconPlus, IconSearch, IconTema } from './Icons'
+import { rotuloAlternarTema } from '../lib/tema'
+import { useTemaClaro } from '../useColorScheme'
 
 // Paleta de comandos (H04.6): Ctrl+K, busca aproximada, só teclado. Sem "Aprovar" (Cybersecurity B4).
 
@@ -38,6 +40,8 @@ export function CommandPalette() {
   const openSession = useStore((s) => s.openSession)
   const pickWorkspace = useStore((s) => s.pickWorkspace)
   const ui = useStore((s) => s.ui)
+  const alternarTema = useStore((s) => s.alternarTema)
+  const claro = useTemaClaro()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
 
@@ -49,6 +53,14 @@ export function CommandPalette() {
       { id: 'ws', label: workspace ? 'Trocar pasta do projeto' : 'Abrir pasta do projeto', group: 'Ações', keywords: 'workspace projeto pasta abrir', icon: <IconFolder size={15} />, run: () => void pickWorkspace() },
       { id: 'sidebar', label: ui.sidebarOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral', group: 'Layout', keys: keysFor('toggleSidebar'), icon: <IconPanelLeft size={15} />, run: act('toggleSidebar') },
       { id: 'right', label: ui.rightPanelOpen ? 'Ocultar painel direito' : 'Mostrar painel direito', group: 'Layout', keywords: 'aprovacoes previa hoje flow', keys: keysFor('toggleRightPanel'), icon: <IconPanelRight size={15} />, run: act('toggleRightPanel') },
+      {
+        id: 'theme',
+        label: rotuloAlternarTema(claro),
+        group: 'Layout',
+        keywords: 'tema claro escuro aparencia modo dark light cores',
+        icon: <IconTema size={15} />,
+        run: () => void alternarTema(claro)
+      },
       { id: 'help', label: 'Atalhos de teclado', group: 'Ajuda', keywords: 'teclas ajuda', keys: keysFor('help'), icon: <IconKeyboard size={15} />, run: act('help') }
     ]
     const views: Command[] = (Object.keys(VIEW_LABEL) as (keyof typeof VIEW_LABEL)[]).map((v) => ({
@@ -64,7 +76,7 @@ export function CommandPalette() {
       .slice(0, 30)
       .map((s) => ({ id: `chat:${s.id}`, label: s.title, group: 'Chats', keywords: 'chat sessao conversa', icon: <IconChat size={15} />, run: () => void openSession(s.id) }))
     return [...views, ...base, ...chats]
-  }, [sessions, workspace, activeId, ui, openSession, pickWorkspace])
+  }, [sessions, workspace, activeId, ui, openSession, pickWorkspace, claro, alternarTema])
 
   const results = useMemo(() => fuzzyFilter(commands, query, (c) => c.label, (c) => `${c.group} ${c.keywords ?? ''}`, 40), [commands, query])
   const current = Math.min(active, Math.max(0, results.length - 1))

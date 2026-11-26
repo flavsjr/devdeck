@@ -12,6 +12,8 @@
 //   "Tentar de novo" só por clique, indisponível durante o turno, composer intacto; em outra aba, um único toast.
 // H07.4: erro em sessão não ativa → "Ver no chat" seleciona a sessão e rola até o card (controle: abrindo pela
 //   barra lateral o card fica fora da vista); sessão excluída antes do clique → aviso, sem navegar.
+// T48: sino na barra de status — badge/rótulo das não lidas, painel com a mais nova em cima, foco no título,
+//   Esc devolve o foco, "Limpar (só desta sessão)", clique fora fecha, axe nos dois temas.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -392,6 +394,49 @@ try {
     check(await waitFor(() => cartao('aviso').filter({ hasText: 'O chat deste erro não existe mais.' }).isVisible(), 5000), 'sessão que não existe: aviso "O chat deste erro não existe mais."')
     check((await ativa())?.trim() === TITULO_A, 'sessão que não existe: continua na sessão ativa')
   }
+
+  // ================= T48: sino com o histórico da sessão =================
+  const sino = win.getByTestId('notify-bell')
+  const painel = win.getByTestId('notify-history')
+  const rotulo = (await sino.getAttribute('aria-label')) ?? ''
+  check(/^Notificações, \d+ não lidas?$/.test(rotulo), `sino: rótulo com as não lidas em texto ("${rotulo}")`)
+  check(Boolean(((await sino.locator('.sb-badge').textContent()) ?? '').match(/^(\d|9\+)$/)), 'sino: badge com o número (ou 9+)')
+  const caixaSino = await sino.boundingBox()
+  check(Boolean(caixaSino && caixaSino.width >= 24 && caixaSino.height >= 22), `sino: alvo ${caixaSino?.width} × ${caixaSino?.height} px`)
+  await sino.click()
+  check(await waitFor(() => painel.isVisible(), 5000), 'sino: abre o painel "Histórico de notificações"')
+  check((await sino.getAttribute('aria-expanded')) === 'true', 'sino: aria-expanded="true" aberto')
+  check(await win.evaluate(() => document.activeElement?.classList.contains('bell-title') ?? false), 'painel: foco no título ao abrir')
+  const linhas = painel.locator('.bell-item')
+  const nLinhas = await linhas.count()
+  check(nLinhas > 0 && nLinhas <= 20, `painel: ${nLinhas} linha(s), no máximo 20`)
+  check(
+    ((await linhas.first().textContent()) ?? '').includes('O chat deste erro não existe mais.'),
+    'painel: mais nova em cima (o último aviso da H07.4)'
+  )
+  check(await waitFor(async () => (await sino.locator('.sb-badge').count()) === 0, 3000), 'abrir marca como lidas: badge some')
+  check((await sino.getAttribute('aria-label')) === 'Notificações', 'abrir marca como lidas: rótulo volta a "Notificações"')
+  // Painel dentro da janela (a barra de status corta o que sai dela; o painel é fixo).
+  const caixaPainel = await painel.boundingBox()
+  const vp = win.viewportSize() ?? (await win.evaluate(() => ({ width: innerWidth, height: innerHeight })))
+  check(Boolean(caixaPainel && caixaPainel.y >= 0 && caixaPainel.x >= 0 && caixaPainel.x + caixaPainel.width <= vp.width), 'painel: inteiro dentro da janela, acima da barra')
+  for (const tema of ['dark', 'light']) {
+    await win.emulateMedia({ colorScheme: tema })
+    const v = await axe('.bell-panel')
+    check(v.length === 0, `painel (${tema}): axe sem serious/critical (${v.join(', ') || 'nenhuma'})`)
+  }
+  await win.emulateMedia({ colorScheme: null })
+  await win.keyboard.press('Escape')
+  check(await waitFor(async () => !(await painel.isVisible()), 3000), 'Esc fecha o painel')
+  check(await win.evaluate(() => document.activeElement?.getAttribute('data-testid') === 'notify-bell'), 'Esc devolve o foco ao sino')
+
+  await sino.click()
+  await painel.getByRole('button', { name: 'Limpar (só desta sessão)' }).click()
+  check(await waitFor(() => painel.getByText('Nenhuma notificação nesta sessão.').isVisible(), 3000), '"Limpar (só desta sessão)": painel vazio, sem confirmação')
+  check(await win.evaluate(() => document.activeElement?.classList.contains('bell-title') ?? false), 'depois de limpar: foco no título')
+  check((await painel.getByRole('button', { name: 'Limpar (só desta sessão)' }).count()) === 0, 'vazio: sem botão "Limpar"')
+  await win.mouse.click(400, 300)
+  check(await waitFor(async () => !(await painel.isVisible()), 3000), 'clique fora fecha o painel')
 } catch (err) {
   failures++
   console.error(err)

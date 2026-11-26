@@ -2,7 +2,8 @@
 // - troca Escuro ↔ Claro pela Aparência sem recarregar; getBackgroundColor() igual ao --bg do tema;
 // - persistência após reiniciar; "Sistema (agora: X)" segue o nativeTheme;
 // - axe sem violações serious/critical nos dois temas: 8 abas, paleta, ajuda, card de aprovação e "Git pausado";
-// - capturas do tema claro em 1280×720 em docs/sprints/sprint-06/tema-claro/.
+// - capturas do tema claro em 1280×720 em docs/sprints/sprint-06/tema-claro/;
+// - T47: "Alternar tema" na paleta troca claro ↔ escuro, grava no settings.json e a Aparência acompanha.
 // O agente aponta para um endereço inalcançável: nenhuma chamada real à API.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -198,6 +199,24 @@ try {
   check((await winBg(app)) === BG.light, 'depois de reiniciar: janela abre no claro')
   await goView(win, VIEWS.indexOf('settings'))
   check(await win.getByRole('radio', { name: 'Claro', exact: true }).isChecked(), 'depois de reiniciar: "Claro" marcado')
+
+  // ---------- T47: "Alternar tema" na paleta (Ctrl+K), pelo mesmo settings.update ----------
+  const alternarPelaPaleta = async () => {
+    await goView(win, 0)
+    await win.keyboard.press('Control+K')
+    const busca = win.getByRole('combobox')
+    await busca.waitFor({ state: 'visible', timeout: 5000 })
+    await busca.fill('alternar tema')
+    await win.keyboard.press('Enter')
+  }
+  await alternarPelaPaleta()
+  check(await waitFor(async () => (await winBg(app)) === BG.dark), 'paleta "Alternar tema" no claro: janela vai para o escuro sem recarregar')
+  check(await waitFor(async () => (await cssBg(win)) === BG.dark), 'paleta: --bg do CSS do escuro')
+  check(JSON.parse(readFileSync(join(userData, 'settings.json'), 'utf8')).theme === 'dark', 'paleta: "dark" gravado no settings.json (mesmo caminho das Configurações)')
+  await alternarPelaPaleta()
+  check(await waitFor(async () => (await winBg(app)) === BG.light), 'paleta de novo: volta para o claro')
+  await goView(win, VIEWS.indexOf('settings'))
+  check(await win.getByRole('radio', { name: 'Claro', exact: true }).isChecked(), 'Configurações → Aparência acompanha a paleta ("Claro" marcado)')
 } catch (err) {
   failures++
   console.error(err)

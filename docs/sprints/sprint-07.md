@@ -93,7 +93,7 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 |---|---|---|---|
 | TR1 — `release.yml` marca pre-release e preenche as notas a partir do CHANGELOG (publicar continua manual) | DevOps | sim (release) → Sec revisa | ✅ (aguarda PR) |
 | TR2 — commit do teste T38 (vai junto com a H07.3) | Back | não | ✅ |
-| T47 "Alternar tema" na paleta; T48 sino com histórico — só se sobrar folga | Front | não | ⏳ |
+| T47 "Alternar tema" na paleta; T48 sino com histórico (desenho do UX, consultado) — entraram por decisão do usuário | Front | não | ✅ (aguarda PR) |
 
 ## Tarefas (Tech Lead)
 <uma linha por célula; detalhe no commit, no teste ou no ADR>
