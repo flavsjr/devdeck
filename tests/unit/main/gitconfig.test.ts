@@ -166,6 +166,15 @@ describe('summarizeGitConfig: submódulos (hotfix v0.6.1)', () => {
     const s = summarizeGitConfig(input({ ...mods(z('submodule.Lib.v2.path\nlib', 'submodule.b.path\nb')), configList: CLEAN + z('submodule.Lib.v2.url\nx', 'submodule.c.url\ny') }))
     expect(s.submodules.sort()).toEqual(['Lib.v2', 'b', 'c'])
   })
+  it('.gitmodules só no index/HEAD (blob): mesma regra, origem no motivo e no hash', () => {
+    const blob = (list: string | null, text = ':.gitmodules abc'): Partial<GitConfigInput> => ({ gitmodules: 'blob', gitmodulesList: list, gitmodulesText: text })
+    const s = summarizeGitConfig(input(blob(MODS + z('submodule.lib.ignore\nnone'))))
+    expect(s).toMatchObject({ risky: true, submodules: ['lib'] })
+    expect(s.reasons[0]).toContain('index/HEAD')
+    expect(summarizeGitConfig(input(blob(MODS)))).toMatchObject({ risky: false, submodules: ['lib'] })
+    expect(summarizeGitConfig(input(blob(null))).risky).toBe(true)
+    expect(summarizeGitConfig(input(blob(MODS, 'HEAD:.gitmodules def'))).hash).not.toBe(summarizeGitConfig(input(blob(MODS))).hash)
+  })
   it('.gitmodules ilegível ou que não é arquivo comum: pausa (falha fechada)', () => {
     expect(summarizeGitConfig(input(mods(null))).risky).toBe(true)
     expect(summarizeGitConfig(input(mods('lixo'))).risky).toBe(true)

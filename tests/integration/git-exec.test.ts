@@ -260,6 +260,39 @@ describe.skipIf(!GIT)('git real (H05.1)', { timeout: 30_000 }, () => {
     })
   }
 
+  for (const where of ['só no index', 'só no HEAD'] as const) {
+    it(`.gitmodules com ignore=none ${where} (fora da árvore): gate lê o blob, pausa e o agente não entra`, async () => {
+      const file = makeSubmoduleRepo()
+      raw(['config', '--file', '.gitmodules', 'submodule.lib.ignore', 'none'])
+      raw(['add', '.gitmodules'])
+      if (where === 'só no HEAD') {
+        raw(['commit', '-q', '-m', 'ignore none'])
+        raw(['rm', '-q', '--cached', '.gitmodules'])
+      }
+      rmSync(join(repo, '.gitmodules'))
+      expect(existsSync(join(repo, '.gitmodules'))).toBe(false)
+      resetMarks()
+
+      const s = await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))
+      expect(s.risky).toBe(true)
+      expect(s.reasons.some((r) => r.startsWith('submodule.lib.ignore') && r.includes('index/HEAD'))).toBe(true)
+      expect(s.submodules).toEqual(['lib'])
+
+      touchFuture(file)
+      agentGit(['status', '--porcelain'], s.submodules)
+      expect(marks()).toEqual([])
+      // Controle positivo: com o env da v0.6.0 o git usa o .gitmodules do index/HEAD e roda o filtro.
+      touchFuture(file)
+      agentGit(['status', '--porcelain'], [])
+      expect(marks()).toContain('clean')
+    })
+  }
+
+  it('repositório sem commit e sem .gitmodules: blob ausente não pausa', async () => {
+    raw(['init', '-q', '-b', 'main', repo], base)
+    expect(await inspectRepo(repo, GIT!, base, join(base, 'empty.gitconfig'))).toMatchObject({ isRepo: true, risky: false, submodules: [] })
+  })
+
   it('.gitmodules sem ignore: não pausa e o agente não entra no submódulo', async () => {
     const file = makeSubmoduleRepo()
     resetMarks()

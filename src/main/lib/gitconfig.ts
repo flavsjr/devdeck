@@ -96,13 +96,14 @@ export interface GitConfigInput {
   /** Conteúdo do arquivo `.git` quando ele é arquivo (`gitdir: …`). */
   dotGitFileText?: string | null
   /**
-   * `.gitmodules` na raiz do workspace (hotfix v0.6.1): `missing`, arquivo comum ou outro tipo (link…).
+   * `.gitmodules` que o git usaria (hotfix v0.6.1): ausente, arquivo comum na raiz, outro tipo (link… ou blob
+   * que não deu para resolver) ou `blob` — sem o arquivo na árvore, o git lê o do index e depois o do HEAD.
    * Ausente no input = `missing`.
    */
-  gitmodules?: 'missing' | 'file' | 'other'
-  /** Saída de `git config --file .gitmodules --list -z --no-includes`; null = não deu para ler. */
+  gitmodules?: 'missing' | 'file' | 'other' | 'blob'
+  /** Saída de `git config --file|--blob … --list -z --no-includes`; null = não deu para ler. */
   gitmodulesList?: string | null
-  /** Conteúdo cru do `.gitmodules` (para o hash). */
+  /** Conteúdo cru do `.gitmodules` (arquivo) ou `<onde> <oid>` (blob), para o hash. */
   gitmodulesText?: string | null
 }
 
@@ -174,15 +175,16 @@ export function summarizeGitConfig(input: GitConfigInput): GitRiskSummary {
     if (section === 'submodule' && sub !== null) submodules.add(sub)
   }
 
-  if (gitmodules === 'other') reasons.push('O .gitmodules é um link ou um tipo especial de arquivo: o DevDeck não consegue conferir os submódulos.')
-  else if (gitmodules === 'file') {
+  if (gitmodules === 'other') reasons.push('O .gitmodules é um link, um tipo especial de arquivo ou não pôde ser localizado no repositório: o DevDeck não consegue conferir os submódulos.')
+  else if (gitmodules === 'file' || gitmodules === 'blob') {
+    const origin = gitmodules === 'file' ? '.gitmodules' : '.gitmodules no index/HEAD'
     const entries = input.gitmodulesList == null ? null : parseConfigList(input.gitmodulesList)
-    if (entries === null) reasons.push('O .gitmodules não pôde ser lido pelo git: o DevDeck não consegue conferir os submódulos.')
+    if (entries === null) reasons.push(`O ${origin} não pôde ser lido pelo git: o DevDeck não consegue conferir os submódulos.`)
     else
       for (const e of entries) {
         noteSubmodule(e)
         // `ignore` diferente de `all` faz o git entrar no submódulo e rodar filtros da config dele, que o DevDeck não mostra.
-        if (splitKey(e.key).name === 'ignore' && (e.value ?? '').trim().toLowerCase() !== 'all') reasons.push(`${describeEntry(e, '.gitmodules')} — o git entraria no submódulo e rodaria a configuração dele`)
+        if (splitKey(e.key).name === 'ignore' && (e.value ?? '').trim().toLowerCase() !== 'all') reasons.push(`${describeEntry(e, origin)} — o git entraria no submódulo e rodaria a configuração dele`)
       }
   }
 
