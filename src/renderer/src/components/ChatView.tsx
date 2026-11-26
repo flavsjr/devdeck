@@ -10,6 +10,7 @@ import { IconSend, IconStop, IconX } from './Icons'
 import { Logo } from './Logo'
 import { keysFor } from '../lib/shortcuts'
 import { mensagemParaRepetir } from '../lib/agentErrorCard'
+import { alvoDoScroll } from '../lib/notifications'
 
 const EMPTY: ChatItem[] = []
 
@@ -147,6 +148,8 @@ export function ChatView() {
   const toggleContextFile = useStore((s) => s.toggleContextFile)
   const workspace = useStore((s) => s.workspace)
   const send = useStore((s) => s.send)
+  const rolarPara = useStore((s) => s.rolarPara)
+  const limparRolarPara = useStore((s) => s.limparRolarPara)
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const [montadoEm] = useState(() => Date.now())
@@ -155,6 +158,26 @@ export function ChatView() {
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [items.length, streaming, activeId])
+
+  // "Ver no chat" de outra sessão (H07.4): depois do autoscroll acima, leva a lista até o item do erro.
+  // Item que sumiu: fica no fim (D7). Sem animação com prefers-reduced-motion. Idempotente (StrictMode).
+  useEffect(() => {
+    if (!rolarPara) return
+    // Pedido de outra sessão (o usuário trocou antes do scroll): descarta, não rola mais tarde.
+    if (rolarPara.sessionId !== activeId) {
+      limparRolarPara()
+      return
+    }
+    const lista = listRef.current
+    if (!lista) return
+    const alvo = alvoDoScroll(rolarPara.itemId, items)
+    const el = alvo.tipo === 'item' ? lista.querySelector(`[data-item-id="${CSS.escape(alvo.itemId)}"]`)?.firstElementChild : null
+    if (el) {
+      const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ block: 'center', behavior: reduzir ? 'auto' : 'smooth' })
+    } else lista.scrollTop = lista.scrollHeight
+    limparRolarPara()
+  }, [rolarPara, activeId, items, limparRolarPara])
 
   const submit = (): void => {
     if (!text.trim() || busy) return
@@ -194,7 +217,13 @@ export function ChatView() {
             </dl>
           </div>
         )}
-        {activeId && items.map((it) => <Item key={it.id} sessionId={activeId} item={it} items={items} busy={busy} montadoEm={montadoEm} />)}
+        {activeId &&
+          items.map((it) => (
+            // display: contents (sem caixa própria): só marca o item para o scroll do "Ver no chat".
+            <div key={it.id} className="chat-item" data-item-id={it.id}>
+              <Item sessionId={activeId} item={it} items={items} busy={busy} montadoEm={montadoEm} />
+            </div>
+          ))}
         {streaming && (
           <div className="msg assistant streaming">
             <Markdown text={streaming} />

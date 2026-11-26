@@ -36,11 +36,11 @@ Detalhes, security review e verificação: [PR #9](https://github.com/flavsjr/de
 - [x] `core.worktree` e `include.path` que resolvem (realpath, também caminho relativo) para fora do repositório **ou** para dentro do workspace editável são recusados, testados com git real nas duas direções (D3).
 - [x] Dado um zip com `.git/hooks/pre-commit`, o gate recusa e lista o hook; hooks `.sample` não contam (D2).
 
-### H07.4 — "Ver no chat" abre a sessão do erro · Should · M
+### H07.4 — "Ver no chat" abre a sessão do erro · Should · M · ✅ pronta (aguarda PR)
 *Como dev com várias sessões, quero que "Ver no chat" leve à sessão onde o erro aconteceu, para não procurar à mão.*
-- [ ] Seleciona a sessão do erro e rola até a mensagem.
-- [ ] `sessionId` que não é UUID ou não existe é recusado, com aviso.
-- [ ] Erro da sessão ativa mantém o comportamento atual.
+- [x] Seleciona a sessão do erro e rola até a mensagem.
+- [x] `sessionId` que não é UUID ou não existe é recusado, com aviso.
+- [x] Erro da sessão ativa mantém o comportamento atual.
 
 ### H07.5 — VirusTotal no CI · Should · M (só com o secret criado pelo usuário)
 *Como mantenedor, quero o resultado do VirusTotal já nas notas do rascunho, para publicar sem subir o arquivo à mão.*
@@ -105,14 +105,14 @@ Fica para a Sprint 08 (tamanho G e precisa de UX).
 | T51 H07.3: `core.worktree`/`include.path` fora do repo ou dentro do workspace → risco (`gitconfig.ts`), unit + git real | Back | ✅ |
 | T52 H07.3: hook não-`.sample` em `.git/hooks` → risco no gate + teste | Back | ✅ |
 | T53 H07.3 (TR2): commit do T38 (gitlink) em `git-exec.test.ts` | Back | ✅ |
-| T54 H07.4: `isUuid` em `src/shared/lib/ids.ts` + ação `abrirSessao` na notificação de erro + unit | Front | ⏳ |
-| T55 H07.4: abrir sessão, `data-item-id` + scroll (fallback fim), aviso de recusa, sessão ativa igual | Front | ⏳ |
+| T54 H07.4: `isUuid` em `src/shared/lib/ids.ts` + ação `abrirSessao` na notificação de erro + unit | Front | ✅ |
+| T55 H07.4: abrir sessão, `data-item-id` + scroll (fallback fim), aviso de recusa, sessão ativa igual | Front | ✅ |
 | T56 H07.2: `data-testid` nos botões + regra pura do erro em `lib/notifications.ts` com unit | Front | ✅ |
 | T57 H07.2: E2E fechar ≥ 24 px/role/foco, reduced-motion, "Abrir na agenda" | QA | ✅ |
 | T58 H07.2: E2E erro do chat (1 toast, "Copiar detalhes", "Tentar de novo", composer) | QA | ✅ |
 | T59 TR1: `scripts/release-notes.mts` + unit; `--prerelease` e `--notes-file` no `release.yml` | DevOps | ✅ |
 | T60 H07.5: job VT (hash → upload_url → polling, "scan pendente") e resultado nas notas | DevOps | ⏳ |
-| T61 Emendas ADR-018 (D2–D4), ADR-019 (D5–D6), ADR-014 (D7); CHANGELOG 0.7.0; READMEs | TL | ⏳ |
+| T61 Emendas ADR-018 (D2–D4) ✅, ADR-019 (D5–D6) ✅, ADR-021 (D7; a ata dizia ADR-014) ✅; CHANGELOG 0.7.0; READMEs | TL | ⏳ |
 
 ## Riscos aceitos
 - D4: com `GIT_NO_LAZY_FETCH` no agente, `git log -p` pode falhar em partial clone.
