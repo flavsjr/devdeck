@@ -4,6 +4,9 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Adicionado
+- **"Ver no chat" abre o chat certo.** O aviso de erro de um chat que não é o aberto agora leva àquele chat e mostra o card do erro na lista. Se o chat foi excluído, aparece um aviso e nada muda.
+
 ### Segurança
 - **Hook dentro de `.git/hooks` pausa o git.** Um repositório recebido pronto com um `pre-commit` (ou outro hook que não seja `.sample`) rodaria esse hook no próximo `git commit` do agente. Agora o hook aparece no diálogo de confiança e o git fica pausado até você confiar; se o hook mudar, o DevDeck pergunta de novo.
 - **`core.worktree` e `include.path` suspeitos bloqueiam o git.** Pasta de trabalho do git fora da raiz do workspace, ou configuração incluída de um arquivo do workspace ou de fora do repositório, deixam o git pausado sem opção de confiar: o motivo aparece em *Alterações*.

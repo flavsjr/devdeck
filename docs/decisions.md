@@ -25,7 +25,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
 - ADR-018 — Git sem executar código do repositório antes da confiança (emendas v0.6.1: submódulos; H07.3: bloqueio, hooks, tempo limite)
 - ADR-019 — Release em rascunho com checksum e procedência (emenda TR1: notas do CHANGELOG e pre-release)
 - ADR-020 — Tema claro via nativeTheme e regra pura compartilhada
-- ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados
+- ADR-021 — Feedback ao usuário: notificações tipadas e erros do agente classificados (emenda H07.4: ação abrirSessao)
 - ADR-022 — Comando do agente sempre passa pelo card de aprovação (emenda H06.10: lista branca de tools)
 
 ## ADR-001 — Electron + React + TypeScript
@@ -143,6 +143,7 @@ Leia só o ADR que precisa: `grep -n "^## ADR-018" docs/decisions.md` e leia a p
   - "Como entrar de novo" vai por canal com chave de lista fechada para uma URL fixa no main. "Tentar de novo" só por clique.
 - **Alternativas rejeitadas:** classificar só por texto (quebra a cada atualização do SDK); callback livre na ação (não testável e poderia aprovar); emissor nativo único por IPC (superfície nova sem ganho); biblioteca de toast (dependência nova sem erro persistente pronto); mostrar a mensagem original (vazamento).
 - **Consequências:** o typecheck impede voltar ao `notify(string)`. As fixtures do SDK viram contrato: atualizar o SDK obriga a regravá-las no mesmo PR do `sdk-hashes.json` (ADR-011).
+- **Emenda H07.4 (Sprint 07, D7):** a união da ação ganha `abrirSessao { sessionId, itemId? }`, usada só no aviso de erro de sessão que não é a ativa ("Ver no chat"). `navegar` continua só com a aba. Antes de navegar, `destinoAbrirSessao` (pura) recusa `sessionId` que não é UUID (`isUuid`, `src/shared/lib/ids.ts`) e sessão fora da lista (o store consulta o main de novo antes de recusar), com aviso e sem trocar de sessão; `itemId` inválido só perde o alvo. O id nunca vira caminho no renderer: vai para `agent.load` (zod no main) e, no scroll, para um seletor com `CSS.escape`. Item que sumiu: a lista fica no fim. Erro da sessão ativa segue com `navegar: chat`. (A ata da Sprint 07 citava o ADR-014; a ação de notificação é deste ADR.)
 
 ## ADR-022 — Comando do agente sempre passa pelo card de aprovação
 - **Contexto:** no roteiro manual da v0.5.0 (2026-11-25), o `git status` pedido ao agente rodou sem card. Com `permissionMode: 'default'`, o Claude Code (SDK 0.3.330) libera sozinho o Bash que considera só-leitura e não chama o `canUseTool`; reproduzido no SDK puro (0 chamadas). Num workspace confiado, `git status` dentro de um repositório embutido roda o filtro dele sem o usuário ver, e a mitigação "Bash sempre pede aprovação" (H05.5) não valia para esses comandos. O mesmo roteiro mostrou que a CLI não roda `git status` sozinha ao abrir a sessão nessa versão (ADR-018 supunha que sim; o env restrito continua valendo para o git que o agente rodar).

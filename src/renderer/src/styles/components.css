@@ -18,6 +18,10 @@
     flex-direction: column;
     gap: 10px;
   }
+  /* Marca de cada item da lista (data-item-id, H07.4): sem caixa, o layout fica o mesmo. */
+  .chat-item {
+    display: contents;
+  }
   .empty {
     margin: auto;
     max-width: 460px;

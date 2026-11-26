@@ -40,6 +40,7 @@ describe('rótulo da ação (fixo, tabela do UX)', () => {
   it('navegar usa o destino', () => {
     expect(rotuloAcao({ tipo: 'navegar', destino: 'agenda' })).toBe('Abrir na agenda')
     expect(rotuloAcao({ tipo: 'navegar', destino: 'chat' })).toBe('Ver no chat')
+    expect(rotuloAcao({ tipo: 'abrirSessao', sessionId: '123e4567-e89b-42d3-a456-426614174000' })).toBe('Ver no chat')
     expect(rotuloAcao({ tipo: 'navegar', destino: 'profile' })).toBe('Ver no perfil')
   })
   it.each(RETRY_OPS)('repetir %s é sempre "Tentar de novo"', (op) => {

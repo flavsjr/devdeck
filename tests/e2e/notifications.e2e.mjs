@@ -10,6 +10,8 @@
 // - lembrete real da agenda (evento salvo pelo window.deck) → toast "Abrir na agenda" → aba Agenda;
 // - erro do chat (401 do servidor falso): só o card com o chat na tela; "Copiar detalhes" copia o mesmo texto;
 //   "Tentar de novo" só por clique, indisponível durante o turno, composer intacto; em outra aba, um único toast.
+// H07.4: erro em sessão não ativa → "Ver no chat" seleciona a sessão e rola até o card (controle: abrindo pela
+//   barra lateral o card fica fora da vista); sessão excluída antes do clique → aviso, sem navegar.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -220,8 +222,15 @@ try {
     await window.deck.agenda.save({ id: '', title, start, durationMin: 15, recurrence: { kind: 'none' }, remindMin: 10, kind: 'meeting' })
   }, tituloLembrete)
   const lembrete = cartao('info')
-  // O agendador confere a cada 30 s.
-  const chegou = await waitFor(async () => ((await lembrete.textContent()) ?? '').includes(`Lembrete da agenda: ${tituloLembrete}`), 45000)
+  // O agendador confere a cada 30 s: espera dois ciclos com folga (1 falha em 5 rodadas com 45 s; o
+  // diagnóstico abaixo fica para a próxima vez).
+  const t0Lembrete = Date.now()
+  const chegou = await waitFor(async () => ((await lembrete.textContent()) ?? '').includes(`Lembrete da agenda: ${tituloLembrete}`), 70000)
+  if (!chegou) {
+    const vistos = await win.locator('.notify-card').allTextContents()
+    const eventos = await win.evaluate(() => window.deck.agenda.events())
+    console.log(`  (diagnóstico: ${Date.now() - t0Lembrete} ms; cartões: ${JSON.stringify(vistos)}; eventos: ${JSON.stringify(eventos.map((e) => [e.start, e.remindMin]))}; agora: ${new Date().toString()})`)
+  }
   check(chegou, 'lembrete com a janela em foco: toast info "Lembrete da agenda: …"')
   if (chegou) {
     check((await lembrete.locator('img').count()) === 0, 'título do lembrete renderizado como texto (sem <img> no cartão)')
@@ -308,6 +317,81 @@ try {
   await win.waitForTimeout(1500)
   check((await toastsDoChat().count()) === 0, 'erro já visto não vira toast de novo ao trocar de aba')
   api.setAtraso(0)
+
+  // ================= H07.4: "Ver no chat" abre a sessão do erro =================
+  win.on('dialog', (d) => void d.accept())
+  await goView(1)
+  await livre()
+  const tituloSessao = (t) => win.locator('.session-title', { hasText: new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) })
+  const ativa = () => win.locator('.session-title[aria-current="true"]').textContent()
+  const TITULO_A = (await ativa())?.trim() ?? ''
+  check(TITULO_A.length > 0, `controle: sessão A ativa ("${TITULO_A}")`)
+  const enviarChat = async (t) => {
+    await livre()
+    await caixaChat.fill(t)
+    await caixaChat.press('Enter')
+  }
+  /** Novo chat com erro no 1º turno, voltando para A antes de o erro chegar: o aviso é de sessão não ativa. */
+  const erroEmOutraSessao = async (titulo) => {
+    await win.getByRole('button', { name: 'Novo chat' }).click()
+    await waitFor(async () => (await ativa()) !== TITULO_A, 5000)
+    api.setCenario('auth401')
+    api.setAtraso(3000)
+    await enviarChat(titulo)
+    await waitFor(() => tituloSessao(titulo).isVisible(), 5000)
+    await tituloSessao(TITULO_A).click()
+    await waitFor(async () => (await ativa())?.trim() === TITULO_A, 5000)
+    const toast = win.locator('.notify-card.notify-erro', { hasText: `Erro no chat "${titulo}"` })
+    const ok = await waitFor(() => toast.isVisible(), 20000)
+    api.setAtraso(0)
+    return ok ? toast : null
+  }
+  const cardNaVista = () =>
+    win.evaluate(() => {
+      const lista = document.querySelector('.chat-list')?.getBoundingClientRect()
+      const card = document.querySelector('.agent-error')?.getBoundingClientRect()
+      return Boolean(lista && card && card.bottom > lista.top && card.top < lista.bottom)
+    })
+
+  const TITULO_B = 'erro na sessão B'
+  const toastB = await erroEmOutraSessao(TITULO_B)
+  check(Boolean(toastB), `erro em sessão não ativa: toast "Erro no chat \\"${TITULO_B}\\": …"`)
+  if (toastB) {
+    check(((await toastB.getByTestId('notify-action').textContent()) ?? '').trim() === 'Ver no chat', 'toast de outra sessão: ação "Ver no chat"')
+    // Histórico longo em B depois do erro, para o card ficar fora da vista quando a lista abre no fim.
+    await tituloSessao(TITULO_B).click()
+    api.setCenario('ok')
+    for (let i = 1; i <= 6; i++) await enviarChat(`mensagem ${i} depois do erro`)
+    await livre()
+    await tituloSessao(TITULO_A).click()
+    await waitFor(async () => (await ativa())?.trim() === TITULO_A, 5000)
+    await tituloSessao(TITULO_B).click()
+    await waitFor(async () => (await ativa())?.trim() === TITULO_B, 5000)
+    await win.waitForTimeout(300)
+    check(!(await cardNaVista()), 'controle: abrindo B pela barra lateral, a lista fica no fim e o card do erro fica fora da vista')
+    await tituloSessao(TITULO_A).click()
+    await waitFor(async () => (await ativa())?.trim() === TITULO_A, 5000)
+
+    await toastB.getByTestId('notify-action').click()
+    check(await waitFor(async () => (await ativa())?.trim() === TITULO_B, 5000), '"Ver no chat" seleciona a sessão do erro')
+    check(await waitFor(cardNaVista, 5000), '"Ver no chat" rola a lista até o card do erro')
+    check(await waitFor(async () => (await toastB.count()) === 0, 5000), 'o toast fecha depois da ação')
+  }
+
+  // Sessão apagada antes do clique: aviso, sem navegar.
+  await tituloSessao(TITULO_A).click()
+  const TITULO_C = 'sessão C que vai sumir'
+  const toastC = await erroEmOutraSessao(TITULO_C)
+  check(Boolean(toastC), 'controle: toast da sessão C')
+  if (toastC) {
+    // O botão de excluir só aparece com o mouse na linha (hover-only).
+    await tituloSessao(TITULO_C).hover()
+    await win.getByRole('button', { name: `Excluir o chat ${TITULO_C}` }).click()
+    check(await waitFor(async () => (await tituloSessao(TITULO_C).count()) === 0, 5000), 'controle: sessão C excluída')
+    await toastC.getByTestId('notify-action').click()
+    check(await waitFor(() => cartao('aviso').filter({ hasText: 'O chat deste erro não existe mais.' }).isVisible(), 5000), 'sessão que não existe: aviso "O chat deste erro não existe mais."')
+    check((await ativa())?.trim() === TITULO_A, 'sessão que não existe: continua na sessão ativa')
+  }
 } catch (err) {
   failures++
   console.error(err)

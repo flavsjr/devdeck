@@ -10,6 +10,7 @@
 // - Dedupe: mesmo tipo e texto ainda na tela, recolhido ou na fila soma "×N" e renova o prazo,
 //   sem limite de tempo (erro só soma). Depois de fechada, uma ocorrência nova abre card novo.
 import type { ChatItem } from '@shared/types'
+import { isUuid } from '@shared/lib/ids'
 import { erroDoUltimoTurno, textoErroNoChat } from './agentErrorCard'
 import type { View } from './views'
 
@@ -37,8 +38,15 @@ export const MIN_ERROS_FECHAR_TODOS = 2
 export const RETRY_OPS = ['recarregarGit', 'recarregarSessoes', 'recarregarCustos', 'recarregarAgenda', 'recarregarPerfil'] as const
 export type RetryOp = (typeof RETRY_OPS)[number]
 
-/** No máximo uma ação por notificação, de uma união fechada (sem callback livre). */
-export type AcaoNotificacao = { tipo: 'navegar'; destino: View } | { tipo: 'repetir'; op: RetryOp }
+/**
+ * No máximo uma ação por notificação, de uma união fechada (sem callback livre).
+ * `abrirSessao` (H07.4): abre o chat de outra sessão e rola até o item; os ids são conferidos
+ * (`destinoAbrirSessao`) antes de navegar e nunca viram caminho no renderer.
+ */
+export type AcaoNotificacao =
+  | { tipo: 'navegar'; destino: View }
+  | { tipo: 'repetir'; op: RetryOp }
+  | { tipo: 'abrirSessao'; sessionId: string; itemId?: string }
 
 /** Dados da conquista para o visual próprio (título e XP). Só vale com tipo 'conquista'. */
 export interface DadosConquista {
@@ -278,7 +286,7 @@ export interface ContextoErroDoTurno {
  * Senão, `erroId` para marcar como tratado e `aviso`, que é null quando o card no chat basta
  * (sessão ativa com o chat na tela): o erro nunca vira card e toast ao mesmo tempo.
  * - sessão ativa em outra aba: "Erro no chat: …" com "Ver no chat";
- * - outra sessão: cita o título, sem ação.
+ * - outra sessão: cita o título, com "Ver no chat" que abre aquela sessão no item do erro (H07.4).
  * Nunca leva a mensagem original: só o título fixo do card.
  */
 export function avisoErroDoTurno(c: ContextoErroDoTurno): { erroId: string; aviso: NovaNotificacao | null } | null {
@@ -290,5 +298,35 @@ export function avisoErroDoTurno(c: ContextoErroDoTurno): { erroId: string; avis
       aviso: c.view === 'chat' ? null : { tipo: 'erro', texto: textoErroNoChat(erro.code), acao: { tipo: 'navegar', destino: 'chat' } }
     }
   }
-  return { erroId: erro.id, aviso: { tipo: 'erro', texto: textoErroNoChat(erro.code, c.tituloSessao) } }
+  return {
+    erroId: erro.id,
+    aviso: { tipo: 'erro', texto: textoErroNoChat(erro.code, c.tituloSessao), acao: { tipo: 'abrirSessao', sessionId: c.sessionId, itemId: erro.id } }
+  }
+}
+
+export const AVISO_SESSAO_INVALIDA = 'Não foi possível abrir o chat deste erro.'
+export const AVISO_SESSAO_INEXISTENTE = 'O chat deste erro não existe mais.'
+
+/**
+ * Destino de "Ver no chat" de outra sessão (H07.4, D7). Recusa, com o texto do aviso:
+ * - `sessionId` que não é UUID (nem consulta as sessões);
+ * - sessão que não está entre as conhecidas (o chamador consulta o store antes, TL).
+ * `itemId` que não é UUID não recusa: só perde o alvo do scroll (a lista vai para o fim).
+ */
+export function destinoAbrirSessao(
+  acao: { sessionId: unknown; itemId?: unknown },
+  sessoes: readonly { id: string }[]
+): { ok: true; sessionId: string; itemId: string | null } | { ok: false; aviso: string } {
+  if (!isUuid(acao.sessionId)) return { ok: false, aviso: AVISO_SESSAO_INVALIDA }
+  const sessionId = acao.sessionId
+  if (!sessoes.some((s) => s.id === sessionId)) return { ok: false, aviso: AVISO_SESSAO_INEXISTENTE }
+  return { ok: true, sessionId, itemId: isUuid(acao.itemId) ? acao.itemId : null }
+}
+
+/**
+ * Onde a lista do chat para depois de abrir a sessão: no item, se ele ainda existe; senão no fim (D7).
+ * O componente faz o scroll; o comportamento respeita `prefers-reduced-motion` (sem animação).
+ */
+export function alvoDoScroll(itemId: string | null, items: readonly { id: string }[]): { tipo: 'item'; itemId: string } | { tipo: 'fim' } {
+  return itemId && items.some((i) => i.id === itemId) ? { tipo: 'item', itemId } : { tipo: 'fim' }
 }

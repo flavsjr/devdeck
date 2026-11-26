@@ -31,7 +31,14 @@ export const ROTULO_DESTINO: Readonly<Record<View, string>> = {
 export const ROTULO_REPETIR = 'Tentar de novo'
 
 export function rotuloAcao(acao: AcaoNotificacao): string {
-  return acao.tipo === 'navegar' ? ROTULO_DESTINO[acao.destino] : ROTULO_REPETIR
+  switch (acao.tipo) {
+    case 'navegar':
+      return ROTULO_DESTINO[acao.destino]
+    case 'repetir':
+      return ROTULO_REPETIR
+    case 'abrirSessao':
+      return ROTULO_DESTINO.chat
+  }
 }
 
 /** "Fechar todos (N)" na tela e "Fechar todas as N notificações" para o leitor de tela. */

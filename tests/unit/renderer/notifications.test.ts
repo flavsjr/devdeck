@@ -3,8 +3,12 @@ import {
   DURACAO_MS,
   ESTADO_INICIAL,
   LIMITE_HISTORICO,
+  AVISO_SESSAO_INEXISTENTE,
+  AVISO_SESSAO_INVALIDA,
   RETRY_OPS,
+  alvoDoScroll,
   avisoErroDoTurno,
+  destinoAbrirSessao,
   conquistaVisivel,
   errosRecolhidos,
   mostrarFecharTodos,
@@ -342,9 +346,13 @@ describe('aviso do erro do turno (H07.2)', () => {
     expect(r?.aviso?.texto).not.toContain('redigido')
   })
 
-  it('outra sessão: cita o título, sem ação', () => {
+  it('outra sessão: cita o título, com "Ver no chat" que abre aquela sessão no item do erro (H07.4)', () => {
     const r = avisoErroDoTurno(ctx({ activeId: 's2', view: 'chat', tituloSessao: 'Refatorar' }))
-    expect(r?.aviso).toEqual({ tipo: 'erro', texto: 'Erro no chat "Refatorar": a chave da API foi recusada.' })
+    expect(r?.aviso).toEqual({
+      tipo: 'erro',
+      texto: 'Erro no chat "Refatorar": a chave da API foi recusada.',
+      acao: { tipo: 'abrirSessao', sessionId: ATIVA, itemId: 'e1' }
+    })
   })
 
   it('fim de turno repetido (result e finally): o segundo não avisa de novo', () => {
@@ -372,5 +380,45 @@ describe('aviso do erro do turno (H07.2)', () => {
     const depois = r(s, { type: 'expirar', now: 10 * 60_000 })
     expect(depois.visiveis.map((n) => n.texto)).toEqual([aviso.texto])
     expect(r(depois, { type: 'adicionar', notificacao: aviso, now: 1 }).visiveis).toHaveLength(1)
+  })
+})
+
+describe('"Ver no chat" de outra sessão (H07.4)', () => {
+  const S1 = '123e4567-e89b-42d3-a456-426614174000'
+  const S2 = '223e4567-e89b-42d3-a456-426614174000'
+  const ITEM = '323e4567-e89b-42d3-a456-426614174000'
+  const sessoes = [{ id: S1 }, { id: S2 }]
+
+  it('sessão conhecida com UUID: abre, com o item', () => {
+    expect(destinoAbrirSessao({ sessionId: S2, itemId: ITEM }, sessoes)).toEqual({ ok: true, sessionId: S2, itemId: ITEM })
+  })
+
+  it('sessionId que não é UUID: recusa com aviso, mesmo se "existir" na lista', () => {
+    for (const sessionId of ['', 's1', '../x', `${S1} `, 42, null]) {
+      expect(destinoAbrirSessao({ sessionId, itemId: ITEM }, [...sessoes, { id: String(sessionId) }])).toEqual({ ok: false, aviso: AVISO_SESSAO_INVALIDA })
+    }
+  })
+
+  it('UUID que não está entre as sessões: recusa com aviso de inexistente', () => {
+    expect(destinoAbrirSessao({ sessionId: '423e4567-e89b-42d3-a456-426614174000' }, sessoes)).toEqual({ ok: false, aviso: AVISO_SESSAO_INEXISTENTE })
+    expect(destinoAbrirSessao({ sessionId: S1 }, [])).toEqual({ ok: false, aviso: AVISO_SESSAO_INEXISTENTE })
+  })
+
+  it('itemId ausente ou inválido não recusa: só perde o alvo do scroll', () => {
+    expect(destinoAbrirSessao({ sessionId: S1 }, sessoes)).toEqual({ ok: true, sessionId: S1, itemId: null })
+    expect(destinoAbrirSessao({ sessionId: S1, itemId: '"]<img>' }, sessoes)).toEqual({ ok: true, sessionId: S1, itemId: null })
+  })
+
+  it('scroll: no item quando ele existe; senão (sumiu ou sem id) no fim da lista', () => {
+    const items = [{ id: 'a' }, { id: ITEM }]
+    expect(alvoDoScroll(ITEM, items)).toEqual({ tipo: 'item', itemId: ITEM })
+    expect(alvoDoScroll(S2, items)).toEqual({ tipo: 'fim' })
+    expect(alvoDoScroll(null, items)).toEqual({ tipo: 'fim' })
+    expect(alvoDoScroll(ITEM, [])).toEqual({ tipo: 'fim' })
+  })
+
+  it('a ação entra na fila como as outras (guardada no cartão)', () => {
+    const acao: AcaoNotificacao = { tipo: 'abrirSessao', sessionId: S1, itemId: ITEM }
+    expect(add(ESTADO_INICIAL, 'erro', 'Erro no chat "x": falhou.', 0, acao).visiveis[0].acao).toEqual(acao)
   })
 })

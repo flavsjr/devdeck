@@ -24,6 +24,12 @@
 | H07.2: "Copiar detalhes" copia o mesmo texto do `<pre>` (CRLF normalizado; clipboard de quem roda é guardado e devolvido) | ✅ | mesmo E2E |
 | H07.2: "Tentar de novo" não reenvia sozinho (0 pedidos em 3 s); durante o turno nenhum botão disponível (o botão sai do card antigo; `aria-disabled` é defesa extra, não alcançável no fluxo real); rascunho do composer intacto durante e depois; controles: o clique reenvia e o card novo volta a oferecer o botão | ✅ | mesmo E2E (`setAtraso` no servidor falso) |
 | H07.2: `typecheck`, `npm test` (1.942), `build` | ✅ | local, 2026-11-26 |
+| H07.4: erro em sessão não ativa → toast "Erro no chat \"B\": …" com "Ver no chat" → seleciona B e o card do erro fica na vista; controle: abrindo B pela barra lateral (6 turnos depois do erro) o card fica fora da vista | ✅ | `node tests/e2e/notifications.e2e.mjs` → "Notificações: tudo ok" (3 rodadas, a última depois das ressalvas do TL) |
+| H07.4: sessão excluída antes do clique → aviso "O chat deste erro não existe mais.", continua na sessão ativa | ✅ | mesmo E2E |
+| H07.4: `sessionId` não UUID (vazio, `s1`, `../x`, com espaço, número, null) recusado mesmo "existindo" na lista; UUID fora da lista → inexistente; `itemId` inválido só perde o alvo; item que sumiu → fim da lista | ✅ | `notifications.test.ts` — "\"Ver no chat\" de outra sessão (H07.4)"; `tests/unit/shared/ids.test.ts` |
+| H07.4: erro da sessão ativa em outra aba continua `navegar: chat` | ✅ | `notifications.test.ts` — "aviso do erro do turno (H07.2)" |
+| H07.4: TL aprova com ressalvas, todas aplicadas: o `seq` também protege a navegação (`openSession` com `vale`), `rolarPara` de outra sessão é descartado, falha do `load` mostra o erro real; `typecheck`, `npm test` (1.966), `build` | ✅ | local, 2026-11-26 |
+| E2E: lembrete da agenda falhou 1 vez em 5 rodadas com espera de 45 s (agendador a cada 30 s); espera subiu para 70 s e o teste imprime diagnóstico se falhar | ⚠️ observar | mesmo E2E |
 
 ## Roteiro manual
 1. …
@@ -50,3 +56,5 @@ Veredito da Cybersecurity no PR #9: libera.
 | aceito (D4) | env do agente | `GIT_NO_LAZY_FETCH` quebra `git log -p` em partial clone | documentado no ADR-018 e no CHANGELOG |
 
 Veredito da Cybersecurity na H07.3: libera (médias corrigidas na própria história).
+| — | H07.4 `abrirSessao` | Sec: libera. `sessionId` passa por `isUuid` + lista de sessões e o `agent:load` revalida com zod no main; `itemId` precisa ser UUID, existir em `items` e passa por `CSS.escape`; nenhuma ação nova aprova ou executa; nenhum canal IPC novo | — |
+| baixa | `abrirSessaoDoAviso` | `refreshSessions` a cada clique em sessão inexistente (leitura local) | aceito, sem ação |

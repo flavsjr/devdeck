@@ -5,8 +5,10 @@ import { errorText } from '@shared/lib/errorText'
 import { deveNotificarNativo } from '@shared/lib/nativeNotify'
 import { VIEWS, type View } from './lib/views'
 import {
+  AVISO_SESSAO_INEXISTENTE,
   ESTADO_INICIAL,
   avisoErroDoTurno,
+  destinoAbrirSessao,
   notificacoesReducer,
   type AcaoFila,
   type AcaoNotificacao,
@@ -45,6 +47,8 @@ interface State {
   notificacoes: EstadoNotificacoes
   /** Campo a focar na próxima abertura da view (a view consome e limpa). */
   focoAlvo: AlvoFoco | null
+  /** Item a mostrar quando o chat da sessão abrir ("Ver no chat" de outra sessão, H07.4); o ChatView consome e limpa. */
+  rolarPara: { sessionId: string; itemId: string | null } | null
   /** Incrementa quando agenda/conquistas mudam, para as views recarregarem. */
   agendaVersion: number
   achievementsVersion: number
@@ -67,7 +71,8 @@ interface State {
   setOverlay(open: boolean): void
   pickWorkspace(): Promise<void>
   refreshSessions(): Promise<void>
-  openSession(id: string, focus?: boolean): Promise<void>
+  /** Carrega e ativa a sessão. `vale` (opcional) é conferido depois do load: false descarta o resultado (corrida). */
+  openSession(id: string, focus?: boolean, vale?: () => boolean): Promise<void>
   newSession(): Promise<void>
   removeSession(id: string): Promise<void>
   send(text: string): Promise<void>
@@ -82,8 +87,11 @@ interface State {
   notify(n: NovaNotificacao): void
   /** Aplica uma ação à fila de notificações (fechar, expirar, pausar…). */
   despacharNotificacao(a: AcaoFila): void
-  /** Executa a ação do botão de uma notificação: navegar troca de aba; repetir chama `repetir`. */
+  /** Executa a ação do botão de uma notificação: navegar troca de aba; repetir chama `repetir`; abrirSessao, `abrirSessaoDoAviso`. */
   executarAcaoNotificacao(acao: AcaoNotificacao): void
+  /** Abre a sessão de um aviso e rola até o item (H07.4). Id inválido ou sessão inexistente: aviso, sem navegar. */
+  abrirSessaoDoAviso(acao: Extract<AcaoNotificacao, { tipo: 'abrirSessao' }>): Promise<void>
+  limparRolarPara(): void
   /** Ação "repetir" de uma notificação: só leitura ou recarga (lista fechada em lib/notifications). */
   repetir(op: RetryOp): void
   /** Abre Configurações com foco no campo da chave da API. */
@@ -103,6 +111,8 @@ let uiTimer: ReturnType<typeof setTimeout> | undefined
 let gitSeq = 0
 /** Itens de erro já avisados fora do chat (o fim do turno pode chegar duas vezes: result e finally). */
 const errosAvisados = new Set<string>()
+/** Sequência dos "Ver no chat" de outra sessão: só o último clique rola a lista. */
+let abrirSeq = 0
 
 const textoDe = (err: unknown): NovaNotificacao => ({ tipo: 'erro', texto: errorText(err) })
 
@@ -133,6 +143,7 @@ export const useStore = create<State>((set, get) => ({
   treeVersion: 0,
   notificacoes: ESTADO_INICIAL,
   focoAlvo: null,
+  rolarPara: null,
   agendaVersion: 0,
   achievementsVersion: 0,
   paletteOpen: hashFlag('palette'),
@@ -223,8 +234,9 @@ export const useStore = create<State>((set, get) => ({
     set({ sessions })
   },
 
-  async openSession(id, focus = true) {
+  async openSession(id, focus = true, vale) {
     const st = await api().agent.load(id)
+    if (vale && !vale()) return
     set((s) => ({
       activeId: id,
       ...(focus ? { view: 'chat' as View } : {}),
@@ -301,7 +313,38 @@ export const useStore = create<State>((set, get) => ({
 
   executarAcaoNotificacao(acao) {
     if (acao.tipo === 'navegar') get().setView(acao.destino)
-    else get().repetir(acao.op)
+    else if (acao.tipo === 'repetir') get().repetir(acao.op)
+    else void get().abrirSessaoDoAviso(acao)
+  },
+
+  async abrirSessaoDoAviso(acao) {
+    const seq = ++abrirSeq
+    let destino = destinoAbrirSessao(acao, get().sessions)
+    if (!destino.ok && destino.aviso === AVISO_SESSAO_INEXISTENTE) {
+      // A lista pode estar atrasada: consulta o main antes de recusar (TL, D7).
+      await get()
+        .refreshSessions()
+        .catch(() => undefined)
+      destino = destinoAbrirSessao(acao, get().sessions)
+    }
+    if (!destino.ok) {
+      get().notify({ tipo: 'aviso', texto: destino.aviso })
+      return
+    }
+    // Outro clique chegou enquanto esta sessão carregava: vale o último, na navegação e no scroll (TL).
+    const atual = (): boolean => seq === abrirSeq
+    try {
+      await get().openSession(destino.sessionId, true, atual)
+    } catch (err) {
+      get().notify(textoDe(err))
+      return
+    }
+    if (!atual()) return
+    set({ rolarPara: { sessionId: destino.sessionId, itemId: destino.itemId } })
+  },
+
+  limparRolarPara() {
+    set({ rolarPara: null })
   },
 
   abrirChaveApi() {
