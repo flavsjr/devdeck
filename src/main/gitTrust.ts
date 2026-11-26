@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { describeGitRisk, summarizeGitConfig, type GitRiskSummary } from './lib/gitconfig'
+import { describeGitRisk, gitAllowedBy, summarizeGitConfig, type GitRiskSummary } from './lib/gitconfig'
 import { pickGitBinary } from './lib/gitproc'
 import { gitSignature, inspectRepo, readGitShape, type GitContext } from './gitcore'
 import { getGitTrustedHash, trustGit } from './store'
@@ -75,12 +75,15 @@ export async function gitGate(root: string): Promise<GitGate> {
   if (!hit || hit.sig !== sig) {
     const summary = await inspectRepo(root, gitBinary(root), appDir('git-inspect'), emptyGitConfig())
     hit = { sig, summary }
-    cache.set(root, hit)
+    // Inspeção que passou do tempo (H07.3) não fica no cache: a próxima consulta tenta de novo.
+    if (summary.incomplete) cache.delete(root)
+    else cache.set(root, hit)
   }
   const { summary } = hit
   const rootReal = resolveReal(root)
   const key = keyOf(rootReal, summary.hash)
-  const allowed = !summary.risky || sessionTrust.has(key) || (!summary.sessionOnly && getGitTrustedHash(rootReal) === summary.hash)
+  // Bloqueado (H07.3): nenhuma confiança libera, nem a gravada nem a da sessão.
+  const allowed = gitAllowedBy(summary, sessionTrust.has(key), getGitTrustedHash(rootReal))
   return { summary, allowed, declined: declined.has(key) }
 }
 
@@ -88,7 +91,7 @@ export async function gitGate(root: string): Promise<GitGate> {
 export function recordGitDecision(root: string, summary: GitRiskSummary, trusted: boolean): void {
   const rootReal = resolveReal(root)
   const key = keyOf(rootReal, summary.hash)
-  if (!trusted) {
+  if (!trusted || summary.blocked) {
     declined.add(key)
     return
   }
@@ -97,7 +100,9 @@ export function recordGitDecision(root: string, summary: GitRiskSummary, trusted
   else trustGit(rootReal, summary.hash)
 }
 
-export const GIT_FOOTER = 'Sem confiar, você usa o chat, a árvore e a prévia normalmente. Só o git fica pausado. Se esses arquivos mudarem, o DevDeck pergunta de novo.'
+export const GIT_BLOCKED_FOOTER = 'Você usa o chat, a árvore e a prévia normalmente; o git fica pausado. Para liberar, remova essas configurações do .git/config.'
+
+export const GIT_FOOTER ='Sem confiar, você usa o chat, a árvore e a prévia normalmente. Só o git fica pausado. Se esses arquivos mudarem, o DevDeck pergunta de novo.'
 
 async function showDialog(opts: Electron.MessageBoxOptions): Promise<number> {
   const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -109,6 +114,20 @@ async function showDialog(opts: Electron.MessageBoxOptions): Promise<number> {
 export async function requestGitTrust(root: string): Promise<boolean> {
   const gate = await gitGate(root)
   if (gate.allowed) return true
+  if (gate.summary.blocked) {
+    // Sem botão de confiar: só o que mudar no .git/config libera (H07.3).
+    await showDialog({
+      type: 'warning',
+      title: `Git bloqueado em "${basename(root)}"`,
+      message: 'Este repositório tem configurações do git que o DevDeck não aceita.',
+      detail: `${describeGitRisk(gate.summary)}\n${GIT_BLOCKED_FOOTER}`,
+      buttons: ['Entendi'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    })
+    return false
+  }
   const response = await showDialog({
     type: 'warning',
     title: `Abrir "${basename(root)}" com segurança?`,

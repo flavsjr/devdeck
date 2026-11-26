@@ -4,6 +4,12 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Segurança
+- **Hook dentro de `.git/hooks` pausa o git.** Um repositório recebido pronto com um `pre-commit` (ou outro hook que não seja `.sample`) rodaria esse hook no próximo `git commit` do agente. Agora o hook aparece no diálogo de confiança e o git fica pausado até você confiar; se o hook mudar, o DevDeck pergunta de novo.
+- **`core.worktree` e `include.path` suspeitos bloqueiam o git.** Pasta de trabalho do git fora da raiz do workspace, ou configuração incluída de um arquivo do workspace ou de fora do repositório, deixam o git pausado sem opção de confiar: o motivo aparece em *Alterações*.
+- Inspeção do git que passa do tempo limite agora diz isso no diálogo, vale só nesta execução e é refeita na próxima abertura.
+- O git do agente não busca objetos sob demanda em partial clone (o fetch rodaria programas da configuração do repositório). Em partial clone, `git log -p` e `blame` podem falhar.
+
 ## [0.6.1] — 2026-11-25 · hotfix (Sprint 07, H07.1)
 
 ### Segurança

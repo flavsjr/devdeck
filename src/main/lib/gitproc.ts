@@ -158,6 +158,9 @@ export function agentEnv(
   if (platform === 'win32') out.NoDefaultCurrentDirectoryInExePath = '1'
   // Sempre: o git do agente nunca sobe acima do workspace (subpasta de um repo não acha o .git do pai, que não foi inspecionado).
   out.GIT_CEILING_DIRECTORIES = pathOf(platform).dirname(root)
+  // Partial clone já confiado: objeto ausente falha em vez de buscar (o fetch rodaria core.sshCommand e afins).
+  // Custo aceito (D4 da Sprint 07): `git log -p` e `blame` podem falhar em partial clone.
+  out.GIT_NO_LAZY_FETCH = '1'
   if (!gitAllowed) out.GIT_DIR = noGitDir
   return out
 }
