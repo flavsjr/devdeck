@@ -4,6 +4,7 @@ import {
   ESTADO_INICIAL,
   LIMITE_HISTORICO,
   RETRY_OPS,
+  avisoErroDoTurno,
   conquistaVisivel,
   errosRecolhidos,
   mostrarFecharTodos,
@@ -16,6 +17,7 @@ import {
   type TipoNotificacao
 } from '../../../src/renderer/src/lib/notifications'
 import { VIEWS } from '../../../src/renderer/src/lib/views'
+import type { ChatItem } from '../../../src/shared/types'
 
 const add = (s: EstadoNotificacoes, tipo: TipoNotificacao, texto: string, now: number, acao?: AcaoNotificacao): EstadoNotificacoes => {
   const notificacao: NovaNotificacao = acao ? { tipo, texto, acao } : { tipo, texto }
@@ -313,5 +315,62 @@ describe('RetryOp: só leitura ou recarga', () => {
     for (const nome of ['aprovarAlteracao', 'ligarSempre', 'executarComando', 'salvarChave', 'reenviarMensagem', 'reverterArquivo', 'confiarWorkspace']) {
       expect(nome).toMatch(PROIBIDO)
     }
+  })
+})
+
+describe('aviso do erro do turno (H07.2)', () => {
+  const ATIVA = 's1'
+  const user: ChatItem = { kind: 'user', id: 'u1', text: 'oi', ts: 1 }
+  const erro: ChatItem = { kind: 'error', id: 'e1', text: 'Erro', code: 'auth_invalid_key', detail: 'invalid x-api-key [redigido]', ts: 2 }
+  const ctx = (over: Partial<Parameters<typeof avisoErroDoTurno>[0]> = {}): Parameters<typeof avisoErroDoTurno>[0] => ({
+    sessionId: ATIVA,
+    activeId: ATIVA,
+    view: 'chat',
+    items: [user, erro],
+    avisados: new Set(),
+    ...over
+  })
+
+  it('sessão ativa com o chat na tela: marca o erro e não abre toast (o card basta)', () => {
+    expect(avisoErroDoTurno(ctx())).toEqual({ erroId: 'e1', aviso: null })
+  })
+
+  it('sessão ativa em outra aba: um toast de erro com "Ver no chat", sem a mensagem original', () => {
+    const r = avisoErroDoTurno(ctx({ view: 'agenda' }))
+    expect(r?.erroId).toBe('e1')
+    expect(r?.aviso).toEqual({ tipo: 'erro', texto: 'Erro no chat: a chave da API foi recusada.', acao: { tipo: 'navegar', destino: 'chat' } })
+    expect(r?.aviso?.texto).not.toContain('redigido')
+  })
+
+  it('outra sessão: cita o título, sem ação', () => {
+    const r = avisoErroDoTurno(ctx({ activeId: 's2', view: 'chat', tituloSessao: 'Refatorar' }))
+    expect(r?.aviso).toEqual({ tipo: 'erro', texto: 'Erro no chat "Refatorar": a chave da API foi recusada.' })
+  })
+
+  it('fim de turno repetido (result e finally): o segundo não avisa de novo', () => {
+    const avisados = new Set<string>()
+    const primeiro = avisoErroDoTurno(ctx({ view: 'mcp', avisados }))
+    expect(primeiro?.aviso).not.toBeNull()
+    avisados.add(primeiro!.erroId)
+    expect(avisoErroDoTurno(ctx({ view: 'mcp', avisados }))).toBeNull()
+  })
+
+  it('erro visto no chat não vira toast depois ao trocar de aba', () => {
+    const avisados = new Set<string>()
+    avisados.add(avisoErroDoTurno(ctx({ avisados }))!.erroId)
+    expect(avisoErroDoTurno(ctx({ view: 'settings', avisados }))).toBeNull()
+  })
+
+  it('sem erro no último turno → nada (erro antigo, antes da última mensagem, não conta)', () => {
+    expect(avisoErroDoTurno(ctx({ view: 'mcp', items: [user] }))).toBeNull()
+    expect(avisoErroDoTurno(ctx({ view: 'mcp', items: [user, erro, { ...user, id: 'u2' }] }))).toBeNull()
+  })
+
+  it('o toast entra na fila como erro e só sai ao fechar (controle com o reducer)', () => {
+    const aviso = avisoErroDoTurno(ctx({ view: 'agenda' }))!.aviso!
+    const s = r(ESTADO_INICIAL, { type: 'adicionar', notificacao: aviso, now: 0 })
+    const depois = r(s, { type: 'expirar', now: 10 * 60_000 })
+    expect(depois.visiveis.map((n) => n.texto)).toEqual([aviso.texto])
+    expect(r(depois, { type: 'adicionar', notificacao: aviso, now: 1 }).visiveis).toHaveLength(1)
   })
 })

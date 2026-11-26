@@ -6,6 +6,7 @@ import { deveNotificarNativo } from '@shared/lib/nativeNotify'
 import { VIEWS, type View } from './lib/views'
 import {
   ESTADO_INICIAL,
+  avisoErroDoTurno,
   notificacoesReducer,
   type AcaoFila,
   type AcaoNotificacao,
@@ -14,7 +15,7 @@ import {
   type RetryOp
 } from './lib/notifications'
 import { textoConquista } from './lib/notificationText'
-import { erroDoUltimoTurno, mensagemParaRepetir, textoErroNoChat } from './lib/agentErrorCard'
+import { mensagemParaRepetir } from './lib/agentErrorCard'
 
 export type { View }
 
@@ -426,20 +427,18 @@ export const useStore = create<State>((set, get) => ({
   }
 }))
 
-/**
- * Erro do turno fora da vista (T21): o card no chat é a fonte; o toast só avisa quem está em outra
- * aba (com "Ver no chat") ou o erro de uma sessão que não é a ativa (cita o título, sem ação).
- * Nunca leva a mensagem original: só o título fixo do card.
- */
+/** Erro do turno fora da vista (T21): a regra é `avisoErroDoTurno` (lib/notifications.ts, com teste). */
 function avisarErroDoTurno(sessionId: string): void {
   const st = useStore.getState()
-  const erro = erroDoUltimoTurno(st.items[sessionId] ?? [])
-  if (!erro || errosAvisados.has(erro.id)) return
-  errosAvisados.add(erro.id)
-  if (sessionId === st.activeId) {
-    if (st.view !== 'chat') st.notify({ tipo: 'erro', texto: textoErroNoChat(erro.code), acao: { tipo: 'navegar', destino: 'chat' } })
-    return
-  }
-  const titulo = st.sessions.find((s) => s.id === sessionId)?.title
-  st.notify({ tipo: 'erro', texto: textoErroNoChat(erro.code, titulo) })
+  const r = avisoErroDoTurno({
+    sessionId,
+    activeId: st.activeId,
+    view: st.view,
+    items: st.items[sessionId] ?? [],
+    tituloSessao: st.sessions.find((s) => s.id === sessionId)?.title,
+    avisados: errosAvisados
+  })
+  if (!r) return
+  errosAvisados.add(r.erroId)
+  if (r.aviso) st.notify(r.aviso)
 }

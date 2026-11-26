@@ -12,6 +12,7 @@ Todas as mudanças relevantes do DevDeck. Formato [Keep a Changelog](https://kee
 
 ### Alterado
 - O rascunho de release já sai com as notas desta seção do CHANGELOG e marcado como pre-release (versões 0.x ou com sufixo). Sem a seção da versão no CHANGELOG, o CI não cria o rascunho.
+- Os critérios de notificação que ficaram sem teste na v0.6.0 agora têm E2E: botão de fechar (tamanho, foco pelo teclado), movimento reduzido, lembrete "Abrir na agenda" e o erro do chat (um único aviso, "Copiar detalhes", "Tentar de novo" sem apagar o rascunho).
 
 ## [0.6.1] — 2026-11-25 · hotfix (Sprint 07, H07.1)
 

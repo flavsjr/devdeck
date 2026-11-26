@@ -17,6 +17,13 @@
 | H07.3: `pre-commit` em `.git/hooks` pausa e aparece; só `.sample` não; editar o hook muda assinatura e hash; controle: commit do agente roda o hook | ✅ | `git-exec.test.ts` — "hook pre-commit…" |
 | H07.3: bloqueado não passa com confiança gravada nem da sessão | ✅ | `gitconfig.test.ts` — "gitAllowedBy" |
 | H07.3: `typecheck`, `npm test` (1.914), `build` | ✅ | local, 2026-11-26 |
+| H07.2: fechar com alvo 24 × 24 px, `role="button"` e nome "Fechar notificação"; notificação nova não rouba o foco; Tab chega ao fechar com `:focus-visible` e contorno; Enter fecha e o foco volta à origem (nunca ao `<body>`) | ✅ | `node tests/e2e/notifications.e2e.mjs` → "Notificações: tudo ok" (3 rodadas) |
+| H07.2: `prefers-reduced-motion` → `animation-name: none`, 0 animações na pilha; controle: sem ele, `notify-entrada` | ✅ | mesmo E2E (`emulateMedia`) |
+| H07.2: lembrete real (evento salvo por `window.deck.agenda.save`, agendador do main) → toast info com "Abrir na agenda" → aba Agenda; título com `<img>` vira texto | ✅ | mesmo E2E; `isFocused` forçado só no processo de teste (o main manda a nativa sem foco) |
+| H07.2: erro do chat (401) com o chat na tela → só o card; em outra aba → 1 toast "Erro no chat" com "Ver no chat", sem repetir ao voltar e sair | ✅ | mesmo E2E + `notifications.test.ts` — "aviso do erro do turno (H07.2)" (7 casos da regra pura `avisoErroDoTurno`) |
+| H07.2: "Copiar detalhes" copia o mesmo texto do `<pre>` (CRLF normalizado; clipboard de quem roda é guardado e devolvido) | ✅ | mesmo E2E |
+| H07.2: "Tentar de novo" não reenvia sozinho (0 pedidos em 3 s); durante o turno nenhum botão disponível (o botão sai do card antigo; `aria-disabled` é defesa extra, não alcançável no fluxo real); rascunho do composer intacto durante e depois; controles: o clique reenvia e o card novo volta a oferecer o botão | ✅ | mesmo E2E (`setAtraso` no servidor falso) |
+| H07.2: `typecheck`, `npm test` (1.942), `build` | ✅ | local, 2026-11-26 |
 
 ## Roteiro manual
 1. …

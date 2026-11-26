@@ -100,7 +100,7 @@ const loopback = (addr) => addr === '127.0.0.1' || addr === '::ffff:127.0.0.1' |
 /**
  * Sobe o servidor falso.
  * @param {{ cenario?: 'ok'|'auth401'|'rate429'|'overloaded529'|'billing400', texto?: string }} [opts]
- * @returns {Promise<{ url: string, hits: object[], cenario: () => string, setCenario: (c: string) => void, close: () => Promise<void> }>}
+ * @returns {Promise<{ url: string, hits: object[], cenario: () => string, setCenario: (c: string) => void, setAtraso: (ms: number) => void, close: () => Promise<void> }>}
  *
  * `hits` guarda um registro por pedido: { method, path, url, stream, model, temChave, cenario, status }.
  * Nunca guarda o valor de cabeçalho nem o corpo (só se havia x-api-key/Authorization).
@@ -111,6 +111,7 @@ export async function startFakeApi({ cenario = 'ok', texto = TEXTO_OK } = {}) {
     return c
   }
   let atual = validar(cenario)
+  let atrasoMs = 0
   const hits = []
 
   const server = http.createServer((req, res) => {
@@ -166,24 +167,30 @@ export async function startFakeApi({ cenario = 'ok', texto = TEXTO_OK } = {}) {
       }
       hit.stream = body.stream === true
       hit.model = typeof body.model === 'string' ? body.model : undefined
-
-      const erro = ERROS[atual]
-      if (erro) {
-        // A API real devolve o erro antes de abrir o stream: JSON com o status, igual para stream e não stream.
-        hit.status = erro.status
-        json(res, erro.status, erro.body(), erro.headers)
-        return
-      }
-      hit.status = 200
-      if (u.pathname === '/v1/messages/count_tokens') {
-        json(res, 200, { input_tokens: 12 })
-        return
-      }
-      const model = hit.model ?? 'claude-e2e-fake'
-      if (hit.stream) enviarSse(res, model, texto)
-      else json(res, 200, mensagem(model, texto))
+      // Atraso opcional (H07.2): deixa o turno "trabalhando" tempo bastante para o E2E trocar de aba.
+      if (atrasoMs > 0) setTimeout(() => !res.destroyed && responder(res, u, hit), atrasoMs)
+      else responder(res, u, hit)
     })
   })
+
+  /** Resposta do cenário atual para um POST em /v1/messages ou /v1/messages/count_tokens. */
+  function responder(res, u, hit) {
+    const erro = ERROS[atual]
+    if (erro) {
+      // A API real devolve o erro antes de abrir o stream: JSON com o status, igual para stream e não stream.
+      hit.status = erro.status
+      json(res, erro.status, erro.body(), erro.headers)
+      return
+    }
+    hit.status = 200
+    if (u.pathname === '/v1/messages/count_tokens') {
+      json(res, 200, { input_tokens: 12 })
+      return
+    }
+    const model = hit.model ?? 'claude-e2e-fake'
+    if (hit.stream) enviarSse(res, model, texto)
+    else json(res, 200, mensagem(model, texto))
+  }
 
   await new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -201,6 +208,10 @@ export async function startFakeApi({ cenario = 'ok', texto = TEXTO_OK } = {}) {
     cenario: () => atual,
     setCenario: (c) => {
       atual = validar(c)
+    },
+    /** Atraso (ms) antes de responder a /v1/messages; 0 desliga. */
+    setAtraso: (ms) => {
+      atrasoMs = Math.max(0, Number(ms) || 0)
     },
     close: () =>
       new Promise((resolve) => {

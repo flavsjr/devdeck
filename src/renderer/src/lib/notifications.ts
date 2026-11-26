@@ -9,6 +9,8 @@
 // - Conquista fica fora do teto: fila própria, uma visível por vez, prazo contado só na vez dela.
 // - Dedupe: mesmo tipo e texto ainda na tela, recolhido ou na fila soma "×N" e renova o prazo,
 //   sem limite de tempo (erro só soma). Depois de fechada, uma ocorrência nova abre card novo.
+import type { ChatItem } from '@shared/types'
+import { erroDoUltimoTurno, textoErroNoChat } from './agentErrorCard'
 import type { View } from './views'
 
 export const TIPOS_NOTIFICACAO = ['erro', 'aviso', 'sucesso', 'info', 'conquista'] as const
@@ -257,4 +259,36 @@ export function proximaExpiracao(s: EstadoNotificacoes): number | null {
   const frente = conquistaVisivel(s)
   const prazos = [...s.visiveis, ...(frente ? [frente] : [])].map((n) => n.expiraEm).filter((t): t is number => t !== null)
   return prazos.length ? Math.min(...prazos) : null
+}
+
+/** O que o fim de um turno sabe para decidir o aviso do erro (T21; regra pura da H07.2). */
+export interface ContextoErroDoTurno {
+  sessionId: string
+  activeId: string | null
+  view: View
+  items: readonly ChatItem[]
+  /** Título da sessão do turno (citado quando ela não é a ativa). */
+  tituloSessao?: string
+  /** Ids de erro já tratados: o fim do turno pode chegar duas vezes (result e finally). */
+  avisados: ReadonlySet<string>
+}
+
+/**
+ * Aviso do erro do último turno. null: sem erro com código no último turno, ou erro já tratado.
+ * Senão, `erroId` para marcar como tratado e `aviso`, que é null quando o card no chat basta
+ * (sessão ativa com o chat na tela): o erro nunca vira card e toast ao mesmo tempo.
+ * - sessão ativa em outra aba: "Erro no chat: …" com "Ver no chat";
+ * - outra sessão: cita o título, sem ação.
+ * Nunca leva a mensagem original: só o título fixo do card.
+ */
+export function avisoErroDoTurno(c: ContextoErroDoTurno): { erroId: string; aviso: NovaNotificacao | null } | null {
+  const erro = erroDoUltimoTurno(c.items)
+  if (!erro || c.avisados.has(erro.id)) return null
+  if (c.sessionId === c.activeId) {
+    return {
+      erroId: erro.id,
+      aviso: c.view === 'chat' ? null : { tipo: 'erro', texto: textoErroNoChat(erro.code), acao: { tipo: 'navegar', destino: 'chat' } }
+    }
+  }
+  return { erroId: erro.id, aviso: { tipo: 'erro', texto: textoErroNoChat(erro.code, c.tituloSessao) } }
 }
